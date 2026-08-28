@@ -20,14 +20,14 @@ textarea{min-height:90px;resize:vertical}button{background:var(--brand);color:#f
 .tag{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--soft);font-size:12px;margin-right:4px}.row{padding:12px;border:1px solid var(--line);border-radius:14px;margin:9px 0}
 .row h4{margin:0 0 6px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.actions button{width:auto}
 .sep{border-top:1px solid var(--line);margin:16px 0}.tripactive{border:2px solid #cdb9a6}.small{font-size:13px}
-@media(max-width:720px){.r,.r3,.stat{grid-template-columns:1fr}.w{padding:10px 10px 90px}.c{border-radius:14px}.nav{position:fixed;left:8px;right:8px;bottom:8px;top:auto;padding:8px;border-radius:16px}.nav button{padding:10px;font-size:12px}.nav #sair{order:99}}
+@media(max-width:720px){.r,.r3,.stat{grid-template-columns:1fr}.w{padding:10px 10px 96px}.c{border-radius:14px}.nav{position:fixed;left:8px;right:8px;bottom:8px;top:auto;padding:7px;border-radius:16px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}.nav button{flex:0 0 auto;min-width:76px;padding:10px 12px;font-size:12px;scroll-snap-align:start}.nav #sair{order:99}}
 @media print{.print-only{display:block!important}.nav,#auth,.actions,button{display:none!important}.c{border:0}.w{max-width:none}body{background:#fff}}
 .hide-money .money-private{filter:blur(7px);user-select:none}</style>
 </head>
 <body>
 <div class="w">
   <div class="c" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-  <div><div style="font-size:21px;font-weight:800">Controle Fácil de KM</div><div class="muted small">Gestão de deslocamentos · versão 100.1</div></div>
+  <div><div style="font-size:21px;font-weight:800">Controle Fácil de KM</div><div class="muted small">Gestão de deslocamentos · versão 100.2</div></div>
   <span id="status" class="tag">carregando...</span>
 </div>
 
@@ -326,7 +326,7 @@ window.addEventListener('unhandledrejection',function(e){
 </script>
 <script type="module">
 import{createClient}from'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const sb=createClient('https://djrrrwbkwvceqmytpgvq.supabase.co','sb_publishable_O6hGp7tLTsK7qxpBySunGw_hAJ7fmX3');
+const sb=createClient('https://djrrrwbkwvceqmytpgvq.supabase.co','sb_publishable_O6hGp7tLTsK7qxpBySunGw_hAJ7fmX3',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage}});
 const $=x=>document.getElementById(x);
 let ses,org,acc,locs=[],veics=[],trips=[],activeTrip=null,stops=[],expenses=[],attachments=[],settings=null,team=[],invites=[],pendingInvite=null,reportCache=[],auditCache=[];
 
@@ -336,9 +336,19 @@ const typeName=t=>({toll:'Pedágio',fuel:'Combustível',parking:'Estacionamento'
 const msg=(t,e=false)=>{gm.textContent=t;gm.className='msg '+(e?'err':'ok');gm.classList.remove('hide');setTimeout(()=>gm.classList.add('hide'),4500)};
 
 async function carga(){
-  const r=await sb.auth.getSession(); ses=r.data.session;
-  status.textContent=navigator.onLine?'backend online':'modo sem conexão';
-  if(ses) await entraApp();
+  status.textContent='conectando...'; status.className='tag';
+  try{
+    const r=await sb.auth.getSession();
+    if(r.error) throw r.error;
+    ses=r.data.session;
+    status.textContent=navigator.onLine?'backend online':'modo sem conexão';
+    status.className='tag '+(navigator.onLine?'ok':'warn');
+    if(ses) await entraApp();
+  }catch(e){
+    status.textContent=navigator.onLine?'falha no backend':'sem conexão';
+    status.className='tag err';
+    const el=document.getElementById('am'); if(el){el.classList.remove('hide');el.classList.add('err');el.textContent='Falha de conexão: '+(e?.message||e);}
+  }
 }
 
 async function entraApp(){
