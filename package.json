@@ -1,1 +1,1 @@
-{"name":"controle-facil-km","private":true,"version":"101.3.0","scripts":{"build":"node build.js && node postprocess.js && node v1011.js && node v1012.js && node v1013.js"}}
+{"name":"controle-facil-km","private":true,"version":"102.0.0","scripts":{"build":"node build.js && node postprocess.js && node v1011.js && node v1012.js && node v1013.js && node v1020.js && node validate-build.js"}}
