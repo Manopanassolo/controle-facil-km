@@ -13,7 +13,7 @@ cp.execFileSync(process.execPath,['--check',temp],{stdio:'inherit'});
 
 const required=['km_notifications','job_title','single_active_trip_per_user','deleted_at','purpose','usage_type','km_trip_report'];
 for(const x of required) if(!html.includes(x)) throw new Error('Recurso obrigatório ausente: '+x);
-const forbidden=['km_routes','km_agenda','km_vehicle_costs\'','km_maintenance','km_profile_job','km_company_doc','km_valor_km','km_consumo','km_combustivel','km_rateio','km_base_odometro','km_base_data','km_orc_fuel','km_orc_toll','km_orc_parking','km_meta_km','km_limite_desp','km_avisos'];
+const forbidden=['km_routes','km_agenda','km_vehicle_costs','km_maintenance','km_profile_job','km_company_doc','km_valor_km','km_consumo','km_combustivel','km_rateio','km_base_odometro','km_base_data','km_orc_fuel','km_orc_toll','km_orc_parking','km_meta_km','km_limite_desp','km_avisos'];
 for(const x of forbidden) if(html.includes("localStorage.getItem('"+x+"')")||html.includes("localStorage.setItem('"+x+"'")) throw new Error('Dependência empresarial local reapareceu: '+x);
 if(/\bstatus\.(textContent|className)/.test(js)) throw new Error('Colisão window.status reapareceu');
 if(js.includes("show('ativa')")) throw new Error('Atalho aponta para tela inexistente');
