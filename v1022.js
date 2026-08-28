@@ -1,0 +1,11 @@
+const fs=require('fs');
+const p='dist/index.html';
+let s=fs.readFileSync(p,'utf8');
+const rep=(a,b,label)=>{if(!s.includes(a))throw new Error('v102.2 anchor not found: '+label);s=s.replace(a,b)};
+rep('Gestão de deslocamentos · versão 102.1','Gestão de deslocamentos · versão 102.2','version');
+rep('<span class="tag">102.1</span>','<span class="tag">102.2</span>','help version');
+rep("checks.push(['Versão','102.1']);","checks.push(['Versão','102.2']);",'diag version');
+rep("start_odometer:start,end_odometer:end,distance_km:end-start,edit_reason:reason.trim()","start_odometer:start,end_odometer:end,edit_reason:reason.trim()",'completed trip edit generated distance');
+rep("end_odometer:end,distance_km:end-Number(activeTrip.start_odometer),ended_at:new Date().toISOString()","end_odometer:end,ended_at:new Date().toISOString()",'trip completion generated distance');
+fs.writeFileSync(p,s);
+console.log('Controle KM v102.2: distance_km left to database generated column');
