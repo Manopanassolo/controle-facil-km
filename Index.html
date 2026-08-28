@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controle KM — Homologação</title>
+<style>
+:root{--bg:#f7f3ee;--card:#fff;--line:#e4d9ce;--ink:#2f2924;--muted:#786f68;--brand:#6e5b49;--soft:#eee6de;--ok:#2f7657;--err:#a0483e;--warn:#9a6d22}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink)}
+.w{max-width:1000px;margin:auto;padding:16px}.c{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin:12px 0}
+.r{display:grid;grid-template-columns:1fr 1fr;gap:10px}.r3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+input,select,button,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}
+textarea{min-height:90px;resize:vertical}button{background:var(--brand);color:#fff;border:0;font-weight:700;cursor:pointer}.sec{background:var(--soft);color:var(--ink)}
+.danger{background:#9c4a42}.hide{display:none!important}.msg{padding:11px;background:#efe8e1;border-radius:10px;margin:10px 0}.ok{color:var(--ok)}.err{color:var(--err)}.warn{color:var(--warn)}
+.nav{display:flex;gap:8px;overflow:auto;position:sticky;top:0;z-index:10;box-shadow:0 5px 18px #0000000a}.nav button{width:auto;white-space:nowrap}
+.hero{background:linear-gradient(135deg,#fff,#f1e8df);border:1px solid var(--line)}
+.progress{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}.progress>i{display:block;height:100%;background:var(--brand)}
+.empty{text-align:center;padding:28px 12px;color:var(--muted)}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat div{border:1px solid var(--line);border-radius:12px;padding:12px}.muted{color:var(--muted)}
+.tag{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--soft);font-size:12px;margin-right:4px}.row{padding:12px;border:1px solid var(--line);border-radius:14px;margin:9px 0}
+.row h4{margin:0 0 6px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.actions button{width:auto}
+.sep{border-top:1px solid var(--line);margin:16px 0}.tripactive{border:2px solid #cdb9a6}.small{font-size:13px}
+@media(max-width:720px){.r,.r3,.stat{grid-template-columns:1fr}.w{padding:10px 10px 90px}.c{border-radius:14px}.nav{position:fixed;left:8px;right:8px;bottom:8px;top:auto;padding:8px;border-radius:16px}.nav button{padding:10px;font-size:12px}.nav #sair{order:99}}
+@media print{.print-only{display:block!important}.nav,#auth,.actions,button{display:none!important}.c{border:0}.w{max-width:none}body{background:#fff}}
+.hide-money .money-private{filter:blur(7px);user-select:none}</style>
+</head>
+<body>
+<div class="w">
+  <div class="c" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+  <div><div style="font-size:21px;font-weight:800">Controle Fácil de KM</div><div class="muted small">Gestão de deslocamentos · versão 100.1</div></div>
+  <span id="status" class="tag">carregando...</span>
+</div>
+
+  <div id="auth" class="c">
+    <h2>Entrar</h2>
+    <div class="r">
+      <input id="email" type="email" placeholder="E-mail">
+      <input id="senha" type="password" placeholder="Senha">
+    </div>
+    <div class="r" style="margin-top:10px">
+      <button id="entrar">Entrar</button>
+      <button id="criar" class="sec">Criar conta</button><button id="resetSenha" class="sec">Esqueci minha senha</button>
+    </div>
+    <div id="am" class="msg hide"></div>
+  </div>
+
+  <div id="app" class="hide">
+    <div class="nav c">
+      <button data-p="inicio">Início</button>
+      <button data-p="viagem">Viagem</button>
+      <button data-p="historico">Histórico</button><button data-p="agenda">Agenda</button><button data-p="rotas">Rotas</button>
+      <button data-p="veiculos">Veículos</button>
+      <button data-p="custos">Custos</button>
+      <button data-p="equipe">Equipe</button>
+      <button data-p="relatorios">Relatórios</button>
+      <button data-p="ajuda">Ajuda</button><button data-p="perfil">Meu perfil</button><button data-p="painel">Painel ADM</button><button data-p="notificacoes">Avisos</button><button data-p="auditoria">Auditoria</button><button data-p="backup">Backup</button><button data-p="config">Configurações</button>
+      <button id="sair" class="sec">Sair</button>
+    </div>
+    <div id="gm" class="msg hide"></div>
+
+    <section id="p-inicio">
+      <div class="c">
+        <h2 id="empresa">Controle KM</h2>
+        <p id="usuario" class="muted"></p>
+        <button data-p-jump="viagem" style="margin:4px 0 16px;font-size:16px">＋ Novo deslocamento</button>
+        <h3 style="margin-bottom:8px">RESUMO DO MÊS</h3>
+        <div class="stat">
+          <div><span class="muted small">KM rodados</span><br><b id="nkm" style="font-size:24px">0</b></div>
+          <div><span class="muted small">Despesas</span><br><b id="ndesp" style="font-size:24px">R$ 0,00</b></div>
+          <div><span class="muted small">Deslocamentos</span><br><b id="nv" style="font-size:24px">0</b></div>
+          <div><span class="muted small">Média/deslocamento</span><br><b id="nmedia" style="font-size:24px">0 km</b></div>
+        </div>
+        <div class="r" style="margin-top:12px">
+          <div class="row"><span class="muted small">Saldo/Reembolso estimado</span><br><b id="nsaldo" style="font-size:20px">R$ 0,00</b></div>
+          <div class="row"><span class="muted small">Veículos cadastrados</span><br><b id="nve" style="font-size:20px">0</b></div>
+        </div>
+        <div id="usoBox" class="row"></div><div id="orcamentoBox" class="row"></div><div id="economiaBox" class="row"><b>Estimativa de combustível</b><div id="economiaInfo" class="muted" style="margin-top:6px"></div></div><div id="rateioBox" class="row hide"><b>Uso profissional x pessoal</b><div id="rateioInfo" class="muted" style="margin-top:6px"></div></div>
+      </div>
+      <div id="onboard" class="c hide">
+        <h3>Criar empresa</h3>
+        <input id="nomeEmpresa" placeholder="Nome da empresa">
+        <button id="btEmpresa" style="margin-top:10px">Criar empresa</button>
+      </div>
+      <div id="unidade" class="c hide">
+        <h3>Criar unidade</h3>
+        <input id="nomeUnidade" placeholder="Nome da unidade">
+        <button id="btUnidade" style="margin-top:10px">Criar unidade</button>
+      </div>
+      <div id="convitePendente" class="c hide">
+        <h3>Convite para acessar o Controle KM</h3>
+        <div id="convitePendenteInfo"></div>
+        <button id="btAceitarConvite" style="margin-top:10px">Aceitar convite</button>
+      </div>
+      <div class="c"><div class="actions" style="float:right"><button id="btPrivacidade" class="sec">Ocultar valores</button></div><h3>Ações rápidas</h3><div class="actions"><button data-p-jump="viagem">＋ Deslocamento</button><button id="qaDesp" class="sec">Despesa</button><button id="qaAgenda" class="sec">Agendar</button><button id="qaRel" class="sec">Relatório</button></div></div><div class="c hero"><h3>Visão gerencial</h3><div id="prontidao"></div><div id="dashRotas" class="row"></div><div id="metaBox" class="row" style="margin-top:12px"></div><div id="ultimasViagens" style="margin-top:12px"></div></div>
+      <div id="resumoAtiva" class="c hide tripactive"></div>
+    </section>
+
+    <section id="p-viagem" class="hide">
+      <div id="novaViagem" class="c">
+        <h2>Nova viagem</h2>
+        <div class="r">
+          <select id="veiculo"></select>
+          <select id="local"></select>
+        </div>
+        <div class="r" style="margin-top:10px">
+          <input id="dataViagem" type="date">
+          <input id="motivo" placeholder="Motivo / trabalho"><select id="tipoUso"><option value="business">Profissional</option><option value="personal">Pessoal</option></select>
+        </div>
+        <div class="r" style="margin-top:10px">
+          <div><input id="origem" placeholder="Origem"><button id="btMinhaOrigem" class="sec small" style="margin-top:5px">Usar localização atual</button></div>
+          <input id="destino" placeholder="Destino">
+        </div>
+        <input id="kmi" type="number" step="0.1" placeholder="KM inicial" style="margin-top:10px">
+        <textarea id="obs" placeholder="Observações" style="margin-top:10px"></textarea>
+        <button id="btViagem" style="margin-top:10px">Iniciar viagem</button>
+      </div>
+
+      <div id="viagemAtiva" class="c hide tripactive">
+        <h2>Viagem em andamento</h2>
+        <div id="ativaCab"></div>
+        <div class="sep"></div>
+
+        <h3>Adicionar parada</h3>
+        <div class="r">
+          <input id="paradaNome" placeholder="Local da parada">
+          <input id="paradaObs" placeholder="Observação da parada">
+        </div>
+        <button id="btParada" style="margin-top:10px">Adicionar parada</button>
+        <div id="listaParadas"></div>
+
+        <div class="sep"></div>
+        <h3>Adicionar despesa</h3>
+        <div class="r">
+          <select id="tipoDesp">
+            <option value="toll">Pedágio</option>
+            <option value="fuel">Combustível</option>
+            <option value="parking">Estacionamento</option>
+            <option value="meal">Alimentação</option>
+            <option value="lodging">Hospedagem</option>
+            <option value="other">Outros</option>
+          </select>
+          <input id="valorDesp" type="number" step="0.01" min="0" placeholder="Valor">
+        </div>
+        <input id="descDesp" placeholder="Descrição" style="margin-top:10px">
+        <button id="btDesp" style="margin-top:10px">Adicionar despesa</button>
+        <div id="despResumo" class="row"></div><div id="listaDespesas"></div>
+
+        <div class="sep"></div>
+        <h3>Comprovante</h3>
+        <p class="muted small">Selecione uma despesa abaixo e envie JPG, PNG, WEBP ou PDF (até 10 MB).</p>
+        <div class="r">
+          <select id="despComprovante"></select>
+          <input id="arquivoComprovante" type="file" accept="image/jpeg,image/png,image/webp,application/pdf">
+        </div>
+        <button id="btUpload" style="margin-top:10px">Enviar comprovante</button>
+        <div id="listaComprovantes"></div>
+
+        <div class="sep"></div>
+        <h3>Finalizar viagem</h3><p class="muted small">Antes de finalizar, confira KM final, despesas e comprovantes. As regras da empresa serão validadas automaticamente.</p>
+        <div class="r">
+          <input id="kmf" type="number" step="0.1" placeholder="KM final">
+          <input id="obsFinal" placeholder="Observação final">
+        </div>
+        <button id="btFinalizar" style="margin-top:10px">Finalizar viagem</button>
+      </div>
+    </section>
+
+    <section id="p-historico" class="hide">
+      <div class="c"><h2>Histórico</h2>
+<div class="r"><input id="histBusca" placeholder="Pesquisar origem, destino ou observação"><select id="histStatus"><option value="">Todos</option><option value="in_progress">Em andamento</option><option value="completed">Finalizadas</option></select></div>
+<div id="hist"></div></div>
+      <div id="detalheViagem" class="c hide"></div>
+    </section>
+
+    <section id="p-rotas" class="hide"><div class="c"><h2>Rotas frequentes</h2><div class="r3"><input id="rotaNome" placeholder="Nome da rota"><input id="rotaOrigem" placeholder="Origem"><input id="rotaDestino" placeholder="Destino"></div><button id="btRota" style="margin-top:10px">Salvar rota</button><div id="rotasLista"></div></div></section>
+    <section id="p-agenda" class="hide">
+      <div class="c">
+        <h2>Agenda de deslocamentos</h2>
+        <div class="r3"><input id="agData" type="date"><input id="agHora" type="time"><input id="agDestino" placeholder="Destino"></div>
+        <div class="r" style="margin-top:10px"><input id="agOrigem" placeholder="Origem"><input id="agMotivo" placeholder="Motivo / compromisso"></div>
+        <textarea id="agObs" placeholder="Observações" style="margin-top:10px"></textarea>
+<div class="r" style="margin-top:10px"><select id="agRec"><option value="">Sem repetição</option><option value="weekly">Semanal</option><option value="monthly">Mensal</option></select><input id="agQtd" type="number" min="1" max="24" value="1" placeholder="Repetições"></div>
+        <button id="btAgenda" style="margin-top:10px">Agendar deslocamento</button>
+        <div id="agendaLista"></div>
+      </div>
+    </section>
+
+    <section id="p-veiculos" class="hide">
+      <div class="c">
+        <h2>Veículos</h2><div class="row"><b>Alertas de manutenção</b><div id="manutAlertas" class="muted small" style="margin-top:6px"></div></div>
+        <div class="r">
+          <input id="descVeic" placeholder="Descrição">
+          <input id="placa" placeholder="Placa">
+        </div>
+        <div class="r" style="margin-top:10px">
+          <input id="kmVeic" type="number" step="0.1" placeholder="KM atual">
+          <select id="localVeic"></select>
+        </div>
+        <button id="btVeic" style="margin-top:10px">Cadastrar veículo</button>
+<div class="sep"></div><h3>Programar manutenção</h3><div class="r3"><select id="manVeiculo"></select><input id="manKm" type="number" step="1" placeholder="Próxima manutenção (KM)"><input id="manDesc" placeholder="Serviço"></div><button id="btManut" class="sec" style="margin-top:10px">Salvar alerta</button>
+        <div id="veicStatus"></div><div id="listaVeic"></div>
+      </div>
+    </section>
+
+    <section id="p-custos" class="hide">
+      <div class="c">
+        <h2>Custos do veículo</h2>
+        <div class="r3">
+          <select id="custoVeiculo"></select>
+          <select id="custoTipo">
+            <option value="insurance">Seguro</option><option value="tax">IPVA / impostos</option>
+            <option value="maintenance">Manutenção</option><option value="tires">Pneus</option>
+            <option value="oil">Óleo / filtros</option><option value="fine">Multas</option>
+            <option value="rent">Aluguel</option><option value="other">Outros</option>
+          </select>
+          <input id="custoValor" type="number" step="0.01" placeholder="Valor">
+        </div>
+        <div class="r" style="margin-top:10px"><input id="custoData" type="date"><input id="custoDesc" placeholder="Descrição"></div>
+        <button id="btCusto" style="margin-top:10px">Adicionar custo</button>
+        <div id="listaCustos"></div>
+      </div>
+    </section>
+
+    <section id="p-equipe" class="hide">
+      <div class="c">
+        <h2>Equipe</h2><div class="row muted small"><b>Perfis:</b> Motorista registra seus deslocamentos · Supervisor acompanha unidades · Gestor administra operação · Administrador configura a empresa.</div>
+        <div id="conviteBox">
+          <div class="r3">
+            <input id="convEmail" type="email" placeholder="E-mail">
+            <select id="convRole">
+              <option value="driver">Motorista</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="manager">Gestor</option>
+              <option value="admin">Administrador</option>
+            </select>
+            <select id="convLocal"></select>
+          </div>
+          <button id="btConvite" style="margin-top:10px">Criar convite</button>
+        </div>
+        <h3>Usuários</h3><div id="equipeLista"></div>
+        <h3>Convites</h3><div id="convitesLista"></div>
+      </div>
+    </section>
+
+    <section id="p-relatorios" class="hide"><div class="print-only" style="display:none"><h1>Controle Fácil de KM</h1><div id="printEmpresa"></div></div>
+      <div class="c">
+        <h2>Relatórios</h2><div class="actions"><button class="sec" id="fMes">Este mês</button><button class="sec" id="f30">Últimos 30 dias</button><button class="sec" id="fLimpar">Limpar filtros</button></div>
+        <div class="r3">
+          <input id="fIni" type="date">
+          <input id="fFim" type="date">
+          <select id="fStatus"><option value="">Todos os status</option><option value="in_progress">Em andamento</option><option value="completed">Finalizada</option></select>
+        </div>
+        <div class="r3" style="margin-top:10px">
+          <select id="fVeiculo"></select>
+          <select id="fUnidade"></select>
+          <button id="btFiltrar">Aplicar filtros</button>
+        </div>
+        <div class="stat" style="margin-top:14px">
+          <div>Total viagens<br><b id="rv">0</b></div>
+          <div>Total KM<br><b id="rkm">0</b></div>
+          <div>Total despesas<br><b id="rdesp">R$ 0,00</b></div>
+          <div>Média KM/viagem<br><b id="rmed">0</b></div>
+        </div>
+        <div class="actions" style="margin-top:14px">
+          <button id="btCsv" class="sec">Exportar CSV</button>
+          <button id="btImprimir" class="sec">Imprimir / PDF</button><button id="btCompartilhar" class="sec">Compartilhar resumo</button><button id="btCsvDesp" class="sec">CSV despesas</button>
+        </div>
+        <h3 style="margin-top:18px">Análise gerencial</h3><div id="comparativoMes"></div><div id="rankingVeiculos"></div><div id="relLista" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <section id="p-ajuda" class="hide"><div class="c"><h2>Central de ajuda</h2><div class="row"><b>1. Cadastre empresa, unidade e veículo</b><br><span class="muted">A estrutura operacional fica separada por empresa.</span></div><div class="row"><b>2. Inicie um deslocamento</b><br><span class="muted">Informe origem, destino, veículo e KM inicial.</span></div><div class="row"><b>3. Durante a viagem</b><br><span class="muted">Inclua paradas, despesas e comprovantes.</span></div><div class="row"><b>4. Finalize e acompanhe</b><br><span class="muted">Informe o KM final e acompanhe relatórios, custos e indicadores.</span></div><div class="row"><b>Versão funcional</b><br><span class="tag">100</span> <span class="muted">Reconstrução consolidada do núcleo KM.</span></div></div></section>
+    <section id="p-perfil" class="hide"><div class="c"><h2>Meu perfil</h2><div class="r"><input id="pfNome" placeholder="Nome completo"><input id="pfEmail" disabled></div><div class="r" style="margin-top:10px"><input id="pfTelefone" placeholder="Telefone"><input id="pfCargo" placeholder="Função / cargo"></div><button id="btPerfil" style="margin-top:10px">Salvar perfil</button><div class="sep"></div><h3>Meu acesso</h3><div id="pfAcesso"></div></div></section>
+    <section id="p-painel" class="hide"><div class="c"><h2>Painel administrativo</h2><div class="stat"><div>Usuários ativos<br><b id="admUsers">0</b></div><div>Viagens em andamento<br><b id="admActive">0</b></div><div>KM total<br><b id="admKm">0</b></div><div>Despesas<br><b id="admDesp">R$ 0,00</b></div></div><h3>Alertas operacionais</h3><div id="admAlerts"></div><h3>Convites pendentes</h3><div id="admInvites"></div><h3>Viagens em andamento da equipe</h3><div id="admTrips"></div><h3>Despesas por categoria</h3><div id="admExpenses"></div><h3>Utilização da frota</h3><div id="admFleet"></div><h3>Conformidade</h3><div id="admCompliance" class="row"></div></div></section>
+    <section id="p-notificacoes" class="hide"><div class="c"><h2>Central de avisos</h2><div class="actions"><button id="btLerAvisos" class="sec">Marcar todos como lidos</button></div><div id="avisosLista"></div><h3>Linha do tempo local</h3><div id="timeline"></div></div></section>
+    <section id="p-auditoria" class="hide">
+      <div class="c"><h2>Log de movimentações</h2><input id="auditBusca" placeholder="Pesquisar movimentação"><div id="auditLista"></div></div>
+    </section>
+    <section id="p-backup" class="hide">
+      <div class="c">
+        <h2>Backup e portabilidade</h2>
+        <p class="muted">Exporta uma cópia estruturada dos dados visíveis desta empresa neste dispositivo.</p>
+        <div class="actions"><button id="btBackupJson">Exportar backup JSON</button><button id="btBackupCsv" class="sec">Exportar viagens CSV</button></div>
+        <div class="sep"></div>
+        <h3>Importar backup local</h3>
+        <input id="backupFile" type="file" accept="application/json,.json">
+        <p class="muted small">A importação local recupera agenda, custos e parâmetros locais. Dados centrais de viagens continuam protegidos no backend.</p>
+        <button id="btImportBackup" class="sec" style="margin-top:10px">Importar dados locais</button>
+      </div>
+    </section>
+
+    <section id="p-config" class="hide">
+      <div class="c">
+        <h2>Configurações</h2>
+<div class="row"><b>Empresa</b><div class="r" style="margin-top:8px"><input id="cfgEmpresaNome" placeholder="Nome da empresa"><input id="cfgCnpj" placeholder="CNPJ / documento"></div></div><div class="row"><b>Unidades</b><div id="cfgUnidades" style="margin-top:8px"></div><div class="r" style="margin-top:8px"><input id="cfgNovaUnidade" placeholder="Nova unidade"><button id="btCfgUnidade" class="sec">Adicionar unidade</button></div></div><div class="row"><b>Diagnóstico</b><div id="diag" class="muted small" style="margin-top:6px"></div><button id="btDiag" class="sec" style="margin-top:10px">Executar diagnóstico</button></div>
+        <label><input id="cfgReqAll" type="checkbox" style="width:auto"> Exigir comprovante para todas as despesas</label><br><br>
+        <label><input id="cfgReqToll" type="checkbox" style="width:auto"> Exigir comprovante de pedágio</label><br><br>
+        <label><input id="cfgReqFuel" type="checkbox" style="width:auto"> Exigir comprovante de combustível</label><br><br>
+        <label><input id="cfgReqParking" type="checkbox" style="width:auto"> Exigir comprovante de estacionamento</label><br><br>
+        <label><input id="cfgOdo" type="checkbox" style="width:auto"> Permitir correção manual de hodômetro</label>
+        <div class="sep"></div>
+        <h3>Veículo e reembolso</h3>
+        <div class="r3">
+          <input id="cfgValorKm" type="number" step="0.01" placeholder="Valor recebido por KM">
+          <input id="cfgConsumo" type="number" step="0.1" placeholder="Consumo médio km/l">
+          <input id="cfgComb" type="number" step="0.01" placeholder="Preço combustível/l">
+        </div>
+        <div class="sep"></div>
+        <h3>Segurança</h3><div class="r"><select id="cfgTimeout"><option value="0">Sem bloqueio automático</option><option value="30">30 minutos</option><option value="60">1 hora</option><option value="240">4 horas</option></select></div><div class="actions"><button id="btSairTodos" class="danger">Encerrar outras sessões</button></div><h3>Orçamento por categoria</h3><div class="r3"><input id="orcComb" type="number" step="0.01" placeholder="Combustível R$"><input id="orcPed" type="number" step="0.01" placeholder="Pedágio R$"><input id="orcEst" type="number" step="0.01" placeholder="Estacionamento R$"></div><h3>Metas mensais</h3><div class="r"><input id="cfgMetaKm" type="number" step="1" placeholder="Meta de KM"><input id="cfgLimiteDesp" type="number" step="0.01" placeholder="Limite de despesas R$"></div><h3>Acessibilidade</h3><div class="r"><select id="cfgFonte"><option value="normal">Fonte normal</option><option value="large">Fonte maior</option></select><button id="btFonte" class="sec">Aplicar</button></div><h3>Política de comprovantes</h3><div id="cfgReceiptInfo" class="row muted small"></div><h3>Uso profissional x pessoal</h3>
+        <label><input id="cfgRateio" type="checkbox" style="width:auto"> Ativar rateio de utilização</label>
+        <div class="r" style="margin-top:10px"><input id="cfgBaseKm" type="number" step="0.1" placeholder="Odômetro base"><input id="cfgBaseData" type="date"></div>
+        <p class="muted small">Os parâmetros financeiros e de rateio desta homologação ficam neste dispositivo até serem incorporados ao cadastro central do veículo.</p>
+        <div class="actions"><button id="btExportPrefs" class="sec">Exportar preferências</button><button id="btLimparLocal" class="danger">Limpar dados locais deste aparelho</button></div><button id="btConfig" style="margin-top:16px">Salvar configurações</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+window.addEventListener('error',function(e){
+ const el=document.getElementById('am'); if(el){el.classList.remove('hide');el.classList.add('err');el.textContent='Erro de inicialização: '+(e.message||'erro desconhecido');}
+});
+window.addEventListener('unhandledrejection',function(e){
+ const el=document.getElementById('am'); if(el){el.classList.remove('hide');el.classList.add('err');el.textContent='Falha ao iniciar: '+((e.reason&&e.reason.message)||e.reason||'erro desconhecido');}
+});
+</script>
+<script type="module">
+import{createClient}from'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const sb=createClient('https://djrrrwbkwvceqmytpgvq.supabase.co','sb_publishable_O6hGp7tLTsK7qxpBySunGw_hAJ7fmX3');
+const $=x=>document.getElementById(x);
+let ses,org,acc,locs=[],veics=[],trips=[],activeTrip=null,stops=[],expenses=[],attachments=[],settings=null,team=[],invites=[],pendingInvite=null,reportCache=[],auditCache=[];
+
+const moeda=v=>'R$ '+Number(v||0).toFixed(2).replace('.',',');
+const roleName=r=>({driver:'Motorista',supervisor:'Supervisor',manager:'Gestor',admin:'Administrador'}[r]||r);
+const typeName=t=>({toll:'Pedágio',fuel:'Combustível',parking:'Estacionamento',meal:'Alimentação',lodging:'Hospedagem',other:'Outros'}[t]||t);
+const msg=(t,e=false)=>{gm.textContent=t;gm.className='msg '+(e?'err':'ok');gm.classList.remove('hide');setTimeout(()=>gm.classList.add('hide'),4500)};
+
+async function carga(){
+  const r=await sb.auth.getSession(); ses=r.data.session;
+  status.textContent=navigator.onLine?'backend online':'modo sem conexão';
+  if(ses) await entraApp();
+}
+
+async function entraApp(){
+  auth.classList.add('hide'); app.classList.remove('hide');
+  await sb.from('km_user_profiles').upsert({user_id:ses.user.id,email:ses.user.email},{onConflict:'user_id'});
+  let r=await sb.from('km_user_access').select('*').eq('user_id',ses.user.id).eq('active',true).limit(1).maybeSingle(); acc=r.data;
+  pendingInvite=null;
+  if(acc){
+    r=await sb.from('km_organizations').select('*').eq('id',acc.organization_id).maybeSingle();org=r.data;
+  } else {
+    r=await sb.from('km_invitations').select('*')
+      .ilike('email',ses.user.email)
+      .eq('active',true)
+      .is('accepted_at',null)
+      .gt('expires_at',new Date().toISOString())
+      .order('created_at',{ascending:false})
+      .limit(1).maybeSingle();
+    pendingInvite=r.data;
+    if(pendingInvite){
+      org=null;
+    } else {
+      r=await sb.from('km_organizations').select('*').eq('created_by',ses.user.id).limit(1).maybeSingle();org=r.data;
+      if(org){
+        await sb.from('km_user_access').insert({organization_id:org.id,user_id:ses.user.id,module_role:'admin',active:true});
+        r=await sb.from('km_user_access').select('*').eq('organization_id',org.id).eq('user_id',ses.user.id).maybeSingle();acc=r.data;
+      }
+    }
+  }
+  if(org&&acc) await refreshAll();
+  render();
+}
+async function refreshAll(){
+  let r=await sb.from('km_locations').select('*').eq('organization_id',org.id).order('name');locs=r.data||[];
+  r=await sb.from('km_vehicles').select('*').eq('organization_id',org.id).order('description');veics=r.data||[];
+  r=await sb.from('km_trips').select('*').eq('organization_id',org.id).order('trip_date',{ascending:false}).order('created_at',{ascending:false});trips=r.data||[];
+  activeTrip=trips.find(t=>t.status==='in_progress'&&t.user_id===ses.user.id)||null;
+  r=await sb.from('km_settings').select('*').eq('organization_id',org.id).maybeSingle();settings=r.data;
+  if(activeTrip) await refreshActive();
+  await refreshTeam();
+  let rr=await sb.from('km_trip_report').select('*').eq('organization_id',org.id).order('trip_date',{ascending:false});
+  reportCache=rr.data||[];
+  rr=await sb.from('km_audit_log').select('*').eq('organization_id',org.id).order('created_at',{ascending:false}).limit(200);
+  auditCache=rr.data||[];
+  await carregaRelatorios();
+}
+
+async function refreshActive(){
+  if(!activeTrip){stops=[];expenses=[];attachments=[];return}
+  let r=await sb.from('km_stops').select('*').eq('trip_id',activeTrip.id).order('stop_order');stops=r.data||[];
+  r=await sb.from('km_expenses').select('*').eq('trip_id',activeTrip.id).order('created_at');expenses=r.data||[];
+  r=await sb.from('km_attachments').select('*').eq('trip_id',activeTrip.id).order('created_at');attachments=r.data||[];
+}
+
+async function refreshTeam(){
+  team=[];invites=[];
+  if(!org)return;
+  let r=await sb.from('km_user_access').select('*').eq('organization_id',org.id).eq('active',true);let accesses=r.data||[];
+  if(accesses.length){
+    const ids=accesses.map(a=>a.user_id);
+    r=await sb.from('km_user_profiles').select('*').in('user_id',ids);
+    const profs=r.data||[];
+    team=accesses.map(a=>({...a,profile:profs.find(p=>p.user_id===a.user_id)}));
+  }
+  r=await sb.from('km_invitations').select('*').eq('organization_id',org.id).order('created_at',{ascending:false});invites=r.data||[];
+}
+
+function opts(id,arr,label,blank='Selecione'){
+  $(id).innerHTML='<option value="">'+blank+'</option>'+arr.map(x=>'<option value="'+x.id+'">'+label(x)+'</option>').join('');
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+function render(){
+  empresa.textContent=org?.name||'Controle KM'; usuario.textContent=ses?.user?.email||'';
+  convitePendente.classList.toggle('hide',!pendingInvite);
+  if(pendingInvite){
+    convitePendenteInfo.innerHTML='<p><b>'+esc(pendingInvite.email)+'</b></p><p class="muted">Perfil: '+esc(roleName(pendingInvite.module_role))+'</p>';
+  }
+  onboard.classList.toggle('hide',!!org||!!pendingInvite); unidade.classList.toggle('hide',!org||locs.length>0);
+  const now=new Date(), month=now.getMonth()+1, year=now.getFullYear();
+  const mes=reportCache.filter(x=>{const d=String(x.trip_date||'');return Number(d.slice(0,4))===year&&Number(d.slice(5,7))===month});
+  const kmMes=mes.reduce((a,x)=>a+Number(x.distance_km||0),0), despMes=mes.reduce((a,x)=>a+Number(x.expense_total||0),0);
+  nv.textContent=mes.length; nkm.textContent=kmMes.toFixed(1)+' km'; nve.textContent=veics.length;
+  ndesp.textContent=moeda(despMes); nmedia.textContent=(mes.length?kmMes/mes.length:0).toFixed(1)+' km';
+  const vk=Number(localStorage.getItem('km_valor_km')||0); nsaldo.textContent=moeda(kmMes*vk-despMes);
+  const consumo=Number(localStorage.getItem('km_consumo')||0),precoComb=Number(localStorage.getItem('km_combustivel')||0);
+  const oc=Number(localStorage.getItem('km_orc_fuel')||0),op=Number(localStorage.getItem('km_orc_toll')||0),oe=Number(localStorage.getItem('km_orc_parking')||0);orcamentoBox.innerHTML='<b>Orçamento operacional</b><div class="small muted">Combustível '+(oc?moeda(oc):'—')+' · Pedágio '+(op?moeda(op):'—')+' · Estacionamento '+(oe?moeda(oe):'—')+'</div>';const litros=consumo>0?kmMes/consumo:0;economiaInfo.textContent=consumo>0?(litros.toFixed(1)+' L estimados · '+moeda(litros*precoComb)+' · custo médio '+(kmMes?moeda(despMes/kmMes)+'/km':'—')):'Configure consumo médio e preço do combustível.';
+  const rateio=localStorage.getItem('km_rateio')==='1', base=Number(localStorage.getItem('km_base_odometro')||0);
+  const maiorOdo=veics.reduce((m,v)=>Math.max(m,Number(v.current_odometer||0)),0), totalUso=Math.max(0,maiorOdo-base);
+  const prof=trips.filter(x=>!String(x.notes||'').includes('Uso: personal')).reduce((a,x)=>a+Number(x.distance_km||0),0), marcadoPessoal=trips.filter(x=>String(x.notes||'').includes('Uso: personal')).reduce((a,x)=>a+Number(x.distance_km||0),0), pessoal=Math.max(marcadoPessoal,totalUso-prof);
+  usoBox.innerHTML='<b>Perfil de uso</b><div class="small muted">Profissional: '+prof.toFixed(1)+' km · Pessoal: '+pessoal.toFixed(1)+' km</div>';rateioBox.classList.toggle('hide',!rateio);if(rateio)rateioInfo.textContent='Profissional: '+prof.toFixed(1)+' km · Pessoal estimado: '+pessoal.toFixed(1)+' km · Total desde a base: '+totalUso.toFixed(1)+' km';
+  const checks=[!!org,locs.length>0,veics.length>0,!!settings],done=checks.filter(Boolean).length,pct=Math.round(done/checks.length*100);
+  prontidao.innerHTML='<div class="small muted">Configuração operacional · '+pct+'%</div><div class="progress" style="margin:8px 0"><i style="width:'+pct+'%"></i></div><div class="small">'+(pct===100?'Estrutura pronta para uso.':'Complete empresa, unidade, veículo e configurações.')+'</div>';
+  const meta=Number(localStorage.getItem('km_meta_km')||0),lim=Number(localStorage.getItem('km_limite_desp')||0),mp=meta?Math.min(100,Math.round(kmMes/meta*100)):0;
+  metaBox.innerHTML=(lim&&despMes>lim?'<div class="tag warn">⚠ Limite de despesas ultrapassado</div>':'')+'<b>Metas do mês</b><div class="small muted">'+(meta?'KM: '+kmMes.toFixed(1)+' / '+meta.toFixed(0)+' ('+mp+'%)':'Meta de KM não configurada')+(lim?' · Despesas: '+moeda(despMes)+' / '+moeda(lim):'')+'</div>'+(meta?'<div class="progress" style="margin-top:7px"><i style="width:'+mp+'%"></i></div>':'');
+  const fr=JSON.parse(localStorage.getItem('km_routes')||'[]').filter(x=>x.organization_id===org?.id).slice(0,3);dashRotas.innerHTML='<b>Rotas rápidas</b><div class="actions" style="margin-top:7px">'+(fr.map(x=>'<button class="sec" data-dash-route="'+x.id+'">'+esc(x.name)+'</button>').join('')||'<span class="muted small">Cadastre rotas frequentes.</span>')+'</div>';setTimeout(()=>document.querySelectorAll('[data-dash-route]').forEach(b=>b.onclick=()=>useRoute(b.dataset.dashRoute)),0);
+  ultimasViagens.innerHTML='<b>Últimos deslocamentos</b>'+trips.slice(0,3).map(t=>'<div class="small" style="margin-top:7px">'+esc(t.trip_date)+' · '+esc(t.origin||'—')+' → '+esc(t.destination)+'</div>').join('');
+
+  opts('veiculo',veics,x=>x.description+(x.plate?' · '+x.plate:'')); opts('local',locs,x=>x.name);
+  opts('localVeic',locs,x=>x.name); opts('manVeiculo',veics,x=>x.description+(x.plate?' · '+x.plate:'')); opts('custoVeiculo',veics,x=>x.description+(x.plate?' · '+x.plate:'')); opts('convLocal',locs,x=>x.name,'Todas as unidades');
+  opts('fVeiculo',veics,x=>x.description+(x.plate?' · '+x.plate:''),'Todos os veículos');
+  opts('fUnidade',locs,x=>x.name,'Todas as unidades');
+
+  veicStatus.innerHTML=veics.length?'<div class="small muted">Frota ativa · '+veics.length+' veículo(s)</div>':'';
+  listaVeic.innerHTML=veics.map(v=>'<div class="row"><b>'+esc(v.description)+'</b><br><span class="muted">'+esc(v.plate||'sem placa')+' · KM '+esc(v.current_odometer??0)+'</span><div class="actions"><button class="sec" data-edit-vehicle="'+v.id+'">Editar</button></div></div>').join('')||'<p class="muted">Nenhum veículo cadastrado.</p>';
+  document.querySelectorAll('[data-edit-vehicle]').forEach(b=>b.onclick=()=>editarVeiculo(b.dataset.editVehicle));renderManutencao();
+  renderHistory();
+
+  renderActive(); renderTeam(); renderSettings();
+}
+function renderActive(){
+  novaViagem.classList.toggle('hide',!!activeTrip); viagemAtiva.classList.toggle('hide',!activeTrip); resumoAtiva.classList.toggle('hide',!activeTrip);
+  if(!activeTrip)return;
+  const v=veics.find(x=>x.id===activeTrip.vehicle_id), l=locs.find(x=>x.id===activeTrip.location_id);
+  const cab='<span class="tag">Em andamento</span> <b>'+esc(activeTrip.origin||'—')+' → '+esc(activeTrip.destination)+'</b><p class="muted">'+esc(v?.description||'Sem veículo')+' · '+esc(l?.name||'Sem unidade')+' · KM inicial '+esc(activeTrip.start_odometer)+'</p>';
+  ativaCab.innerHTML=cab+'<div class="actions"><button class="sec" id="btMaps">Abrir rota no Maps</button></div>';setTimeout(()=>{if(window.btMaps)btMaps.onclick=()=>abrirMaps(activeTrip)},0); resumoAtiva.innerHTML='<h3>Viagem em andamento</h3>'+cab+'<button onclick="document.querySelector(`[data-p=viagem]`).click()">Abrir viagem</button>';
+  listaParadas.innerHTML=stops.map(s=>'<div class="row"><b>'+s.stop_order+'. '+esc(s.place_name)+'</b><br><span class="muted">'+esc(s.notes||'')+'</span></div>').join('')||'<p class="muted">Nenhuma parada.</p>';
+  const totalDesp=expenses.reduce((a,e)=>a+Number(e.amount||0),0);despResumo.innerHTML='<b>Total de despesas: '+moeda(totalDesp)+'</b> · '+expenses.length+' lançamento(s)';
+  listaDespesas.innerHTML=expenses.map(e=>'<div class="row"><b>'+esc(typeName(e.expense_type))+' · '+moeda(e.amount)+'</b><br><span class="muted">'+esc(e.description||'')+'</span></div>').join('')||'<p class="muted">Nenhuma despesa.</p>';
+  despComprovante.innerHTML='<option value="">Selecione a despesa</option>'+expenses.map(e=>'<option value="'+e.id+'">'+esc(typeName(e.expense_type))+' · '+moeda(e.amount)+'</option>').join('');
+  listaComprovantes.innerHTML=attachments.map(a=>'<div class="row"><b>'+esc(a.file_name)+'</b><br><span class="muted">'+esc(a.mime_type||'arquivo')+'</span><div class="actions"><button class="sec" data-open-receipt="'+a.storage_path+'">Abrir comprovante</button></div></div>').join('')||'<p class="muted">Nenhum comprovante.</p>';
+  document.querySelectorAll('[data-open-receipt]').forEach(b=>b.onclick=()=>abrirComprovante(b.dataset.openReceipt));
+  const vcur=veics.find(x=>x.id===activeTrip.vehicle_id); if(vcur?.current_odometer!=null && !kmf.value) kmf.value=vcur.current_odometer;
+}
+function renderTeam(){
+  equipeLista.innerHTML=team.map(x=>'<div class="row"><b>'+esc(x.profile?.full_name||x.profile?.email||x.user_id)+'</b><br><span class="tag">'+esc(roleName(x.module_role))+'</span>'+(acc?.module_role==='admin'&&x.user_id!==ses.user.id?'<div class="actions"><button class="sec" data-role-user="'+x.user_id+'">Alterar perfil</button><button class="danger" data-disable-user="'+x.user_id+'">Desativar</button></div>':'')+'</div>').join('')||'<p class="muted">Nenhum usuário.</p>';
+  document.querySelectorAll('[data-role-user]').forEach(b=>b.onclick=()=>alterarPerfil(b.dataset.roleUser));
+  document.querySelectorAll('[data-disable-user]').forEach(b=>b.onclick=()=>desativarUsuario(b.dataset.disableUser));
+  convitesLista.innerHTML=invites.map(i=>'<div class="row"><b>'+esc(i.email)+'</b><br><span class="tag">'+esc(roleName(i.module_role))+'</span> <span class="muted">'+(i.accepted_at?'Aceito':(new Date(i.expires_at)<new Date()?'Expirado':'Pendente'))+'</span></div>').join('')||'<p class="muted">Nenhum convite.</p>';
+  conviteBox.classList.toggle('hide',acc?.module_role!=='admin');
+}
+function renderSettings(){
+  cfgReqAll.checked=!!settings?.require_receipt; cfgReqToll.checked=!!settings?.require_receipt_toll; cfgReqFuel.checked=!!settings?.require_receipt_fuel;
+  cfgReqParking.checked=!!settings?.require_receipt_parking; cfgOdo.checked=settings?.allow_manual_odometer_correction!==false;
+  cfgValorKm.value=localStorage.getItem('km_valor_km')||''; cfgConsumo.value=localStorage.getItem('km_consumo')||''; cfgComb.value=localStorage.getItem('km_combustivel')||'';
+  orcComb.value=localStorage.getItem('km_orc_fuel')||'';orcPed.value=localStorage.getItem('km_orc_toll')||'';orcEst.value=localStorage.getItem('km_orc_parking')||'';
+  cfgMetaKm.value=localStorage.getItem('km_meta_km')||'';cfgLimiteDesp.value=localStorage.getItem('km_limite_desp')||'';
+  cfgReceiptInfo.textContent=settings?.require_receipt?'Comprovante obrigatório para todas as despesas.':'Comprovantes conforme regra da empresa por categoria.';
+  cfgRateio.checked=localStorage.getItem('km_rateio')==='1';cfgBaseKm.value=localStorage.getItem('km_base_odometro')||'';cfgBaseData.value=localStorage.getItem('km_base_data')||'';
+  cfgTimeout.value=localStorage.getItem('km_timeout')||'0';
+  cfgEmpresaNome.value=org?.name||'';cfgCnpj.value=localStorage.getItem('km_company_doc')||'';
+  cfgUnidades.innerHTML=locs.map(x=>'<span class="tag">'+esc(x.name)+'</span>').join('')||'<span class="muted">Nenhuma unidade.</span>';
+  btConfig.disabled=acc?.module_role!=='admin';
+}
+
+async function carregaRelatorios(){
+  if(!org)return;
+  let q=sb.from('km_trip_report').select('*').eq('organization_id',org.id);
+  if(fIni?.value)q=q.gte('trip_date',fIni.value); if(fFim?.value)q=q.lte('trip_date',fFim.value);
+  if(fStatus?.value)q=q.eq('status',fStatus.value); if(fVeiculo?.value)q=q.eq('vehicle_id',fVeiculo.value); if(fUnidade?.value)q=q.eq('location_id',fUnidade.value);
+  const r=await q.order('trip_date',{ascending:false}); const d=r.data||[];
+  if(!fIni.value&&!fFim.value&&!fStatus.value&&!fVeiculo.value&&!fUnidade.value) reportCache=d;
+  rv.textContent=d.length; const totkm=d.reduce((s,x)=>s+Number(x.distance_km||0),0); rkm.textContent=totkm.toFixed(1);
+  rdesp.textContent=moeda(d.reduce((s,x)=>s+Number(x.expense_total||0),0)); rmed.textContent=(d.length?totkm/d.length:0).toFixed(1);
+  const now=new Date(), cur=now.toISOString().slice(0,7), prev=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().slice(0,7);
+  const curD=reportCache.filter(x=>String(x.trip_date).startsWith(cur)), prevD=reportCache.filter(x=>String(x.trip_date).startsWith(prev));
+  const ck=curD.reduce((a,x)=>a+Number(x.distance_km||0),0),pk=prevD.reduce((a,x)=>a+Number(x.distance_km||0),0),cd=curD.reduce((a,x)=>a+Number(x.expense_total||0),0),pd=prevD.reduce((a,x)=>a+Number(x.expense_total||0),0);
+  comparativoMes.innerHTML='<div class="r"><div class="row"><b>KM: mês atual x anterior</b><br>'+ck.toFixed(1)+' km × '+pk.toFixed(1)+' km</div><div class="row"><b>Despesas: mês atual x anterior</b><br>'+moeda(cd)+' × '+moeda(pd)+'</div></div>';
+  const vr={};reportCache.forEach(x=>{const k=x.vehicle_plate||'Sem placa';vr[k]=(vr[k]||0)+Number(x.distance_km||0)});const ur={};reportCache.forEach(x=>{const k=x.user_name||'Usuário';ur[k]=(ur[k]||0)+Number(x.distance_km||0)});
+  rankingVeiculos.innerHTML='<div class="r"><div><h3>KM por veículo</h3>'+Object.entries(vr).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>'<div class="row"><b>'+esc(k)+'</b><br>'+v.toFixed(1)+' km</div>').join('')+'</div><div><h3>KM por usuário</h3>'+Object.entries(ur).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>'<div class="row"><b>'+esc(k)+'</b><br>'+v.toFixed(1)+' km</div>').join('')+'</div></div>';
+  relLista.innerHTML=d.slice(0,100).map(x=>'<div class="row"><h4>'+esc(x.trip_date)+' · '+esc(x.user_name||'Usuário')+'</h4><div>'+esc(x.origin||'—')+' → '+esc(x.destination||'—')+'</div><div class="muted">'+esc(x.vehicle_plate||'sem placa')+' · '+esc(x.location_name||'sem unidade')+' · '+Number(x.distance_km||0).toFixed(1)+' km · '+moeda(x.expense_total||0)+'</div></div>').join('')||'<p class="muted">Nenhum resultado.</p>';
+}
+
+
+
+
+function renderManutencao(){
+  const all=JSON.parse(localStorage.getItem('km_maintenance')||'[]').filter(x=>x.organization_id===org?.id);
+  const alerts=all.map(x=>{const v=veics.find(z=>z.id===x.vehicle_id),rest=Number(x.next_km)-Number(v?.current_odometer||0);return {...x,v,rest}}).sort((a,b)=>a.rest-b.rest);
+  manutAlertas.innerHTML=alerts.map(x=>'<div class="row">'+(x.rest<=500?'⚠ ':'')+'<b>'+esc(x.v?.description||'Veículo')+'</b> · '+esc(x.description)+' · '+(x.rest<=0?'VENCIDA':x.rest.toFixed(0)+' km restantes')+'<div class="actions"><button class="danger" data-del-maint="'+x.id+'">Excluir</button></div></div>').join('')||'Nenhum alerta programado.';document.querySelectorAll('[data-del-maint]').forEach(b=>b.onclick=()=>{if(!confirm('Excluir alerta?'))return;localStorage.setItem('km_maintenance',JSON.stringify(JSON.parse(localStorage.getItem('km_maintenance')||'[]').filter(x=>x.id!==b.dataset.delMaint)));renderManutencao()});
+}
+
+function loadRotas(){
+ const all=JSON.parse(localStorage.getItem('km_routes')||'[]').filter(x=>x.organization_id===org?.id);
+ rotasLista.innerHTML=all.map(x=>'<div class="row"><b>'+esc(x.name)+'</b><br><span class="muted">'+esc(x.origin)+' → '+esc(x.destination)+'</span><div class="actions"><button data-use-route="'+x.id+'">Usar rota</button><button class="sec" data-map-route="'+x.id+'">Maps</button><button class="danger" data-del-route="'+x.id+'">Excluir</button></div></div>').join('')||'<p class="muted">Nenhuma rota frequente.</p>';
+ document.querySelectorAll('[data-use-route]').forEach(b=>b.onclick=()=>useRoute(b.dataset.useRoute));
+ document.querySelectorAll('[data-map-route]').forEach(b=>b.onclick=()=>mapRoute(b.dataset.mapRoute));
+ document.querySelectorAll('[data-del-route]').forEach(b=>b.onclick=()=>delRoute(b.dataset.delRoute));
+}
+function useRoute(id){const x=JSON.parse(localStorage.getItem('km_routes')||'[]').find(z=>z.id===id);if(!x)return;origem.value=x.origin;destino.value=x.destination;dataViagem.value=new Date().toISOString().slice(0,10);show('viagem');msg('Rota carregada')}
+function mapRoute(id){const x=JSON.parse(localStorage.getItem('km_routes')||'[]').find(z=>z.id===id);if(x)abrirMaps(x)}
+function delRoute(id){if(!confirm('Excluir esta rota?'))return;localStorage.setItem('km_routes',JSON.stringify(JSON.parse(localStorage.getItem('km_routes')||'[]').filter(x=>x.id!==id)));loadRotas()}
+function loadAgenda(){
+  const all=JSON.parse(localStorage.getItem('km_agenda')||'[]').filter(x=>x.organization_id===org?.id).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  agendaLista.innerHTML=all.map(x=>'<div class="row"><b>'+esc(x.date)+' '+esc(x.time||'')+' · '+esc(x.destination)+'</b><br><span class="muted">'+esc(x.origin||'—')+' → '+esc(x.destination)+' · '+esc(x.reason||'')+'</span><div class="actions"><button data-start-agenda="'+x.id+'">Iniciar deslocamento</button><button class="danger" data-del-agenda="'+x.id+'">Excluir</button></div></div>').join('')||'<p class="muted">Nenhum deslocamento agendado.</p>';
+  document.querySelectorAll('[data-start-agenda]').forEach(b=>b.onclick=()=>startAgenda(b.dataset.startAgenda));document.querySelectorAll('[data-map-agenda]').forEach(b=>b.onclick=()=>mapAgenda(b.dataset.mapAgenda));
+  document.querySelectorAll('[data-del-agenda]').forEach(b=>b.onclick=()=>delAgenda(b.dataset.delAgenda));
+}
+function mapAgenda(id){const all=JSON.parse(localStorage.getItem('km_agenda')||'[]'),x=all.find(z=>z.id===id);if(x)abrirMaps({origin:x.origin,destination:x.destination})}
+function startAgenda(id){
+  const all=JSON.parse(localStorage.getItem('km_agenda')||'[]'),x=all.find(z=>z.id===id);if(!x)return;
+  dataViagem.value=x.date;origem.value=x.origin||'';destino.value=x.destination||'';motivo.value=x.reason||'';obs.value=x.notes||'';show('viagem');msg('Agendamento carregado. Confira o KM inicial e inicie.');
+}
+function delAgenda(id){
+  if(!confirm('Excluir este agendamento?'))return;
+  let all=JSON.parse(localStorage.getItem('km_agenda')||'[]').filter(x=>x.id!==id);localStorage.setItem('km_agenda',JSON.stringify(all));loadAgenda();
+}
+function loadVehicleCosts(){
+  const all=JSON.parse(localStorage.getItem('km_vehicle_costs')||'[]');
+  const mine=org?all.filter(x=>x.organization_id===org.id):[];
+  const tc=mine.reduce((a,x)=>a+Number(x.amount||0),0);listaCustos.innerHTML='<div class="row"><b>Total de custos cadastrados: '+moeda(tc)+'</b></div>'+mine.sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>{
+    const v=veics.find(z=>z.id===x.vehicle_id);
+    return '<div class="row"><b>'+esc(v?.description||'Veículo')+' · '+moeda(x.amount)+'</b><br><span class="muted">'+esc(x.date)+' · '+esc(x.description||x.type)+'</span></div>'
+  }).join('')||'<p class="muted">Nenhum custo cadastrado.</p>';
+}
+async function editarVeiculo(id){
+  const v=veics.find(x=>x.id===id); if(!v)return;
+  const desc=prompt('Descrição do veículo',v.description||''); if(desc===null)return;
+  const plate=prompt('Placa',v.plate||''); if(plate===null)return;
+  const odo=prompt('KM atual',v.current_odometer??0); if(odo===null)return;
+  const r=await sb.from('km_vehicles').update({description:desc.trim()||v.description,plate:plate.trim()||null,current_odometer:Number(odo)}).eq('id',id);
+  if(r.error)return msg(r.error.message,true); await refreshAll();render();msg('Veículo atualizado');
+}
+async function alterarPerfil(userId){
+  const atual=team.find(x=>x.user_id===userId); if(!atual)return;
+  const novo=prompt('Novo perfil: driver, supervisor, manager ou admin',atual.module_role); if(!novo)return;
+  if(!['driver','supervisor','manager','admin'].includes(novo))return msg('Perfil inválido',true);
+  const r=await sb.from('km_user_access').update({module_role:novo}).eq('organization_id',org.id).eq('user_id',userId);
+  if(r.error)return msg(r.error.message,true);await refreshTeam();renderTeam();msg('Perfil atualizado');
+}
+async function desativarUsuario(userId){
+  if(!confirm('Desativar este usuário do Controle KM?'))return;
+  const r=await sb.from('km_user_access').update({active:false}).eq('organization_id',org.id).eq('user_id',userId);
+  if(r.error)return msg(r.error.message,true);await refreshTeam();renderTeam();msg('Usuário desativado');
+}
+
+function renderHistory(){
+  if(!window.hist)return;
+  const q=(histBusca?.value||'').toLowerCase(), st=histStatus?.value||'';
+  const data=trips.filter(t=>(!st||t.status===st)&&(!q||[t.origin,t.destination,t.notes,t.trip_date].join(' ').toLowerCase().includes(q)));
+  hist.innerHTML=data.map(t=>'<div class="row"><h4>'+esc(t.trip_date)+' · '+(t.status==='completed'?'Finalizada':'Em andamento')+'</h4><div>'+esc(t.origin||'—')+' → '+esc(t.destination)+'</div><div class="muted">KM inicial '+esc(t.start_odometer)+' · KM final '+esc(t.end_odometer??'—')+' · '+esc(t.distance_km??'—')+' km</div><div class="actions"><button class="sec" data-trip-detail="'+t.id+'">Ver detalhes</button></div></div>').join('')||'<p class="muted">Nenhum deslocamento encontrado.</p>';
+  document.querySelectorAll('[data-trip-detail]').forEach(b=>b.onclick=()=>abrirDetalheViagem(b.dataset.tripDetail));
+}
+
+function formatDuration(a,b){if(!a)return '—';const ms=(b?new Date(b):new Date())-new Date(a),m=Math.max(0,Math.round(ms/60000)),h=Math.floor(m/60);return (h?h+'h ':'')+(m%60)+'min'}
+function abrirMaps(t){const o=encodeURIComponent(t.origin||''),d=encodeURIComponent(t.destination||'');window.open('https://www.google.com/maps/dir/?api=1&origin='+o+'&destination='+d,'_blank')}
+function getAvisos(){let a=JSON.parse(localStorage.getItem('km_avisos')||'[]');return org?a.filter(x=>x.organization_id===org.id).sort((x,y)=>String(y.created_at).localeCompare(String(x.created_at))):[]}
+function addAviso(title,text){if(!org)return;const a=JSON.parse(localStorage.getItem('km_avisos')||'[]');a.push({id:crypto.randomUUID(),organization_id:org.id,title,text,read:false,created_at:new Date().toISOString()});localStorage.setItem('km_avisos',JSON.stringify(a))}
+function renderAvisos(){const a=getAvisos(),un=a.filter(x=>!x.read).length;timeline.innerHTML=a.slice(0,10).map(x=>'<div class="small" style="margin:7px 0">'+new Date(x.created_at).toLocaleString('pt-BR')+' · '+esc(x.title)+'</div>').join('')||'<span class="muted">Sem atividades locais.</span>';const nb=[...document.querySelectorAll('[data-p="notificacoes"]')][0];if(nb)nb.textContent='Avisos'+(un?' ('+un+')':'');avisosLista.innerHTML=a.map(x=>'<div class="row"><b>'+(x.read?'':'● ')+esc(x.title)+'</b><br><span class="muted">'+esc(x.text)+' · '+new Date(x.created_at).toLocaleString('pt-BR')+'</span></div>').join('')||'<p class="muted">Nenhum aviso.</p>'}
+
+async function renderPerfil(){
+  const r=await sb.from('km_user_profiles').select('*').eq('user_id',ses.user.id).maybeSingle(),p=r.data||{};
+  pfNome.value=p.full_name||'';pfEmail.value=ses.user.email||p.email||'';pfTelefone.value=localStorage.getItem('km_profile_phone')||'';pfCargo.value=localStorage.getItem('km_profile_job')||'';
+  pfAcesso.innerHTML='<span class="tag">'+esc(roleName(acc?.module_role||''))+'</span> <span class="tag">'+esc(org?.name||'')+'</span>';
+}
+async function renderAdmin(){if(!org)return;admUsers.textContent=team.length;admKm.textContent=reportCache.reduce((a,x)=>a+Number(x.distance_km||0),0).toFixed(1)+' km';admDesp.textContent=moeda(reportCache.reduce((a,x)=>a+Number(x.expense_total||0),0));const maint=JSON.parse(localStorage.getItem('km_maintenance')||'[]').filter(x=>x.organization_id===org.id),ma=maint.filter(x=>{const v=veics.find(z=>z.id===x.vehicle_id);return Number(x.next_km)-Number(v?.current_odometer||0)<=500});const lim=Number(localStorage.getItem('km_limite_desp')||0),td=reportCache.reduce((a,x)=>a+Number(x.expense_total||0),0);admAlerts.innerHTML=(ma.length?'<div class="tag warn">'+ma.length+' manutenção(ões) próxima(s)</div>':'<span class="tag ok">Manutenção em dia</span>')+(lim&&td>lim?' <div class="tag warn">Despesas acima do limite</div>':'');const ir=await sb.from('km_invitations').select('*').eq('organization_id',org.id).is('accepted_at',null).eq('active',true).order('created_at',{ascending:false});admInvites.innerHTML=(ir.data||[]).map(i=>'<span class="tag">'+esc(i.email)+' · '+esc(roleName(i.module_role))+'</span>').join('')||'<span class="muted">Nenhum convite pendente.</span>';const r=await sb.from('km_trips').select('*').eq('organization_id',org.id).eq('status','in_progress').order('started_at',{ascending:false});const aa=r.data||[];admActive.textContent=aa.length;admTrips.innerHTML=aa.map(t=>'<div class="row"><b>'+esc(t.origin||'—')+' → '+esc(t.destination)+'</b><br><span class="muted">'+esc(t.trip_date)+' · KM '+esc(t.start_odometer)+'</span></div>').join('')||'<p class="muted">Nenhuma viagem em andamento.</p>';const ids=trips.map(x=>x.id);if(!ids.length){admExpenses.innerHTML='<p class="muted">Nenhuma despesa.</p>';return}const er=await sb.from('km_expenses').select('expense_type,amount,trip_id').in('trip_id',ids);const sums={};(er.data||[]).forEach(e=>sums[e.expense_type]=(sums[e.expense_type]||0)+Number(e.amount||0));admExpenses.innerHTML=Object.entries(sums).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<div class="row"><b>'+esc(typeName(k))+'</b><br>'+moeda(v)+'</div>').join('')||'<p class="muted">Nenhuma despesa.</p>';const vu={};reportCache.forEach(x=>{const k=x.vehicle_plate||'Sem placa';vu[k]=(vu[k]||0)+1});admFleet.innerHTML=Object.entries(vu).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<span class="tag">'+esc(k)+' · '+v+' viagens</span>').join('')||'<span class="muted">Sem utilização registrada.</span>';admCompliance.innerHTML='<b>Política de comprovantes:</b> '+(settings?.require_receipt?'Obrigatória em todas as despesas':'Conforme categoria configurada')+'<br><span class="muted small">Validação aplicada pelo backend ao finalizar o deslocamento.</span>'}
+function renderAudit(){
+  const aq=(auditBusca?.value||'').toLowerCase(),ad=auditCache.filter(a=>!aq||JSON.stringify(a).toLowerCase().includes(aq));auditLista.innerHTML=ad.map(a=>'<div class="row"><b>'+esc(a.action||a.event_type||'Movimentação')+'</b><br><span class="muted">'+esc(new Date(a.created_at).toLocaleString('pt-BR'))+' · '+esc(a.entity_type||a.table_name||'')+'</span></div>').join('')||'<p class="muted">Nenhuma movimentação registrada.</p>';
+}
+function downloadText(name,text,type){
+  const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function buildBackup(){
+  return {version:13,generatedAt:new Date().toISOString(),organization:{id:org?.id,name:org?.name},
+    trips:reportCache,vehicles:veics,locations:locs,agenda:JSON.parse(localStorage.getItem('km_agenda')||'[]').filter(x=>x.organization_id===org?.id),
+    vehicleCosts:JSON.parse(localStorage.getItem('km_vehicle_costs')||'[]').filter(x=>x.organization_id===org?.id),maintenance:JSON.parse(localStorage.getItem('km_maintenance')||'[]').filter(x=>x.organization_id===org?.id),routes:JSON.parse(localStorage.getItem('km_routes')||'[]').filter(x=>x.organization_id===org?.id),
+    localSettings:{valorKm:localStorage.getItem('km_valor_km')||'0',consumo:localStorage.getItem('km_consumo')||'0',combustivel:localStorage.getItem('km_combustivel')||'0',
+      rateio:localStorage.getItem('km_rateio')||'0',baseOdometro:localStorage.getItem('km_base_odometro')||'0',baseData:localStorage.getItem('km_base_data')||''}};
+}
+async function abrirComprovante(path){
+  const r=await sb.storage.from('km-receipts').createSignedUrl(path,300);
+  if(r.error)return msg(r.error.message,true);
+  window.open(r.data.signedUrl,'_blank');
+}
+
+async function abrirDetalheViagem(id){
+  const t=trips.find(x=>x.id===id); if(!t)return;
+  let r=await sb.from('km_stops').select('*').eq('trip_id',id).order('stop_order'); const ss=r.data||[];
+  r=await sb.from('km_expenses').select('*').eq('trip_id',id).order('created_at'); const ee=r.data||[];
+  r=await sb.from('km_attachments').select('*').eq('trip_id',id).order('created_at'); const aa=r.data||[];
+  const v=veics.find(x=>x.id===t.vehicle_id), l=locs.find(x=>x.id===t.location_id);
+  detalheViagem.innerHTML='<h2>Detalhes da viagem</h2>'+
+    '<p><b>'+esc(t.origin||'—')+' → '+esc(t.destination)+'</b></p>'+
+    '<p class="muted">'+esc(t.trip_date)+' · '+esc(v?.description||'Sem veículo')+' · '+esc(l?.name||'Sem unidade')+'</p>'+
+    '<div class="stat"><div>KM inicial<br><b>'+esc(t.start_odometer)+'</b></div><div>KM final<br><b>'+esc(t.end_odometer??'—')+'</b></div><div>Distância<br><b>'+esc(t.distance_km??'—')+' km</b></div><div>Despesas<br><b>'+moeda(ee.reduce((s,x)=>s+Number(x.amount||0),0))+'</b></div></div>'+
+    '<h3>Paradas</h3>'+(ss.map(s=>'<div class="row">'+s.stop_order+'. <b>'+esc(s.place_name)+'</b><br><span class="muted">'+esc(s.notes||'')+'</span></div>').join('')||'<p class="muted">Nenhuma parada.</p>')+
+    '<h3>Despesas</h3>'+(ee.map(e=>'<div class="row"><b>'+esc(typeName(e.expense_type))+' · '+moeda(e.amount)+'</b><br><span class="muted">'+esc(e.description||'')+'</span></div>').join('')||'<p class="muted">Nenhuma despesa.</p>')+
+    '<div class="row"><b>Duração</b><br><span class="muted">'+formatDuration(t.started_at,t.ended_at)+'</span></div><h3>Comprovantes</h3>'+(aa.map(a=>'<div class="row"><b>'+esc(a.file_name)+'</b><div class="actions"><button class="sec" data-detail-receipt="'+a.storage_path+'">Abrir comprovante</button></div></div>').join('')||'<p class="muted">Nenhum comprovante.</p>')+
+    '<div class="actions"><button id="btRepetir" class="sec">Repetir trajeto</button><button id="btRetorno" class="sec">Criar retorno</button><button id="btMapsDetalhe" class="sec">Abrir no Maps</button><button id="btCopiarViagem" class="sec">Copiar resumo</button></div>';
+  detalheViagem.classList.remove('hide');
+  document.querySelectorAll('[data-detail-receipt]').forEach(b=>b.onclick=()=>abrirComprovante(b.dataset.detailReceipt));
+  btRepetir.onclick=()=>preencherDeViagem(t,false);btRetorno.onclick=()=>preencherDeViagem(t,true);btMapsDetalhe.onclick=()=>abrirMaps(t);btCopiarViagem.onclick=async()=>{const tx=t.trip_date+' · '+(t.origin||'—')+' → '+t.destination+' · '+(t.distance_km||0)+' km';await navigator.clipboard.writeText(tx);msg('Resumo copiado')};
+  detalheViagem.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+
+function preencherDeViagem(t,retorno){
+  dataViagem.value=new Date().toISOString().slice(0,10);
+  origem.value=retorno?(t.destination||''):(t.origin||'');
+  destino.value=retorno?(t.origin||''):(t.destination||'');
+  motivo.value='';obs.value=t.notes||'';
+  if(t.vehicle_id)veiculo.value=t.vehicle_id;if(t.location_id)local.value=t.location_id;
+  const v=veics.find(x=>x.id===t.vehicle_id);if(v?.current_odometer!=null)kmi.value=v.current_odometer;
+  show('viagem');msg(retorno?'Retorno preparado':'Trajeto preparado');
+}
+async function aceitarConvite(){
+  if(!pendingInvite)return;
+  let r=await sb.from('km_user_access').insert({
+    organization_id:pendingInvite.organization_id,user_id:ses.user.id,module_role:pendingInvite.module_role,active:true
+  });
+  if(r.error)return msg(r.error.message,true);
+  if(pendingInvite.location_id){
+    r=await sb.from('km_user_location_access').insert({
+      organization_id:pendingInvite.organization_id,user_id:ses.user.id,location_id:pendingInvite.location_id
+    });
+    if(r.error)return msg(r.error.message,true);
+  }
+  r=await sb.from('km_invitations').update({
+    accepted_at:new Date().toISOString(),accepted_by:ses.user.id
+  }).eq('id',pendingInvite.id);
+  if(r.error)return msg(r.error.message,true);
+  pendingInvite=null;
+  await entraApp();
+  msg('Convite aceito. Acesso liberado.');
+}
+
+
+resetSenha.onclick=async()=>{if(!email.value.trim())return msg('Informe seu e-mail',true);const r=await sb.auth.resetPasswordForEmail(email.value.trim());if(r.error)return msg(r.error.message,true);msg('Enviamos as instruções de recuperação para o e-mail informado')};
+
+senha.addEventListener('keydown',e=>{if(e.key==='Enter')entrar.click()});
+entrar.onclick=async()=>{let r=await sb.auth.signInWithPassword({email:email.value,password:senha.value});if(r.error){am.textContent=r.error.message;am.className='msg err';return}ses=r.data.session;await entraApp()};
+criar.onclick=async()=>{let r=await sb.auth.signUp({email:email.value,password:senha.value});am.textContent=r.error?r.error.message:(r.data.session?'Conta criada e conectada':'Conta criada. Confirme o e-mail antes de entrar.');am.className='msg '+(r.error?'err':'ok');if(r.data.session){ses=r.data.session;await entraApp()}};
+sair.onclick=async()=>{await sb.auth.signOut();location.reload()};
+btAceitarConvite.onclick=aceitarConvite;
+
+btEmpresa.onclick=async()=>{if(!nomeEmpresa.value.trim())return msg('Informe o nome da empresa',true);let r=await sb.from('km_organizations').insert({name:nomeEmpresa.value.trim(),created_by:ses.user.id}).select().single();if(r.error)return msg(r.error.message,true);org=r.data;r=await sb.from('km_user_access').insert({organization_id:org.id,user_id:ses.user.id,module_role:'admin',active:true});if(r.error)return msg(r.error.message,true);await entraApp();msg('Empresa criada')};
+btUnidade.onclick=async()=>{if(!nomeUnidade.value.trim())return msg('Informe o nome da unidade',true);let r=await sb.from('km_locations').insert({organization_id:org.id,name:nomeUnidade.value.trim()});if(r.error)return msg(r.error.message,true);await refreshAll();render();msg('Unidade criada')};
+btVeic.onclick=async()=>{if(!descVeic.value.trim())return msg('Informe a descrição do veículo',true);let r=await sb.from('km_vehicles').insert({organization_id:org.id,location_id:localVeic.value||null,description:descVeic.value.trim(),plate:placa.value.trim()||null,current_odometer:Number(kmVeic.value||0),created_by:ses.user.id});if(r.error)return msg(r.error.message,true);descVeic.value='';placa.value='';kmVeic.value='';await refreshAll();render();msg('Veículo cadastrado')};
+veiculo.onchange=()=>{let v=veics.find(x=>x.id===veiculo.value);if(v?.current_odometer!=null)kmi.value=v.current_odometer};
+
+btViagem.onclick=async()=>{if(!destino.value.trim())return msg('Informe o destino',true);if(kmi.value==='')return msg('Informe o KM inicial',true);let r=await sb.from('km_trips').insert({organization_id:org.id,user_id:ses.user.id,location_id:local.value||null,vehicle_id:veiculo.value||null,trip_date:dataViagem.value||new Date().toISOString().slice(0,10),origin:origem.value.trim()||null,destination:destino.value.trim(),start_odometer:Number(kmi.value),notes:[motivo.value.trim()?('Motivo: '+motivo.value.trim()):'',obs.value.trim()].filter(Boolean).join(' | ')||null,status:'in_progress',started_at:new Date().toISOString()}).select().single();if(r.error)return msg(r.error.message,true);activeTrip=r.data;localStorage.removeItem('km_trip_draft');await refreshAll();render();msg('Viagem iniciada')};
+
+btParada.onclick=async()=>{if(!activeTrip)return; if(!paradaNome.value.trim())return msg('Informe o local da parada',true);let r=await sb.from('km_stops').insert({trip_id:activeTrip.id,stop_order:stops.length+1,place_name:paradaNome.value.trim(),notes:paradaObs.value.trim()||null});if(r.error)return msg(r.error.message,true);paradaNome.value='';paradaObs.value='';await refreshActive();renderActive();msg('Parada adicionada')};
+
+btDesp.onclick=async()=>{const val=Number(valorDesp.value);const similar=expenses.find(e=>e.expense_type===tipoDesp.value&&Math.abs(Number(e.amount)-val)<0.001);if(similar&&!confirm('Já existe uma despesa deste tipo com o mesmo valor nesta viagem. Deseja adicionar mesmo assim?'))return;if(!activeTrip)return;if(!valorDesp.value||Number(valorDesp.value)<=0)return msg('Informe um valor válido',true);let r=await sb.from('km_expenses').insert({trip_id:activeTrip.id,expense_type:tipoDesp.value,description:descDesp.value.trim()||null,amount:Number(valorDesp.value)});if(r.error)return msg(r.error.message,true);valorDesp.value='';descDesp.value='';await refreshActive();let rr=await sb.from('km_trip_report').select('*').eq('organization_id',org.id);reportCache=rr.data||[];render();msg('Despesa adicionada')};
+
+btUpload.onclick=async()=>{if(!activeTrip)return;const file=arquivoComprovante.files?.[0];const expenseId=despComprovante.value;if(!expenseId)return msg('Selecione a despesa',true);if(!file)return msg('Selecione o arquivo',true);if(file.size>10*1024*1024)return msg('Arquivo maior que 10 MB',true);const ext=(file.name.split('.').pop()||'bin').toLowerCase();const path=ses.user.id+'/'+activeTrip.id+'/'+crypto.randomUUID()+'.'+ext;let r=await sb.storage.from('km-receipts').upload(path,file,{upsert:false,contentType:file.type});if(r.error)return msg(r.error.message,true);r=await sb.from('km_attachments').insert({trip_id:activeTrip.id,expense_id:expenseId,storage_path:path,file_name:file.name,mime_type:file.type||null,file_size:file.size,uploaded_by:ses.user.id});if(r.error){await sb.storage.from('km-receipts').remove([path]);return msg(r.error.message,true)}arquivoComprovante.value='';await refreshActive();renderActive();msg('Comprovante enviado')};
+
+btFinalizar.onclick=async()=>{if(!activeTrip)return;if(kmf.value==='')return msg('Informe o KM final',true);const end=Number(kmf.value);if(end<Number(activeTrip.start_odometer))return msg('KM final não pode ser menor que o inicial',true);let r=await sb.from('km_trips').update({end_odometer:end,ended_at:new Date().toISOString(),status:'completed',notes:obsFinal.value.trim()||activeTrip.notes}).eq('id',activeTrip.id).select().single();if(r.error)return msg(r.error.message,true);activeTrip=null;kmf.value='';obsFinal.value='';await refreshAll();render();show('historico');msg('Viagem finalizada')};
+
+btConvite.onclick=async()=>{if(acc?.module_role!=='admin')return msg('Somente administrador pode convidar',true);if(!convEmail.value.trim())return msg('Informe o e-mail',true);let r=await sb.from('km_invitations').insert({organization_id:org.id,email:convEmail.value.trim().toLowerCase(),module_role:convRole.value,location_id:convLocal.value||null,created_by:ses.user.id});if(r.error)return msg(r.error.message,true);convEmail.value='';await refreshTeam();renderTeam();msg('Convite criado')};
+
+btFiltrar.onclick=carregaRelatorios;
+
+fMes.onclick=()=>{const d=new Date();fIni.value=d.toISOString().slice(0,7)+'-01';fFim.value=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10);carregaRelatorios()};
+f30.onclick=()=>{const d=new Date(),i=new Date(d);i.setDate(d.getDate()-29);fIni.value=i.toISOString().slice(0,10);fFim.value=d.toISOString().slice(0,10);carregaRelatorios()};
+fLimpar.onclick=()=>{fIni.value='';fFim.value='';fStatus.value='';fVeiculo.value='';fUnidade.value='';carregaRelatorios()};
+
+
+
+
+
+
+btExportPrefs.onclick=()=>{const keys=['km_valor_km','km_consumo','km_combustivel','km_rateio','km_base_odometro','km_base_data','km_meta_km','km_limite_desp','km_orc_fuel','km_orc_toll','km_orc_parking','km_font','km_hide_money'];const d={};keys.forEach(k=>d[k]=localStorage.getItem(k));downloadText('controle-km-preferencias.json',JSON.stringify(d,null,2),'application/json;charset=utf-8')};
+
+btSairTodos.onclick=async()=>{try{const r=await sb.auth.signOut({scope:'others'});if(r.error)return msg(r.error.message,true);msg('Outras sessões encerradas')}catch(e){msg('Recurso indisponível nesta sessão',true)}};
+
+btLimparLocal.onclick=()=>{if(!confirm('Limpar agenda, rotas, custos, manutenção e preferências locais deste aparelho? Os dados centrais do backend não serão apagados.'))return;['km_agenda','km_routes','km_vehicle_costs','km_maintenance','km_avisos','km_valor_km','km_consumo','km_combustivel','km_rateio','km_base_odometro','km_base_data','km_profile_phone','km_profile_job','km_company_doc'].forEach(k=>localStorage.removeItem(k));render();msg('Dados locais removidos')};
+
+btMinhaOrigem.onclick=()=>{if(!navigator.geolocation)return msg('Geolocalização não disponível',true);navigator.geolocation.getCurrentPosition(p=>{origem.value=p.coords.latitude.toFixed(6)+','+p.coords.longitude.toFixed(6);msg('Localização preenchida')},()=>msg('Não foi possível obter a localização',true),{enableHighAccuracy:true,timeout:10000})};
+btCfgUnidade.onclick=async()=>{if(acc?.module_role!=='admin')return msg('Somente administrador',true);if(!cfgNovaUnidade.value.trim())return;const r=await sb.from('km_locations').insert({organization_id:org.id,name:cfgNovaUnidade.value.trim()});if(r.error)return msg(r.error.message,true);cfgNovaUnidade.value='';await refreshAll();render();msg('Unidade adicionada')};
+
+btDiag.onclick=async()=>{const checks=[];checks.push(['Sessão',!!ses]);checks.push(['Empresa',!!org]);checks.push(['Unidade',locs.length>0]);checks.push(['Veículo',veics.length>0]);let ok=false;try{const r=await sb.from('km_settings').select('organization_id').eq('organization_id',org.id).maybeSingle();ok=!r.error}catch{}checks.push(['Backend',ok]);checks.push(['Versão','100']);checks.push(['Conexão',navigator.onLine]);diag.innerHTML=checks.map(x=>(x[1]?'✓ ':'✕ ')+x[0]).join(' · ')};
+
+btConfig.onclick=async()=>{if(acc?.module_role==='admin'&&cfgEmpresaNome.value.trim()&&cfgEmpresaNome.value.trim()!==org.name){const u=await sb.from('km_organizations').update({name:cfgEmpresaNome.value.trim()}).eq('id',org.id);if(!u.error)org.name=cfgEmpresaNome.value.trim()}localStorage.setItem('km_timeout',cfgTimeout.value||'0');localStorage.setItem('km_company_doc',cfgCnpj.value.trim());if(acc?.module_role!=='admin')return msg('Somente administrador pode alterar configurações',true);let r=await sb.from('km_settings').upsert({organization_id:org.id,require_receipt:cfgReqAll.checked,require_receipt_toll:cfgReqToll.checked,require_receipt_fuel:cfgReqFuel.checked,require_receipt_parking:cfgReqParking.checked,allow_manual_odometer_correction:cfgOdo.checked,updated_by:ses.user.id,updated_at:new Date().toISOString()},{onConflict:'organization_id'}).select().single();if(r.error)return msg(r.error.message,true);settings=r.data;localStorage.setItem('km_valor_km',cfgValorKm.value||'0');localStorage.setItem('km_consumo',cfgConsumo.value||'0');localStorage.setItem('km_combustivel',cfgComb.value||'0');
+localStorage.setItem('km_orc_fuel',orcComb.value||'0');localStorage.setItem('km_orc_toll',orcPed.value||'0');localStorage.setItem('km_orc_parking',orcEst.value||'0');localStorage.setItem('km_meta_km',cfgMetaKm.value||'0');localStorage.setItem('km_limite_desp',cfgLimiteDesp.value||'0');localStorage.setItem('km_rateio',cfgRateio.checked?'1':'0');localStorage.setItem('km_base_odometro',cfgBaseKm.value||'0');localStorage.setItem('km_base_data',cfgBaseData.value||'');render();msg('Configurações salvas')};
+
+function show(n){document.querySelectorAll('[id^="p-"]').forEach(x=>x.classList.add('hide'));$('p-'+n).classList.remove('hide');if(n==='relatorios'){printEmpresa.textContent=org?.name||'';carregaRelatorios();}if(n==='custos')loadVehicleCosts();if(n==='agenda')loadAgenda();if(n==='rotas')loadRotas();if(n==='auditoria')renderAudit();if(n==='perfil')renderPerfil();if(n==='painel')renderAdmin();if(n==='notificacoes')renderAvisos()}
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>show(b.dataset.p));
+
+
+
+
+
+const dashMes=document.getElementById('dashMes');
+if(dashMes){dashMes.value=dashMes.value||new Date().toISOString().slice(0,7);dashMes.onchange=render;}
+
+btLerAvisos.onclick=()=>{let a=JSON.parse(localStorage.getItem('km_avisos')||'[]');a=a.map(x=>x.organization_id===org.id?({...x,read:true}):x);localStorage.setItem('km_avisos',JSON.stringify(a));renderAvisos()};
+auditBusca.oninput=renderAudit;
+histBusca.oninput=renderHistory;histStatus.onchange=renderHistory;
+btBackupJson.onclick=()=>downloadText('controle-km-backup-v13.json',JSON.stringify(buildBackup(),null,2),'application/json;charset=utf-8');
+btBackupCsv.onclick=()=>btCsv.click();
+btImportBackup.onclick=async()=>{
+  const f=backupFile.files?.[0];if(!f)return msg('Selecione um arquivo JSON',true);
+  try{
+    const b=JSON.parse(await f.text());if(!b.version)return msg('Backup inválido',true);
+    if(Array.isArray(b.agenda)){let all=JSON.parse(localStorage.getItem('km_agenda')||'[]').filter(x=>x.organization_id!==org.id);localStorage.setItem('km_agenda',JSON.stringify(all.concat(b.agenda.map(x=>({...x,organization_id:org.id})))))}
+    if(Array.isArray(b.vehicleCosts)){let all=JSON.parse(localStorage.getItem('km_vehicle_costs')||'[]').filter(x=>x.organization_id!==org.id);localStorage.setItem('km_vehicle_costs',JSON.stringify(all.concat(b.vehicleCosts.map(x=>({...x,organization_id:org.id})))))}
+    const z=b.localSettings||{};if(z.valorKm!=null)localStorage.setItem('km_valor_km',z.valorKm);if(z.consumo!=null)localStorage.setItem('km_consumo',z.consumo);if(z.combustivel!=null)localStorage.setItem('km_combustivel',z.combustivel);if(z.rateio!=null)localStorage.setItem('km_orc_fuel',orcComb.value||'0');localStorage.setItem('km_orc_toll',orcPed.value||'0');localStorage.setItem('km_orc_parking',orcEst.value||'0');localStorage.setItem('km_meta_km',cfgMetaKm.value||'0');localStorage.setItem('km_limite_desp',cfgLimiteDesp.value||'0');localStorage.setItem('km_rateio',z.rateio);if(z.baseOdometro!=null)localStorage.setItem('km_base_odometro',z.baseOdometro);if(z.baseData!=null)localStorage.setItem('km_base_data',z.baseData);
+    render();msg('Dados locais restaurados');
+  }catch(e){msg('Não foi possível importar este backup',true)}
+};
+
+
+btManut.onclick=()=>{if(!manVeiculo.value||!manKm.value)return msg('Selecione o veículo e informe o KM',true);const all=JSON.parse(localStorage.getItem('km_maintenance')||'[]');all.push({id:crypto.randomUUID(),organization_id:org.id,vehicle_id:manVeiculo.value,next_km:Number(manKm.value),description:manDesc.value.trim()||'Manutenção'});localStorage.setItem('km_maintenance',JSON.stringify(all));manKm.value='';manDesc.value='';renderManutencao();msg('Alerta de manutenção salvo')};
+
+
+
+btPerfil.onclick=async()=>{const r=await sb.from('km_user_profiles').upsert({user_id:ses.user.id,full_name:pfNome.value.trim()||null,email:ses.user.email},{onConflict:'user_id'});if(r.error)return msg(r.error.message,true);localStorage.setItem('km_profile_phone',pfTelefone.value.trim());localStorage.setItem('km_profile_job',pfCargo.value.trim());msg('Perfil atualizado')};
+
+
+
+let hideMoney=localStorage.getItem('km_hide_money')==='1';
+function applyPrivacy(){document.body.classList.toggle('hide-money',hideMoney);btPrivacidade.textContent=hideMoney?'Mostrar valores':'Ocultar valores'}
+btPrivacidade.onclick=()=>{hideMoney=!hideMoney;localStorage.setItem('km_hide_money',hideMoney?'1':'0');applyPrivacy()};
+
+qaDesp.onclick=()=>{if(activeTrip)show('ativa');else{show('viagem');msg('Inicie um deslocamento para lançar despesas')}};
+qaAgenda.onclick=()=>show('agenda');qaRel.onclick=()=>show('relatorios');
+['origem','destino','motivo','obs','kmi'].forEach(id=>{const el=$(id);if(el){el.addEventListener('input',()=>localStorage.setItem('km_trip_draft',JSON.stringify({origem:origem.value,destino:destino.value,motivo:motivo.value,obs:obs.value,kmi:kmi.value,date:dataViagem.value})))}})
+function restoreDraft(){try{const d=JSON.parse(localStorage.getItem('km_trip_draft')||'null');if(d&&!activeTrip){origem.value=origem.value||d.origem||'';destino.value=destino.value||d.destino||'';motivo.value=motivo.value||d.motivo||'';obs.value=obs.value||d.obs||'';kmi.value=kmi.value||d.kmi||'';dataViagem.value=d.date||dataViagem.value}}catch{}}
+
+btRota.onclick=()=>{if(!rotaNome.value.trim()||!rotaDestino.value.trim())return msg('Informe nome e destino',true);const all=JSON.parse(localStorage.getItem('km_routes')||'[]');all.push({id:crypto.randomUUID(),organization_id:org.id,name:rotaNome.value.trim(),origin:rotaOrigem.value.trim(),destination:rotaDestino.value.trim()});localStorage.setItem('km_routes',JSON.stringify(all));rotaNome.value='';rotaOrigem.value='';rotaDestino.value='';loadRotas();msg('Rota salva')};
+
+btAgenda.onclick=()=>{
+  if(!agData.value||!agDestino.value.trim())return msg('Informe data e destino',true);
+  const all=JSON.parse(localStorage.getItem('km_agenda')||'[]');
+  const base=new Date(agData.value+'T12:00:00'),q=Math.max(1,Math.min(24,Number(agQtd.value||1)));
+  for(let i=0;i<q;i++){const d=new Date(base);if(agRec.value==='weekly')d.setDate(d.getDate()+7*i);else if(agRec.value==='monthly')d.setMonth(d.getMonth()+i);else if(i>0)break;
+    all.push({id:crypto.randomUUID(),organization_id:org.id,date:d.toISOString().slice(0,10),time:agHora.value,origin:agOrigem.value.trim(),destination:agDestino.value.trim(),reason:agMotivo.value.trim(),notes:agObs.value.trim()});}
+  localStorage.setItem('km_agenda',JSON.stringify(all));agDestino.value='';agOrigem.value='';agMotivo.value='';agObs.value='';loadAgenda();msg('Deslocamento agendado');
+};
+agData.value=new Date().toISOString().slice(0,10);
+
+btCusto.onclick=()=>{
+  if(!custoVeiculo.value)return msg('Selecione o veículo',true);
+  if(!custoValor.value||Number(custoValor.value)<=0)return msg('Informe um valor válido',true);
+  const all=JSON.parse(localStorage.getItem('km_vehicle_costs')||'[]');
+  all.push({id:crypto.randomUUID(),organization_id:org.id,vehicle_id:custoVeiculo.value,type:custoTipo.value,
+    amount:Number(custoValor.value),date:custoData.value||new Date().toISOString().slice(0,10),description:custoDesc.value.trim()});
+  localStorage.setItem('km_vehicle_costs',JSON.stringify(all));custoValor.value='';custoDesc.value='';loadVehicleCosts();msg('Custo adicionado');
+};
+custoData.value=new Date().toISOString().slice(0,10);
+
+btCsv.onclick=()=>{
+  const rows=[['Data','Usuário','Unidade','Veículo','Origem','Destino','KM','Despesas','Status'],
+    ...reportCache.map(x=>[x.trip_date,x.user_name||'',x.location_name||'',x.vehicle_plate||'',x.origin||'',x.destination||'',x.distance_km||0,x.expense_total||0,x.status||''])];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\n');
+  const blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='relatorio-controle-km.csv';a.click();URL.revokeObjectURL(a.href);
+};
+btImprimir.onclick=()=>window.print();
+
+
+btCsvDesp.onclick=async()=>{const ids=reportCache.map(x=>x.trip_id).filter(Boolean);if(!ids.length)return msg('Sem viagens no relatório',true);const r=await sb.from('km_expenses').select('*').in('trip_id',ids);if(r.error)return msg(r.error.message,true);const rows=[['trip_id','tipo','descricao','valor'],...(r.data||[]).map(e=>[e.trip_id,e.expense_type,e.description||'',e.amount])];downloadText('controle-km-despesas.csv',rows.map(x=>x.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n'),'text/csv;charset=utf-8')};
+
+btCompartilhar.onclick=async()=>{const txt='Controle Fácil de KM\nViagens: '+rv.textContent+'\nKM: '+rkm.textContent+'\nDespesas: '+rdesp.textContent;if(navigator.share){try{await navigator.share({title:'Relatório Controle KM',text:txt})}catch{}}else{await navigator.clipboard.writeText(txt);msg('Resumo copiado')}};
+
+document.querySelectorAll('[data-p-jump]').forEach(b=>b.onclick=()=>show(b.dataset.pJump));
+dataViagem.value=new Date().toISOString().slice(0,10);
+
+
+window.addEventListener('online',()=>{status.textContent='backend online';status.className='tag ok'});
+window.addEventListener('offline',()=>{status.textContent='sem conexão';status.className='tag warn'});
+
+
+function applyFont(){document.documentElement.style.fontSize=localStorage.getItem('km_font')==='large'?'18px':'16px';if(window.cfgFonte)cfgFonte.value=localStorage.getItem('km_font')||'normal'}
+btFonte.onclick=()=>{localStorage.setItem('km_font',cfgFonte.value);applyFont();msg('Tamanho da fonte atualizado')};
+applyFont();
+
+carga();
+</script>
+</body>
+</html>
