@@ -1,0 +1,1 @@
+{"name":"controle-facil-km","private":true,"version":"100.2.0","scripts":{"build":"node build.js"}}
