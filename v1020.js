@@ -16,8 +16,6 @@ rep("if(n==='relatorios'){printEmpresa.textContent=org?.name||'';carregaRelatori
 
 rep("const rows=[['Data','Usuário','Unidade','Veículo','Origem','Destino','KM','Despesas','Status'],\n    ...reportCache.map(x=>[x.trip_date,x.user_name||'',x.location_name||'',x.vehicle_plate||'',x.origin||'',x.destination||'',x.distance_km||0,x.expense_total||0,x.status||''])];","const rows=[['Data','Usuário','Unidade','Veículo','Origem','Destino','Motivo','Uso','KM','Despesas','Status','Observações'],\n    ...reportCache.map(x=>[x.trip_date,x.user_name||'',x.location_name||'',x.vehicle_plate||'',x.origin||'',x.destination||'',x.purpose||'',x.usage_type==='personal'?'Pessoal':'Profissional',x.distance_km||0,x.expense_total||0,x.status||'',x.notes||''])];",'csv richer report');
 
-rep("+' · '+moeda(x.expense_total||0)+'</div></div>').join('')||'<p class=\"muted\">Nenhum resultado.</p>';","+' · '+moeda(x.expense_total||0)+'</div><div class=\"small\">'+esc(x.usage_type==='personal'?'Pessoal':'Profissional')+(x.purpose?' · '+esc(x.purpose):'')+'</div></div>').join('')||'<p class=\"muted\">Nenhum resultado.</p>';",'report usage detail');
-
 rep("return {version:14,generatedAt:new Date().toISOString()","return {version:15,generatedAt:new Date().toISOString()",'backup version');
 rep("'controle-km-backup-v14.json'","'controle-km-backup-v15.json'",'backup filename');
 
