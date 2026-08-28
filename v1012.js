@@ -1,0 +1,15 @@
+const fs=require('fs');
+const p='dist/index.html';
+let s=fs.readFileSync(p,'utf8');
+const rep=(a,b,label)=>{if(!s.includes(a))throw new Error('v101.2 anchor not found: '+label);s=s.replace(a,b)};
+rep('Gestão de deslocamentos · versão 101.1','Gestão de deslocamentos · versão 101.2','version');
+rep('<span class="tag">101.1</span>','<span class="tag">101.2</span>','help version');
+rep("checks.push(['Versão','101.1']);","checks.push(['Versão','101.2']);",'diag version');
+rep("pfNome.value=p.full_name||'';pfEmail.value=ses.user.email||p.email||'';pfTelefone.value=p.phone||'';pfCargo.value=localStorage.getItem('km_profile_job')||'';","pfNome.value=p.full_name||'';pfEmail.value=ses.user.email||p.email||'';pfTelefone.value=p.phone||'';pfCargo.value=p.job_title||'';",'profile job load');
+rep("btPerfil.onclick=async()=>{const r=await sb.from('km_user_profiles').upsert({user_id:ses.user.id,full_name:pfNome.value.trim()||null,email:ses.user.email,phone:pfTelefone.value.trim()||null},{onConflict:'user_id'});if(r.error)return msg(r.error.message,true);localStorage.setItem('km_profile_job',pfCargo.value.trim());msg('Perfil atualizado no backend')};","btPerfil.onclick=async()=>{const r=await sb.from('km_user_profiles').upsert({user_id:ses.user.id,full_name:pfNome.value.trim()||null,email:ses.user.email,phone:pfTelefone.value.trim()||null,job_title:pfCargo.value.trim()||null},{onConflict:'user_id'});if(r.error)return msg(r.error.message,true);msg('Perfil atualizado no backend')};",'profile job save');
+rep('<h3>Segurança</h3><div class="r"><select id="cfgTimeout">','<h3>Segurança</h3><label><input id="cfgSingleTrip" type="checkbox" style="width:auto"> Permitir somente uma viagem em andamento por usuário</label><br><br><div class="r"><select id="cfgTimeout">','single trip ui');
+rep("cfgTimeout.value=localStorage.getItem('km_timeout')||'0';","cfgSingleTrip.checked=settings?.single_active_trip_per_user!==false;cfgTimeout.value=localStorage.getItem('km_timeout')||'0';",'single trip render');
+rep("base_date:cfgBaseData.value||null,updated_by:ses.user.id","base_date:cfgBaseData.value||null,single_active_trip_per_user:cfgSingleTrip.checked,updated_by:ses.user.id",'single trip save');
+rep("['km_avisos','km_profile_job','km_trip_draft','km_hide_money','km_font','km_timeout']","['km_avisos','km_trip_draft','km_hide_money','km_font','km_timeout']",'local cleanup');
+fs.writeFileSync(p,s);
+console.log('v101.2 applied');
