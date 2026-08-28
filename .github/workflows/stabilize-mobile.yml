@@ -1,0 +1,41 @@
+name: Stabilize KM mobile
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/stabilize-mobile.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch v100.1 safely
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          old="@media(max-width:720px){.r,.r3,.stat{grid-template-columns:1fr}.w{padding:10px 10px 90px}.c{border-radius:14px}.nav{position:fixed;left:8px;right:8px;bottom:8px;top:auto;padding:8px;border-radius:16px}.nav button{padding:10px;font-size:12px}.nav #sair{order:99}}"
+          new="@media(max-width:720px){.r,.r3,.stat{grid-template-columns:1fr}.w{padding:10px 10px 96px}.c{border-radius:14px}.nav{position:fixed;left:8px;right:8px;bottom:8px;top:auto;padding:7px;border-radius:16px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}.nav button{flex:0 0 auto;min-width:76px;padding:10px 12px;font-size:12px;scroll-snap-align:start}.nav #sair{order:99}}"
+          assert old in s, 'mobile CSS anchor not found'
+          s=s.replace(old,new,1)
+          old="const sb=createClient('https://djrrrwbkwvceqmytpgvq.supabase.co','sb_publishable_O6hGp7tLTsK7qxpBySunGw_hAJ7fmX3');"
+          new="const sb=createClient('https://djrrrwbkwvceqmytpgvq.supabase.co','sb_publishable_O6hGp7tLTsK7qxpBySunGw_hAJ7fmX3',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage}});"
+          assert old in s, 'Supabase client anchor not found'
+          s=s.replace(old,new,1)
+          old="async function carga(){\n  const r=await sb.auth.getSession(); ses=r.data.session;\n  status.textContent=navigator.onLine?'backend online':'modo sem conexão';\n  if(ses) await entraApp();\n}"
+          new="async function carga(){\n  status.textContent='conectando...'; status.className='tag';\n  try{\n    const r=await sb.auth.getSession();\n    if(r.error) throw r.error;\n    ses=r.data.session;\n    status.textContent=navigator.onLine?'backend online':'modo sem conexão';\n    status.className='tag '+(navigator.onLine?'ok':'warn');\n    if(ses) await entraApp();\n  }catch(e){\n    status.textContent=navigator.onLine?'falha no backend':'sem conexão';\n    status.className='tag err';\n    const el=document.getElementById('am'); if(el){el.classList.remove('hide');el.classList.add('err');el.textContent='Falha de conexão: '+(e?.message||e);}\n  }\n}"
+          assert old in s, 'carga anchor not found'
+          s=s.replace(old,new,1)
+          s=s.replace('Gestão de deslocamentos · versão 100.1','Gestão de deslocamentos · versão 100.2',1)
+          p.write_text(s)
+      - name: Commit patch
+        run: |
+          git config user.name "controle-km-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Stabilize session status and mobile navigation v100.2"
+          git push
