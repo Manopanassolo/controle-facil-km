@@ -1,0 +1,11 @@
+const fs=require('fs');
+const p='dist/index.html';
+let s=fs.readFileSync(p,'utf8');
+const rep=(a,b,label)=>{if(!s.includes(a))throw new Error('v102.1 anchor not found: '+label);s=s.replace(a,b)};
+rep('Gestão de deslocamentos · versão 102.0','Gestão de deslocamentos · versão 102.1','version');
+rep('<span class="tag">102.0</span>','<span class="tag">102.1</span>','help version');
+rep("checks.push(['Versão','102.0']);","checks.push(['Versão','102.1']);",'diag version');
+rep('<option value="business">Profissional</option>','<option value="work">Profissional</option>','usage select');
+rep("const prof=trips.filter(x=>(x.usage_type||'business')==='business')","const prof=trips.filter(x=>(x.usage_type||'work')==='work')",'usage dashboard');
+fs.writeFileSync(p,s);
+console.log('Controle KM v102.1: frontend usage_type aligned to backend work/personal contract');
