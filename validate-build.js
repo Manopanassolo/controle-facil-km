@@ -3,7 +3,7 @@ const cp=require('child_process');
 const os=require('os');
 const path=require('path');
 const html=fs.readFileSync('dist/index.html','utf8');
-if(!html.includes('Gestão de deslocamentos · versão 102.1')) throw new Error('Versão 102.1 ausente');
+if(!html.includes('Gestão de deslocamentos · versão 102.2')) throw new Error('Versão 102.2 ausente');
 const mm=html.match(/<script type="module">([\s\S]*?)<\/script>/);
 if(!mm) throw new Error('Módulo principal não encontrado');
 const js=mm[1];
@@ -16,6 +16,7 @@ for(const x of required) if(!html.includes(x)) throw new Error('Recurso obrigat�
 const forbidden=['km_routes','km_agenda','km_vehicle_costs','km_maintenance','km_profile_job','km_company_doc','km_valor_km','km_consumo','km_combustivel','km_rateio','km_base_odometro','km_base_data','km_orc_fuel','km_orc_toll','km_orc_parking','km_meta_km','km_limite_desp','km_avisos'];
 for(const x of forbidden) if(html.includes("localStorage.getItem('"+x+"')")||html.includes("localStorage.setItem('"+x+"'")) throw new Error('Dependência empresarial local reapareceu: '+x);
 if(html.includes('<option value="business">Profissional</option>')||js.includes("usage_type||'business'")) throw new Error('Contrato usage_type divergente do backend');
+if(js.includes('distance_km:end-start')||js.includes('distance_km:end-Number(activeTrip.start_odometer)')) throw new Error('Frontend tentando gravar coluna gerada distance_km');
 if(/\bstatus\.(textContent|className)/.test(js)) throw new Error('Colisão window.status reapareceu');
 if(js.includes("show('ativa')")) throw new Error('Atalho aponta para tela inexistente');
 
@@ -27,4 +28,4 @@ const markup=html.split('<script type="module">')[0];
 const ids=[...markup.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]);
 const dupIds=[...new Set(ids.filter((n,i)=>ids.indexOf(n)!==i))];
 if(dupIds.length) throw new Error('IDs HTML duplicados: '+dupIds.join(', '));
-console.log('KM build validation OK: syntax, version, IDs, functions, backendization and usage contract passed');
+console.log('KM build validation OK: syntax, IDs, backendization, usage and generated-column contracts passed');
