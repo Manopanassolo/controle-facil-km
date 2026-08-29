@@ -58,6 +58,7 @@ async function routes(request,env){
 export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
+    if(path==='/api/maps-health')return json({configured:!!env.GOOGLE_MAPS_API_KEY,places:'/api/places',routes:'/api/routes'});
     if(path==='/api/places')return places(request,env);
     if(path==='/api/routes')return routes(request,env);
     return env.ASSETS.fetch(request);
