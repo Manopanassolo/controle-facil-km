@@ -4,15 +4,19 @@ Aplicação independente e multiempresa para controle de quilometragem, deslocam
 
 ## Versão atual
 
-**v161.0.1 — production candidate estabilizada**
+**v162.0.0 — identidade Movvant aplicada**
 
-Homologação: https://controle-km-homologacao.vercel.app
+Homologação técnica atual: https://controle-km-homologacao.vercel.app
+
+Domínio oficial adquirido: **movvant.com.br**
 
 ## Marca
 
 - Produto: **Movvant**
 - Slogan: **inteligência comercial em campo**
-- Origem técnica do projeto/repositório: Controle Fácil KM
+- Domínio oficial: **movvant.com.br**
+- Identidade visual v162: azul institucional, tipografia/realces verde-limão quase neon e símbolo GPS branco.
+- Origem técnica do projeto/repositório: Controle Fácil KM.
 
 ## Arquitetura
 
@@ -25,8 +29,8 @@ Homologação: https://controle-km-homologacao.vercel.app
 
 ## Produto e planos
 
-A camada comercial v161 introduz os planos **Pessoal, Pro e Empresas**, além de recursos vendáveis e adicionais controlados pelo proprietário da assinatura. Alterações de plano e recursos não apagam viagens, despesas, agenda ou histórico.
+A camada comercial introduz os planos **Pessoal, Pro e Empresas**, além de recursos vendáveis e adicionais controlados pelo proprietário da assinatura. Alterações de plano e recursos não apagam viagens, despesas, agenda ou histórico.
 
 ## Checkpoint
 
-A versão **v161.0.1** é o checkpoint técnico atual após a correção do build/quality gate da camada comercial v161. O deployment correspondente está apto para seguir como base das próximas evoluções sem retroceder as funcionalidades acumuladas.
+A **v162.0.0** inicia oficialmente a identidade Movvant dentro do aplicativo, preservando a base funcional estabilizada da v161.0.1. O domínio movvant.com.br será apontado para o projeto de produção após a liberação/configuração DNS no Vercel.
