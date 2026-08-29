@@ -1,0 +1,1 @@
+Controle Fácil KM v140.0 — otimização de roteiros com Google Routes, distância, duração, pedágio e ordem planejada. Redeploy 2026-08-29.
