@@ -5,13 +5,29 @@ const js=`
 (function(){
   const ctl=new WeakMap();
   const seq=new WeakMap();
+  const timers=new WeakMap();
   const ids=new Set(['origem','destino','rotaOrigem','rotaDestino','agendaOriginV138','agendaDestV138','agOrigem','agDestino','stopNameV124','paradaNome']);
+  function isPlaceField(el){
+    if(!el||el.tagName!=='INPUT')return false;
+    if(ids.has(el.id))return true;
+    const ph=String(el.getAttribute('placeholder')||'').toLowerCase();
+    const name=String(el.getAttribute('name')||'').toLowerCase();
+    const marker=String(el.dataset?.placeField||el.dataset?.stopField||'').toLowerCase();
+    return /parada|local da parada|endereco da parada|endereço da parada/.test(ph+' '+name+' '+marker);
+  }
+  function ensureDynamicId(el){
+    if(el.id)return el.id;
+    el.id='mvDynamicPlace'+Math.random().toString(36).slice(2,9);
+    return el.id;
+  }
   function closeBox(el){
+    if(!el)return;
+    ensureDynamicId(el);
     const b=document.getElementById('geo-'+el.id+'-v125');
     if(b)b.remove();
   }
   function closeAll(except){
-    document.querySelectorAll('.geo-suggestions-v125').forEach(b=>{if(!except||b.id!=='geo-'+except.id+'-v125')b.remove()});
+    document.querySelectorAll('.geo-suggestions-v125').forEach(b=>{if(!except||b.id!=='geo-'+ensureDynamicId(except)+'-v125')b.remove()});
   }
   function choose(el,p){
     try{ctl.get(el)?.abort()}catch{}
@@ -29,6 +45,7 @@ const js=`
   }
   function renderPicker(el,items){
     if(el.dataset.mvPlaceChosen==='1')return;
+    ensureDynamicId(el);
     let box=ensureGeoBoxV125(el);
     box.innerHTML=items.map((p,i)=>'<button type="button" class="geo-option-v125 geo-option-v128 google-place-v130 mv-place-v16214" data-mv-place-v16214="'+i+'"><div class="geo-head-v128"><b>'+esc(p.mainText||p.text||'Local')+'</b><em>'+esc(googlePlaceKindV130(p))+'</em></div><span>'+esc(p.secondaryText||p.text||'')+'</span></button>').join('')+'<div class="google-attrib-v130">Resultados fornecidos pelo Google</div>';
     box.classList.remove('hide');
@@ -43,7 +60,8 @@ const js=`
     box.addEventListener('click',select,{capture:true});
   }
   searchPlacesV125=async function(el){
-    if(!el||!ids.has(el.id))return;
+    if(!isPlaceField(el))return;
+    ensureDynamicId(el);
     const q=el.value.trim();
     const chosen=el.dataset.mvPlaceChosen==='1';
     if(chosen && q===el.dataset.mvPlaceChosenValue){closeBox(el);return;}
@@ -69,12 +87,19 @@ const js=`
   };
   renderGooglePlacesV130=function(el,box,items){renderPicker(el,items)};
   document.addEventListener('input',e=>{
-    const el=e.target;if(!el||!ids.has(el.id))return;
+    const el=e.target;if(!isPlaceField(el))return;
     if(el.dataset.mvPlaceChosen==='1'&&el.value!==el.dataset.mvPlaceChosenValue){delete el.dataset.mvPlaceChosen;delete el.dataset.mvPlaceChosenValue;}
+    clearTimeout(timers.get(el));
+    const t=setTimeout(()=>searchPlacesV125(el),220);timers.set(el,t);
+  },true);
+  document.addEventListener('focusin',e=>{
+    const el=e.target;if(!isPlaceField(el))return;
+    ensureDynamicId(el);el.setAttribute('autocomplete','off');
+    if(el.value.trim().length>=3){clearTimeout(timers.get(el));const t=setTimeout(()=>searchPlacesV125(el),80);timers.set(el,t)}
   },true);
   document.addEventListener('pointerdown',e=>{
-    const el=e.target.closest?.('#origem,#destino,#rotaOrigem,#rotaDestino,#agendaOriginV138,#agendaDestV138,#agOrigem,#agDestino,#stopNameV124,#paradaNome');
-    if(!el&&!e.target.closest?.('.geo-suggestions-v125'))closeAll();
+    const el=e.target.closest?.('input');
+    if((!el||!isPlaceField(el))&&!e.target.closest?.('.geo-suggestions-v125'))closeAll();
   },true);
 })();
 `;
@@ -87,4 +112,4 @@ const css=`
 if(!s.includes('</style>'))throw new Error('v162.14 css anchor not found');
 s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.14: deterministic mobile place picker active, including route stops');
+console.log('Movvant v162.14: deterministic mobile place picker active, including dynamic route stops');
