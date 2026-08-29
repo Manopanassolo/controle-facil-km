@@ -7,10 +7,10 @@ for(const x of ['v141PrepareGeofence','v141StartExecution','v141OnPosition','v14
 if(/\bstatus\.(textContent|className)/.test(js))throw Error('window.status');
 const names=[...js.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(x=>x[1]),dup=[...new Set(names.filter((n,i)=>names.indexOf(n)!==i))];if(dup.length)throw Error('duplicate '+dup);
 const markup=html.split('<script type="module">')[0],ids=[...markup.matchAll(/\sid="([^"]+)"/g)].map(x=>x[1]),di=[...new Set(ids.filter((n,i)=>ids.indexOf(n)!==i))];if(di.length)throw Error('ids '+di);
-// Mobile navigation integrity: every static data-p destination must resolve to a real page id.
+// Mobile navigation integrity: data-p="inicio" is resolved by show() to section id="p-inicio".
 const idSet=new Set(ids);
 const menuTargets=[...new Set([...markup.matchAll(/\bdata-p="([^"]+)"/g)].map(x=>x[1]))];
-const missingTargets=menuTargets.filter(x=>!idSet.has(x));
+const missingTargets=menuTargets.filter(x=>!idSet.has(x)&&!idSet.has('p-'+x));
 if(missingTargets.length)throw Error('menu destinations missing: '+missingTargets.join(','));
 if(!idSet.has('topMenu'))throw Error('topMenu missing');
 if(!html.includes("#mvMenuV1629{display:none!important")||!html.includes("#mvMenuV1629.open{display:block!important"))throw Error('mobile menu visibility contract missing');
