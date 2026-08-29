@@ -10,16 +10,34 @@ async function places(request,env){
   const q=String(url.searchParams.get('q')||'').trim().slice(0,160);
   if(q.length<2)return json({configured:true,items:[]});
   const headers={'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text,suggestions.placePrediction.types'};
+  const normalize=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const cityTypes=new Set(['locality','administrative_area_level_1','administrative_area_level_2','postal_town']);
   try{
     const a=await fetch('https://places.googleapis.com/v1/places:autocomplete',{method:'POST',headers,body:JSON.stringify({input:q,includedRegionCodes:['br'],languageCode:'pt-BR',includePureServiceAreaBusinesses:true})});
     const aj=await a.json().catch(()=>({}));
     if(!a.ok)throw new Error(aj?.error?.message||('Google Places HTTP '+a.status));
     let items=(aj.suggestions||[]).map(x=>x.placePrediction).filter(Boolean).map(p=>({placeId:p.placeId||'',text:p.text?.text||'',mainText:p.structuredFormat?.mainText?.text||p.text?.text||'',secondaryText:p.structuredFormat?.secondaryText?.text||'',types:p.types||[]}));
-    if(!items.length&&q.length>=5){
+
+    if(q.length>=4){
       const tr=await fetch('https://places.googleapis.com/v1/places:searchText',{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.types'},body:JSON.stringify({textQuery:q,languageCode:'pt-BR',regionCode:'BR',pageSize:8,includePureServiceAreaBusinesses:true})});
       const tj=await tr.json().catch(()=>({}));
-      if(tr.ok)items=(tj.places||[]).map(p=>({placeId:p.id||'',text:[p.displayName?.text,p.formattedAddress].filter(Boolean).join(', '),mainText:p.displayName?.text||p.formattedAddress||'',secondaryText:p.formattedAddress||'',types:p.types||[]}));
+      if(tr.ok){
+        const extra=(tj.places||[]).map(p=>({placeId:p.id||'',text:[p.displayName?.text,p.formattedAddress].filter(Boolean).join(', '),mainText:p.displayName?.text||p.formattedAddress||'',secondaryText:p.formattedAddress||'',types:p.types||[]}));
+        const seen=new Set(items.map(x=>x.placeId||normalize(x.text)));
+        for(const x of extra){const k=x.placeId||normalize(x.text);if(k&&!seen.has(k)){items.push(x);seen.add(k)}}
+      }
     }
+
+    const nq=normalize(q);
+    items.sort((a,b)=>{
+      const aCity=(a.types||[]).some(t=>cityTypes.has(String(t).toLowerCase()));
+      const bCity=(b.types||[]).some(t=>cityTypes.has(String(t).toLowerCase()));
+      const aExact=normalize(a.mainText)===nq;
+      const bExact=normalize(b.mainText)===nq;
+      if(aExact!==bExact)return aExact?-1:1;
+      if(aCity!==bCity)return aCity?-1:1;
+      return 0;
+    });
     return json({configured:true,items:items.slice(0,10)});
   }catch(e){return json({configured:true,items:[],error:String(e?.message||e)},502);}
 }
