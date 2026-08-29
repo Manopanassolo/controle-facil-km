@@ -1,1 +1,1 @@
-const fs=require('fs');let s=fs.readFileSync('dist/index.html','utf8');s=s.replace(/\.status\b/g,"['status']");fs.writeFileSync('dist/index.html',s);console.log('Controle KM v137.1: status property safety normalization ready');
+const fs=require('fs');let s=fs.readFileSync('dist/index.html','utf8');s=s.replace(/\bstatus\.textContent/g,"$('status').textContent").replace(/\bstatus\.className/g,"$('status').className");fs.writeFileSync('dist/index.html',s);console.log('Controle KM v137.1: status element safety normalization ready');
