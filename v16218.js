@@ -1,25 +1,30 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.18: keep only one visible Google Places list and make it compact/light.
+// v162.18.1: keep only one visible Google Places list without mutation-loop freezes.
 (function(){
-  function hideLegacyPlaces(){
-    document.querySelectorAll('#mvPlacesPortalV16215,#mvStopPlacesV16216,.geo-suggestions-v125').forEach(x=>{
-      x.classList.add('hide');
-      x.style.setProperty('display','none','important');
-      x.setAttribute('aria-hidden','true');
+  function hideLegacyPlaces(root=document){
+    const nodes=[];
+    if(root?.matches?.('#mvPlacesPortalV16215,#mvStopPlacesV16216,.geo-suggestions-v125'))nodes.push(root);
+    root?.querySelectorAll?.('#mvPlacesPortalV16215,#mvStopPlacesV16216,.geo-suggestions-v125').forEach(x=>nodes.push(x));
+    nodes.forEach(x=>{
+      if(!x.classList.contains('hide'))x.classList.add('hide');
+      if(x.style.getPropertyValue('display')!=='none'||x.style.getPropertyPriority('display')!=='important')x.style.setProperty('display','none','important');
+      if(x.getAttribute('aria-hidden')!=='true')x.setAttribute('aria-hidden','true');
     });
   }
   hideLegacyPlaces();
-  const obs=new MutationObserver(()=>hideLegacyPlaces());
-  obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+  const obs=new MutationObserver(records=>{
+    for(const r of records)for(const n of r.addedNodes)if(n.nodeType===1)hideLegacyPlaces(n);
+  });
+  obs.observe(document.documentElement,{subtree:true,childList:true});
   document.addEventListener('input',e=>{if(e.target?.matches?.('input'))hideLegacyPlaces()},true);
 })();
 `;
 if(!s.includes('carga();'))throw new Error('v162.18 startup anchor not found');
 s=s.replace('carga();',js+'\ncarga();');
 const css=`
-/* v162.18 clean Places UI */
+/* v162.18.1 clean Places UI */
 #mvPlacesPortalV16215,#mvStopPlacesV16216,.geo-suggestions-v125{display:none!important}
 body #mvPlacesV16217{background:#fff!important;border:1px solid #dfe5ee!important;border-radius:14px!important;box-shadow:0 10px 26px rgba(7,20,40,.16)!important;max-height:270px!important;padding:4px!important}
 body #mvPlacesV16217 button{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:2px 8px!important;width:100%!important;padding:10px 11px!important;margin:0!important;border:0!important;border-bottom:1px solid #edf1f5!important;border-radius:10px!important;background:#fff!important;color:#071428!important;text-align:left!important;min-height:0!important;box-shadow:none!important}
@@ -34,4 +39,4 @@ body #mvPlacesV16217 .mv-google-v16217,body #mvPlacesV16217 .mv-empty-v16217{pad
 if(!s.includes('</style>'))throw new Error('v162.18 css anchor not found');
 s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.18: single compact light Google Places suggestion list');
+console.log('Movvant v162.18.1: single compact light Places list without mutation observer loop');
