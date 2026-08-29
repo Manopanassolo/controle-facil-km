@@ -12,13 +12,26 @@ async function places(request,env){
   const headers={'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text,suggestions.placePrediction.types'};
   const normalize=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   const cityTypes=new Set(['locality','administrative_area_level_1','administrative_area_level_2','postal_town']);
+  const mapSuggestions=j=>(j.suggestions||[]).map(x=>x.placePrediction).filter(Boolean).map(p=>({placeId:p.placeId||'',text:p.text?.text||'',mainText:p.structuredFormat?.mainText?.text||p.text?.text||'',secondaryText:p.structuredFormat?.secondaryText?.text||'',types:p.types||[]}));
   try{
-    const a=await fetch('https://places.googleapis.com/v1/places:autocomplete',{method:'POST',headers,body:JSON.stringify({input:q,includedRegionCodes:['br'],languageCode:'pt-BR',includePureServiceAreaBusinesses:true})});
-    const aj=await a.json().catch(()=>({}));
-    if(!a.ok)throw new Error(aj?.error?.message||('Google Places HTTP '+a.status));
-    let items=(aj.suggestions||[]).map(x=>x.placePrediction).filter(Boolean).map(p=>({placeId:p.placeId||'',text:p.text?.text||'',mainText:p.structuredFormat?.mainText?.text||p.text?.text||'',secondaryText:p.structuredFormat?.secondaryText?.text||'',types:p.types||[]}));
+    const genericReq=fetch('https://places.googleapis.com/v1/places:autocomplete',{method:'POST',headers,body:JSON.stringify({input:q,includedRegionCodes:['br'],languageCode:'pt-BR',includePureServiceAreaBusinesses:true})});
+    const cityReq=q.length>=3?fetch('https://places.googleapis.com/v1/places:autocomplete',{method:'POST',headers,body:JSON.stringify({input:q,includedRegionCodes:['br'],languageCode:'pt-BR',includedPrimaryTypes:['(cities)']})}):null;
+    const [genericRes,cityRes]=await Promise.all([genericReq,cityReq]);
+    const gj=await genericRes.json().catch(()=>({}));
+    if(!genericRes.ok)throw new Error(gj?.error?.message||('Google Places HTTP '+genericRes.status));
+    let items=mapSuggestions(gj);
+    if(cityRes){
+      const cj=await cityRes.json().catch(()=>({}));
+      if(cityRes.ok){
+        const cities=mapSuggestions(cj);
+        const seen=new Set();
+        const merged=[];
+        for(const x of [...cities,...items]){const k=x.placeId||normalize(x.text);if(k&&!seen.has(k)){seen.add(k);merged.push(x)}}
+        items=merged;
+      }
+    }
 
-    if(q.length>=4){
+    if(q.length>=3){
       const tr=await fetch('https://places.googleapis.com/v1/places:searchText',{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.types'},body:JSON.stringify({textQuery:q,languageCode:'pt-BR',regionCode:'BR',pageSize:8,includePureServiceAreaBusinesses:true})});
       const tj=await tr.json().catch(()=>({}));
       if(tr.ok){
@@ -32,9 +45,12 @@ async function places(request,env){
     items.sort((a,b)=>{
       const aCity=(a.types||[]).some(t=>cityTypes.has(String(t).toLowerCase()));
       const bCity=(b.types||[]).some(t=>cityTypes.has(String(t).toLowerCase()));
+      const aStarts=normalize(a.mainText).startsWith(nq);
+      const bStarts=normalize(b.mainText).startsWith(nq);
       const aExact=normalize(a.mainText)===nq;
       const bExact=normalize(b.mainText)===nq;
       if(aExact!==bExact)return aExact?-1:1;
+      if(aStarts!==bStarts)return aStarts?-1:1;
       if(aCity!==bCity)return aCity?-1:1;
       return 0;
     });
