@@ -1,0 +1,1 @@
+Controle Fácil KM v142.0 — geofence seguro para paradas próximas + avisos de ETA ao cliente + fila automática WhatsApp. Redeploy 2026-08-29.
