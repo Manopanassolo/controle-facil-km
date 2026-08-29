@@ -5,7 +5,7 @@ const js=`
 (function(){
   const ctl=new WeakMap();
   const seq=new WeakMap();
-  const ids=new Set(['origem','destino','rotaOrigem','rotaDestino','agendaOriginV138','agendaDestV138','agOrigem','agDestino']);
+  const ids=new Set(['origem','destino','rotaOrigem','rotaDestino','agendaOriginV138','agendaDestV138','agOrigem','agDestino','stopNameV124','paradaNome']);
   function closeBox(el){
     const b=document.getElementById('geo-'+el.id+'-v125');
     if(b)b.remove();
@@ -73,7 +73,7 @@ const js=`
     if(el.dataset.mvPlaceChosen==='1'&&el.value!==el.dataset.mvPlaceChosenValue){delete el.dataset.mvPlaceChosen;delete el.dataset.mvPlaceChosenValue;}
   },true);
   document.addEventListener('pointerdown',e=>{
-    const el=e.target.closest?.('#origem,#destino,#rotaOrigem,#rotaDestino,#agendaOriginV138,#agendaDestV138,#agOrigem,#agDestino');
+    const el=e.target.closest?.('#origem,#destino,#rotaOrigem,#rotaDestino,#agendaOriginV138,#agendaDestV138,#agOrigem,#agDestino,#stopNameV124,#paradaNome');
     if(!el&&!e.target.closest?.('.geo-suggestions-v125'))closeAll();
   },true);
 })();
@@ -87,4 +87,4 @@ const css=`
 if(!s.includes('</style>'))throw new Error('v162.14 css anchor not found');
 s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.14: deterministic mobile place picker active');
+console.log('Movvant v162.14: deterministic mobile place picker active, including route stops');
