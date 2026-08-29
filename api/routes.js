@@ -1,12 +1,14 @@
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
-  if(req.method!=='POST')return res.status(405).json({configured:true,error:'method_not_allowed'});
   const key=process.env.GOOGLE_MAPS_API_KEY;
   if(!key)return res.status(503).json({configured:false,error:'GOOGLE_MAPS_API_KEY_not_configured'});
   try{
-    const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
+    const isGet=req.method==='GET';
+    const isPost=req.method==='POST';
+    if(!isGet&&!isPost)return res.status(405).json({configured:true,error:'method_not_allowed'});
+    const body=isGet?(req.query||{}):(typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{}));
     const origin=String(body.origin||'').trim(),destination=String(body.destination||'').trim();
-    const stops=Array.isArray(body.stops)?body.stops.map(x=>String(x||'').trim()).filter(Boolean).slice(0,8):[];
+    const stops=Array.isArray(body.stops)?body.stops.map(x=>String(x||'').trim()).filter(Boolean).slice(0,8):String(body.stops||'').split('|').map(x=>x.trim()).filter(Boolean).slice(0,8);
     if(!origin||!destination)return res.status(400).json({configured:true,error:'origin_destination_required'});
     const waypoint=x=>({address:x});
     const payload={
