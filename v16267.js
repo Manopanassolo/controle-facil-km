@@ -17,11 +17,11 @@ const js=`
     return 'https://maps.google.com/maps?output=embed&hl=pt-BR&dirflg=d&saddr='+encodeURIComponent(origin)+'&daddr='+encodeURIComponent(daddr);
   }
   async function googleMap(item,index=0){
-    const box=byId('routeEmbeddedMapV133'),status=byId('routeMapStatusV133');if(!box)return;
+    const box=byId('routeEmbeddedMapV133'),statusEl=byId('routeMapStatusV133');if(!box)return;
     try{if(globalThis.routeMapV133){routeMapV133.remove?.();routeMapV133=null;routeLayerV133=null}}catch(_){}
     box.innerHTML='';
     const frame=document.createElement('iframe');frame.id='mvGoogleRouteFrameV16267';frame.title='Rota no Google Maps';frame.loading='eager';frame.referrerPolicy='no-referrer-when-downgrade';frame.allowFullscreen=true;frame.src=googleRouteUrl();frame.setAttribute('allow','geolocation');box.appendChild(frame);
-    if(status){const km=typeof fmtKmV131==='function'?fmtKmV131(item?.distanceMeters):'';const dur=typeof fmtDurV131==='function'?fmtDurV131(item?.duration):'';status.textContent='Google Maps · '+[km,dur].filter(Boolean).join(' · ')}
+    if(statusEl){const km=typeof fmtKmV131==='function'?fmtKmV131(item?.distanceMeters):'';const dur=typeof fmtDurV131==='function'?fmtDurV131(item?.duration):'';statusEl.textContent='Google Maps · '+[km,dur].filter(Boolean).join(' · ')}
   }
   try{globalThis.renderEmbeddedMapV133=googleMap}catch(_){}
   function rebindMap(){
@@ -36,7 +36,6 @@ const js=`
     if(!globalThis.sb||!globalThis.org?.id||!globalThis.ses?.user?.id)return msg('Sessão ou empresa não carregada. Atualize a página e tente novamente.',true);
     btn.disabled=true;const oldText=btn.textContent;btn.textContent='Iniciando...';
     try{
-      // Always verify the database instead of trusting a stale in-memory activeTrip.
       const existing=await sb.from('km_trips').select('*').eq('organization_id',org.id).eq('user_id',ses.user.id).eq('status','in_progress').order('started_at',{ascending:false}).limit(1);
       if(existing.error)throw existing.error;
       if(existing.data?.length){globalThis.activeTrip=existing.data[0];await refreshAll?.();render?.();show?.('viagem');return msg('Existe um deslocamento realmente em andamento. Continue ou finalize o atual.',true)}
