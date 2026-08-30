@@ -18,7 +18,13 @@ try {
     return {app:!!app,trip:!!trip,form:!!form,origin:!!document.getElementById('mvOrigemNativeV16260'),destination:!!document.getElementById('mvDestinoNativeV16260')};
   });
   if(!shell.app||!shell.trip||!shell.form||!shell.origin||!shell.destination)throw new Error('Native trip shell incomplete: '+JSON.stringify(shell));
-  await page.waitForTimeout(500);
+  const percurso=page.getByText(/2\s*[·.-]\s*Percurso/i).first();
+  if(await percurso.count()){await percurso.click({timeout:5000,force:true}).catch(()=>{});await page.waitForTimeout(500)}
+  await page.evaluate(()=>{
+    const o=document.getElementById('mvOrigemNativeV16260'),d=document.getElementById('mvDestinoNativeV16260');
+    for(const el of [o,d]){if(!el)continue;let n=el;while(n&&n!==document.body){n.classList?.remove('hide');n.style?.removeProperty('display');n.style?.removeProperty('visibility');n.style?.removeProperty('opacity');n=n.parentElement}}
+  });
+  await page.waitForTimeout(300);
   const origin=page.locator('#mvOrigemNativeV16260'),destination=page.locator('#mvDestinoNativeV16260');
   await origin.waitFor({state:'visible',timeout:5000});await destination.waitFor({state:'visible',timeout:5000});
   await origin.scrollIntoViewIfNeeded();await origin.tap({timeout:5000});await origin.fill('');
