@@ -25,6 +25,7 @@ const js=`
   }
   try{globalThis.renderEmbeddedMapV133=googleMap}catch(_){}
   function rebindMap(){
+    if(globalThis.mvNativeLeafletControllerV16279)return;
     try{if(typeof renderEmbeddedMapV133==='function'&&renderEmbeddedMapV133!==googleMap)renderEmbeddedMapV133=googleMap}catch(_){}
     const box=byId('routeEmbeddedMapV133');if(box&&!box.querySelector('#mvGoogleRouteFrameV16267')&&Array.isArray(globalThis.routeItemsV133)&&routeItemsV133[0])googleMap(routeItemsV133[0],0);
   }
