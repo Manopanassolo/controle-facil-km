@@ -30,14 +30,18 @@ jobs:
         run: npx --yes wrangler@4 deploy
       - name: Verify exact live build
         run: |
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS --max-time 20 "$MOVVANT_URL/" -o /tmp/movvant.html; then break; fi
+          matched=0
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
+              if grep -q 'v162.62' /tmp/movvant.html && grep -q 'Movvant' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+                matched=1
+                break
+              fi
+            fi
+            echo "Cloudflare asset not exact yet; retry $i/10"
             sleep 3
           done
-          test -s /tmp/movvant.html
-          grep -q 'v162.62' /tmp/movvant.html
-          grep -q 'Movvant' /tmp/movvant.html
-          cmp -s /tmp/movvant.html dist/index.html
+          test "$matched" = "1"
           echo "Cloudflare exact live build 162.62 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
