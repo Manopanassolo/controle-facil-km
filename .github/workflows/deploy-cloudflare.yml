@@ -41,7 +41,7 @@ jobs:
           done
           test -s /tmp/movvant.html
           grep -q 'mvStartupGuardV16231' /tmp/movvant.html
-          grep -q 'v162.37' /tmp/movvant.html
+          grep -q 'v162.38' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Live HTML bytes: $(wc -c < /tmp/movvant.html)"
       - name: Verify Google Maps worker binding
@@ -60,7 +60,7 @@ jobs:
             exit 1
           fi
           grep -Eq 'id="auth"|id="app"' /tmp/movvant-dom.html
-      - name: Verify authenticated Android home and buttons
+      - name: Verify authenticated Android critical actions
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
@@ -68,8 +68,7 @@ jobs:
           test -s /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-shell-test="pass"' /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-buttons-test="pass"' /tmp/movvant-mobile-dom.html
-          if grep -Eq 'id="p-viagem"[^>]*class="[^"]*hide' /tmp/movvant-mobile-dom.html; then
-            echo 'Trip button click did not open the trip screen.'
-            exit 1
-          fi
-          echo 'Authenticated Android home + functional button: PASS'
+          grep -q 'data-mv-trip-test="pass"' /tmp/movvant-mobile-dom.html
+          grep -q 'data-mv-bell-test="pass"' /tmp/movvant-mobile-dom.html
+          grep -q 'data-mv-agenda-test="pass"' /tmp/movvant-mobile-dom.html
+          echo 'Authenticated Android trip + notifications + agenda actions: PASS'
