@@ -8,10 +8,22 @@ const page = await context.newPage();
 page.setDefaultTimeout(5000);
 const result={checkpoints:[]};
 const mark=async(name)=>{result.checkpoints.push(name);console.log('CHECKPOINT',name);try{await page.screenshot({path:'/tmp/movvant-'+name+'.png',fullPage:false,timeout:5000})}catch{}};
+const deadline=(ms,label)=>new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timeout after '+ms+'ms')),ms));
 try {
+  console.log('CHECKPOINT preflight');
+  const preflight=await context.request.get(base+'/',{timeout:15000,failOnStatusCode:false});
+  result.preflight={status:preflight.status(),ok:preflight.ok()};
+  if(!preflight.ok())throw new Error('Cloudflare preflight HTTP '+preflight.status());
   console.log('CHECKPOINT goto');
-  await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:20000});
-  await page.waitForTimeout(2200);
+  await Promise.race([
+    page.goto(base+'/?qa='+Date.now(),{waitUntil:'commit',timeout:15000}),
+    deadline(18000,'page.goto')
+  ]);
+  await Promise.race([
+    page.waitForFunction(()=>document.readyState==='interactive'||document.readyState==='complete',{timeout:10000}),
+    deadline(12000,'DOM ready')
+  ]).catch(()=>{});
+  await page.waitForTimeout(1800);
   const shell=await page.evaluate(()=>{
     const auth=document.getElementById('auth'),app=document.getElementById('app'),trip=document.getElementById('p-viagem'),form=document.getElementById('novaViagem'),route=document.getElementById('directRouteStackV127');
     if(auth)auth.classList.add('hide');
@@ -38,24 +50,50 @@ try {
   });
   Object.assign(result,{diag});console.log('DIAG',JSON.stringify(diag));
   if(!diag.rect||diag.rect.width<20||diag.rect.height<20)throw new Error('Origem has no usable visible rect');
-  // First prove the browser can focus and accept real keyboard text without Playwright actionability waits.
   await page.evaluate(()=>{const o=document.getElementById('origem');o.value='';o.focus({preventScroll:true})});
   await page.keyboard.insertText('Avenida Paulista');
   await page.waitForTimeout(350);
   const keyboard=await page.evaluate(()=>{const o=document.getElementById('origem');return {value:o?.value||'',active:document.activeElement===o}});
   Object.assign(result,{keyboard});console.log('KEYBOARD',JSON.stringify(keyboard));
-  // Then test the actual touch target directly by coordinates.
   await page.evaluate(()=>document.activeElement?.blur?.());
   await page.touchscreen.tap(diag.cx,diag.cy);
   await page.waitForTimeout(250);
-  const touch=await page.evaluate(()=>{const o=document.getElementById('origem'),hit=document.elementFromPoint(Math.max(1,Math.min(innerWidth-2,o.getBoundingClientRect().left+o.getBoundingClientRect().width/2)),Math.max(1,Math.min(innerHeight-2,o.getBoundingClientRect().top+o.getBoundingClientRect().height/2)));return {active:document.activeElement===o,hitId:hit?.id||'',hitTag:hit?.tagName||''}});
+  const touch=await page.evaluate(()=>{const o=document.getElementById('origem'),r=o.getBoundingClientRect(),hit=document.elementFromPoint(Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)));return {active:document.activeElement===o,hitId:hit?.id||'',hitTag:hit?.tagName||''}});
   Object.assign(result,{touch});console.log('TOUCH',JSON.stringify(touch));
+
+  const stopBefore=await page.evaluate(()=>{
+    const row=document.querySelector('#directRouteStackV127 .route-point-v126.stops');
+    const add=document.querySelector('#directRouteStackV127 [data-mv-stop-open-v16262],#directRouteStackV127 .mv-stop-toggle-v16262,#preTripStopAddV127');
+    const list=document.getElementById('preTripStopsListV127');
+    const rr=row?.getBoundingClientRect(),ar=add?.getBoundingClientRect();
+    return {row:rr?{w:rr.width,h:rr.height}:null,add:ar?{w:ar.width,h:ar.height}:null,text:(row?.innerText||'').trim(),listText:(list?.innerText||'').trim()};
+  });
+  result.stopBefore=stopBefore;console.log('STOP_BEFORE',JSON.stringify(stopBefore));
+  const opener=page.locator('#directRouteStackV127 [data-mv-stop-open-v16262],#directRouteStackV127 .mv-stop-toggle-v16262').first();
+  if(await opener.count()){
+    await opener.click({timeout:4000});
+    await page.waitForTimeout(250);
+  }
+  const stopAfter=await page.evaluate(()=>{
+    const row=document.querySelector('#directRouteStackV127 .route-point-v126.stops');
+    const entry=document.querySelector('#directRouteStackV127 .pre-stop-entry-v127');
+    const close=document.querySelector('#directRouteStackV127 [data-mv-stop-close-v16262],#directRouteStackV127 .mv-stop-close-v16262');
+    const input=document.getElementById('preTripStopNameV127');
+    const rr=row?.getBoundingClientRect(),er=entry?.getBoundingClientRect(),cr=close?.getBoundingClientRect(),ir=input?.getBoundingClientRect();
+    return {row:rr?{w:rr.width,h:rr.height}:null,entry:er?{w:er.width,h:er.height}:null,close:cr?{w:cr.width,h:cr.height}:null,input:ir?{w:ir.width,h:ir.height}:null,entryVisible:!!entry&&!!(entry.offsetWidth||entry.offsetHeight||entry.getClientRects().length),text:(row?.innerText||'').trim()};
+  });
+  result.stopAfter=stopAfter;console.log('STOP_AFTER',JSON.stringify(stopAfter));
+  await mark('stop-open');
+
   const final=await page.evaluate(()=>{
     const o=document.getElementById('origem'),d=document.getElementById('destino'),route=document.getElementById('directRouteStackV127'),old=document.getElementById('mvOrigemNativeV16260');
-    return {originEditable:!!o&&!o.disabled&&!o.readOnly,destinationEditable:!!d&&!d.disabled&&!d.readOnly,pointer:o?getComputedStyle(o).pointerEvents:'none',originVisible:!!o&&!!(o.offsetWidth||o.offsetHeight||o.getClientRects().length),destinationVisible:!!d&&!!(d.offsetWidth||d.offsetHeight||d.getClientRects().length),routeVisible:!!route&&!!(route.offsetWidth||route.offsetHeight||route.getClientRects().length),cleanOrigin:o?.dataset.mvCleanV16261==='1',cleanDestination:d?.dataset.mvCleanV16261==='1',oldProxyPresent:!!old,versionMarker:[...document.scripts].map(s=>s.textContent||'').some(t=>t.includes('v162.61'))};
+    return {originEditable:!!o&&!o.disabled&&!o.readOnly,destinationEditable:!!d&&!d.disabled&&!d.readOnly,pointer:o?getComputedStyle(o).pointerEvents:'none',originVisible:!!o&&!!(o.offsetWidth||o.offsetHeight||o.getClientRects().length),destinationVisible:!!d&&!!(d.offsetWidth||d.offsetHeight||d.getClientRects().length),routeVisible:!!route&&!!(route.offsetWidth||route.offsetHeight||route.getClientRects().length),cleanOrigin:o?.dataset.mvCleanV16261==='1',cleanDestination:d?.dataset.mvCleanV16261==='1',oldProxyPresent:!!old,versionMarker:[...document.scripts].map(s=>s.textContent||'').some(t=>t.includes('v162.62'))};
   });
   Object.assign(result,{final});
-  result.pass=keyboard.value==='Avenida Paulista'&&keyboard.active&&touch.active&&touch.hitId==='origem'&&final.originEditable&&final.destinationEditable&&final.pointer!=='none'&&final.originVisible&&final.destinationVisible&&final.routeVisible&&final.cleanOrigin&&final.cleanDestination&&!final.oldProxyPresent&&final.versionMarker;
+  const compactStop=!!stopBefore.row&&stopBefore.row.h<=95&&(!stopBefore.add||stopBefore.add.h<=44)&&!stopBefore.listText.includes('Sem paradas. Adicione somente se fizer parte do percurso.');
+  const cleanEditor=!stopAfter.entryVisible||((!stopAfter.close||stopAfter.close.h<=44)&&(!stopAfter.input||stopAfter.input.h<=52));
+  result.stopChecks={compactStop,cleanEditor};
+  result.pass=keyboard.value==='Avenida Paulista'&&keyboard.active&&touch.active&&touch.hitId==='origem'&&final.originEditable&&final.destinationEditable&&final.pointer!=='none'&&final.originVisible&&final.destinationVisible&&final.routeVisible&&final.cleanOrigin&&final.cleanDestination&&!final.oldProxyPresent&&final.versionMarker&&compactStop&&cleanEditor;
   fs.writeFileSync('/tmp/movvant-visual-result.json',JSON.stringify(result,null,2));
   await page.screenshot({path:'/tmp/movvant-android.png',fullPage:false,timeout:5000});
   console.log('RESULT',JSON.stringify(result));
