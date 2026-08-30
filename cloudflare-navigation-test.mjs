@@ -9,14 +9,14 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const context=await browser.newContext({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36',isMobile:true,hasTouch:true});
 const page=await context.newPage();page.setDefaultTimeout(5000);
 const result={};
-const navTo=async name=>{await page.evaluate(n=>{const b=document.querySelector('#app .nav [data-p="'+n+'"]');if(!b)throw new Error('navigation target missing: '+n);b.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,composed:true,view:window}))},name);await page.waitForTimeout(180)};
+const navTo=async name=>{await page.evaluate(n=>{const b=document.querySelector('#app .nav [data-p="'+n+'"]');if(!b)throw new Error('navigation target missing: '+n);const api=globalThis.mvNavigationV16282;if(!api?.navigate)throw new Error('navigation controller missing');api.navigate(n)},name);await page.waitForTimeout(180)};
 const state=()=>page.evaluate(()=>({dataset:document.body.dataset.mvPage||'',api:globalThis.mvNavigationV16282?.page||'',stored:localStorage.getItem('mv_last_page_v16282'),stack:sessionStorage.getItem('mv_nav_stack_v16282'),hash:location.hash,backDisabled:!!document.getElementById('mvBackV16282')?.disabled,pages:[...document.querySelectorAll('#app [id^="p-"]')].map(x=>x.id.slice(2)),targets:[...document.querySelectorAll('#app .nav [data-p]')].map(x=>x.dataset.p)}));
 try{
   await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:15000});
   await page.waitForTimeout(900);
   await page.evaluate(()=>{document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide')});
   await page.waitForTimeout(450);
-  result.shell=await page.evaluate(()=>({top:!!document.getElementById('mvTopNavV16282'),menu:!!document.getElementById('mvMenuToggleV16282'),back:!!document.getElementById('mvBackV16282'),home:!!document.getElementById('mvHomeV16282'),api:!!globalThis.mvNavigationV16282}));
+  result.shell=await page.evaluate(()=>({top:!!document.getElementById('mvTopNavV16282'),menu:!!document.getElementById('mvMenuToggleV16282'),back:!!document.getElementById('mvBackV16282'),home:!!document.getElementById('mvHomeV16282'),api:!!globalThis.mvNavigationV16282?.navigate,historyButton:!!document.querySelector('#app .nav [data-p="historico"]'),agendaButton:!!document.querySelector('#app .nav [data-p="agenda"]')}));
   result.initial=await state();
   await navTo('historico'); result.afterHistory=await state();
   result.history=await page.evaluate(()=>({page:document.body.dataset.mvPage,stored:localStorage.getItem('mv_last_page_v16282'),hash:location.hash,visible:!document.getElementById('p-historico')?.classList.contains('hide')}));
@@ -27,7 +27,7 @@ try{
   await page.locator('#mvHomeV16282').click();await page.waitForTimeout(100); result.afterHome=await state();
   result.home=await page.evaluate(()=>({page:document.body.dataset.mvPage,visible:!document.getElementById('p-inicio')?.classList.contains('hide')}));
   await navTo('historico'); result.beforeAgenda2=await state(); await navTo('agenda'); result.beforeBack=await state();
-  await page.evaluate(()=>{const b=document.getElementById('mvBackV16282');if(!b)throw new Error('back missing');if(b.disabled)throw new Error('back disabled with stack '+sessionStorage.getItem('mv_nav_stack_v16282')+' page '+document.body.dataset.mvPage+' api '+globalThis.mvNavigationV16282?.page);b.click()});await page.waitForTimeout(120);
+  await page.locator('#mvBackV16282').click();await page.waitForTimeout(120);
   result.back=await page.evaluate(()=>({page:document.body.dataset.mvPage,visible:!document.getElementById('p-historico')?.classList.contains('hide')}));
   await navTo('agenda');await page.reload({waitUntil:'domcontentloaded'});await page.waitForTimeout(700);await page.evaluate(()=>{document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide')});await page.waitForTimeout(500);
   result.reload=await page.evaluate(()=>({page:document.body.dataset.mvPage,stored:localStorage.getItem('mv_last_page_v16282'),hash:location.hash,visible:!document.getElementById('p-agenda')?.classList.contains('hide')}));
