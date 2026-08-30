@@ -25,10 +25,10 @@ const js=`
     if(pts.length){L.marker(pts[0]).addTo(map).bindTooltip('Origem');L.marker(pts[pts.length-1]).addTo(map).bindTooltip('Destino')}
   }
   async function resilientMap(item,index=0){
-    const box=document.getElementById('routeEmbeddedMapV133'),status=document.getElementById('routeMapStatusV133');if(!box)return;
+    const box=document.getElementById('routeEmbeddedMapV133'),statusEl=document.getElementById('routeMapStatusV133');if(!box)return;
     const wrap=document.getElementById('routeMapWrapV133');if(wrap){let info=wrap.querySelector('.mv-map-summary-v16230');if(info)info.remove();wrap.insertAdjacentHTML('afterbegin',summaryHtml(item,index))}
-    if(!item?.polyline){box.innerHTML='<div class="route-map-empty-v133"><b>Rota calculada, mas sem desenho retornado pelo Google.</b><span>Use “Abrir mapa real da rota” abaixo para visualizar no Google Maps.</span></div>';if(status)status.textContent='Rota sem polyline';return}
-    if(status)status.textContent='Carregando mapa e pontos da rota...';
+    if(!item?.polyline){box.innerHTML='<div class="route-map-empty-v133"><b>Rota calculada, mas sem desenho retornado pelo Google.</b><span>Use “Abrir mapa real da rota” abaixo para visualizar no Google Maps.</span></div>';if(statusEl)statusEl.textContent='Rota sem polyline';return}
+    if(statusEl)statusEl.textContent='Carregando mapa e pontos da rota...';
     try{
       const L=await loadLeafletV133(),pts=decodePolylineV133(item.polyline);if(!pts.length)throw new Error('Percurso sem coordenadas');
       if(routeMapV133){routeMapV133.remove();routeMapV133=null;routeLayerV133=null}
@@ -38,12 +38,10 @@ const js=`
       let tileErrors=0;primary.on('tileerror',()=>{tileErrors++;if(tileErrors>=2&&!fallbackUsed){fallbackUsed=true;try{routeMapV133.removeLayer(primary)}catch(_){};L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'© OpenStreetMap © CARTO'}).addTo(routeMapV133)}});
       routeLayerV133=L.polyline(pts,{weight:6,opacity:.9}).addTo(routeMapV133);addMarkers(L,routeMapV133,item,pts);
       routeMapV133.fitBounds(routeLayerV133.getBounds(),{padding:[22,22]});setTimeout(()=>routeMapV133?.invalidateSize(),100);setTimeout(()=>routeMapV133?.invalidateSize(),600);
-      if(status)status.textContent=(index===0?'Rota recomendada':'Alternativa '+index)+' · '+(typeof fmtKmV131==='function'?fmtKmV131(item.distanceMeters):'')+' · '+(typeof fmtDurV131==='function'?fmtDurV131(item.duration):'');
-    }catch(e){box.innerHTML='<div class="route-map-empty-v133"><b>Mapa visual indisponível.</b><span>'+escTxt(e?.message||'Falha ao carregar mapa')+'</span><span>A rota, distância, paradas e abertura no Google Maps continuam disponíveis.</span></div>';if(status)status.textContent='Mapa visual indisponível'}
+      if(statusEl)statusEl.textContent=(index===0?'Rota recomendada':'Alternativa '+index)+' · '+(typeof fmtKmV131==='function'?fmtKmV131(item.distanceMeters):'')+' · '+(typeof fmtDurV131==='function'?fmtDurV131(item.duration):'');
+    }catch(e){box.innerHTML='<div class="route-map-empty-v133"><b>Mapa visual indisponível.</b><span>'+escTxt(e?.message||'Falha ao carregar mapa')+'</span><span>A rota, distância, paradas e abertura no Google Maps continuam disponíveis.</span></div>';if(statusEl)statusEl.textContent='Mapa visual indisponível'}
   }
   if(typeof renderEmbeddedMapV133==='function')renderEmbeddedMapV133=resilientMap;
-  const base=globalThis.renderRoutePlansV131;
-  if(typeof base==='function')globalThis.renderRoutePlansV131=function(items){const r=base(items);setTimeout(()=>{if(items?.[0])resilientMap(items[0],0)},40);return r};
 })();
 `;
 if(!s.includes('carga();'))throw new Error('v162.30 startup anchor not found');
