@@ -16,7 +16,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       MOVVANT_URL: https://movvant.panassolofilho.workers.dev
     steps:
       - uses: actions/checkout@v4
@@ -27,10 +26,6 @@ jobs:
           node-version: '24'
       - name: Build validated candidate
         run: npm run build
-      - name: Require Google Maps key
-        run: test -n "$GOOGLE_MAPS_API_KEY"
-      - name: Provision Google Maps key
-        run: printf '%s' "$GOOGLE_MAPS_API_KEY" | npx --yes wrangler@4 secret put GOOGLE_MAPS_API_KEY
       - name: Deploy to Cloudflare Workers
         run: npx --yes wrangler@4 deploy
       - name: Verify exact live build
