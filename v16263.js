@@ -33,6 +33,28 @@ const js=`
     }
     confirmSelection(idx);
   }
+  function stopPoint(){return document.querySelector('#directRouteStackV127 .route-point-v126.stops')}
+  function toggleStop(e){
+    const t=e.target?.closest?.('#mvStopToggleV16262');if(!t)return false;
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
+    const point=stopPoint();if(!point)return true;
+    point.classList.add('mv-stop-v16262');
+    point.classList.toggle('mv-stop-open-v16262');
+    const open=point.classList.contains('mv-stop-open-v16262');
+    const label=t.querySelector('b');if(label)label.textContent=open?'Fechar':'Adicionar parada';
+    if(open)setTimeout(()=>document.getElementById('preTripStopNameV127')?.focus({preventScroll:true}),40);
+    return true;
+  }
+  function addStop(e){
+    const b=e.target?.closest?.('#preTripStopAddV127');if(!b)return false;
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
+    if(typeof addPreTripStopV127==='function')addPreTripStopV127();
+    return true;
+  }
+  // Stable delegated stop authority. It survives any DOM clone/re-render after a place confirmation.
+  document.addEventListener('click',e=>{if(toggleStop(e))return;if(addStop(e))return},true);
+  document.addEventListener('keydown',e=>{if(e.target?.id==='preTripStopNameV127'&&e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();if(typeof addPreTripStopV127==='function')addPreTripStopV127()}},true);
+
   for(const type of ['pointerdown','touchstart','click'])window.addEventListener(type,e=>{if(!isField(e.target))return;suppressLegacy();e.stopImmediatePropagation()},true);
   window.addEventListener('focusin',e=>{if(!isField(e.target))return;active=e.target;suppressLegacy();if(e.target.value.trim().length>=2){clearTimeout(timer);timer=setTimeout(()=>search(e.target),140)}e.stopImmediatePropagation()},true);
   window.addEventListener('input',e=>{if(!isField(e.target))return;onInput(e.target);e.stopImmediatePropagation()},true);
