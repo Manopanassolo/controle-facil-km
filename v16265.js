@@ -6,7 +6,7 @@ const js=`
   const txt=e=>(e?.textContent||'').replace(/\s+/g,' ').trim();
   function findAction(re){return [...document.querySelectorAll('button,a')].find(el=>re.test(txt(el))&&el.offsetParent!==null)}
   function activeTripBanner(){
-    if(!globalThis.activeTrip?.id)return;
+    if(typeof activeTrip==='undefined'||!activeTrip?.id)return;
     const nodes=[...document.querySelectorAll('div,section,p')];
     const warning=nodes.find(el=>/Já existe um deslocamento em andamento/i.test(txt(el))&&el.children.length<12);
     if(!warning||warning.querySelector('.mv-active-actions-v16265'))return;
