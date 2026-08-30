@@ -1,9 +1,10 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.77: single-owner route selection and persistent map instance.
+// v162.78: single-owner route selection and native Leaflet zoom synchronization.
 (function(){
   globalThis.mvStableRouteControllerV16277=true;
+  globalThis.mvNativeLeafletControllerV16278=true;
   const byId=id=>document.getElementById(id);
   const clean=arr=>(arr||[]).map(x=>typeof x==='string'?x:String(x?.place_name||'')).map(x=>x.trim()).filter(Boolean);
   const seconds=v=>Number(String(v||'0').replace('s',''))||0;
@@ -42,7 +43,7 @@ const js=`
     const bounds=L.latLngBounds(c.all);if(bounds.isValid())map.fitBounds(bounds,{padding:[22,22],animate:false});requestAnimationFrame(()=>map?.invalidateSize({animate:false}));
   }
   async function enhance(box,o,c,token){
-    try{const L=await loadLeafletV133();if(token!==loadToken||!box.isConnected)return;if(!map){box.replaceChildren();map=L.map(box,{zoomControl:true,attributionControl:true,preferCanvas:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);layers=L.layerGroup().addTo(map)}addLayers(L,o,c)}catch(_){/* instant SVG remains usable */}
+    try{const L=await loadLeafletV133();if(token!==loadToken||!box.isConnected)return;if(!map){box.replaceChildren();map=L.map(box,{zoomControl:true,attributionControl:true,preferCanvas:false,zoomAnimation:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);layers=L.layerGroup().addTo(map);globalThis.mvRouteMapV16278=map;globalThis.mvRouteLayersV16278=layers}addLayers(L,o,c)}catch(_){/* instant SVG remains usable */}
   }
   function draw(o){
     const box=byId('routeEmbeddedMapV133'),st=byId('routeMapStatusV133');if(!box||!o)return;
@@ -85,5 +86,8 @@ const css=`
 #mvGoogleRouteFrameV16270,#mvGoogleRouteFrameV16272,#mvGoogleRouteFrameV16274,#mvGoogleRouteFrameV16275{display:none!important}
 #routeEmbeddedMapV133{touch-action:pan-x pan-y!important;contain:layout paint!important}
 .mv-route-fallback77{display:block;width:100%;height:100%;background:linear-gradient(135deg,#eef3f8,#f9fbfd)}.mv-route-fallback77 polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}.mv-route-fallback77 .out{stroke:#1767cf;stroke-width:7}.mv-route-fallback77 .back{stroke:#18a36b;stroke-width:5;stroke-dasharray:10 7}.mv-route-fallback77 circle{fill:#1767cf;stroke:#fff;stroke-width:3}.mv-route-fallback77 text{fill:#fff;font:700 11px Arial;text-anchor:middle}
+#routeEmbeddedMapV133 .leaflet-overlay-pane svg{overflow:hidden!important;transform-origin:0 0!important}
+#routeEmbeddedMapV133 .leaflet-overlay-pane path{filter:none!important}
+#routePlanResultsV131 .mv-route72:not(.selected),#routePlanResultsV131 .mv-route72:not(.selected) b,#routePlanResultsV131 .mv-route72:not(.selected) strong,#routePlanResultsV131 .mv-route72:not(.selected) span,#routePlanResultsV131 .mv-route72:not(.selected) small,#routePlanResultsV131 .mv-route72:not(.selected) em{color:#c8ff00!important;opacity:1!important}
 `;
-if(!s.includes('</style>'))throw new Error('v162.77 css anchor not found');s=s.replace('</style>',css+'\n</style>');fs.writeFileSync('dist/index.html',s);console.log('Movvant v162.77: one route controller and persistent map layers active');
+if(!s.includes('</style>'))throw new Error('v162.78 css anchor not found');s=s.replace('</style>',css+'\n</style>');fs.writeFileSync('dist/index.html',s);console.log('Movvant v162.78: native Leaflet zoom sync and lime route-card contrast active');
