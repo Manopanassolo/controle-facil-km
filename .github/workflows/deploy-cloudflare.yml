@@ -40,9 +40,9 @@ jobs:
             sleep 3
           done
           test -s /tmp/movvant.html
-          grep -q 'v162.60' /tmp/movvant.html
+          grep -q 'v162.61' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
-          echo "Cloudflare live build 162.60 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare live build 162.61 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
