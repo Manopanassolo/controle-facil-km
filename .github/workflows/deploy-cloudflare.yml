@@ -41,7 +41,7 @@ jobs:
           done
           test -s /tmp/movvant.html
           grep -q 'mvStartupGuardV16231' /tmp/movvant.html
-          grep -q 'v162.36' /tmp/movvant.html
+          grep -q 'v162.37' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Live HTML bytes: $(wc -c < /tmp/movvant.html)"
       - name: Verify Google Maps worker binding
@@ -60,16 +60,16 @@ jobs:
             exit 1
           fi
           grep -Eq 'id="auth"|id="app"' /tmp/movvant-dom.html
-      - name: Verify authenticated Android home shell
+      - name: Verify authenticated Android home and buttons
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
           "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=4500 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_shell_test=1" > /tmp/movvant-mobile-dom.html 2>/tmp/chrome-mobile.err || { cat /tmp/chrome-mobile.err; exit 1; }
           test -s /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-shell-test="pass"' /tmp/movvant-mobile-dom.html
-          grep -Eq 'id="p-inicio"[^>]*class="[^"]*home-compact-v136|id="p-inicio"' /tmp/movvant-mobile-dom.html
-          if grep -Eq 'id="p-inicio"[^>]*class="[^"]*hide' /tmp/movvant-mobile-dom.html; then
-            echo 'Authenticated Android home remained hidden.'
+          grep -q 'data-mv-buttons-test="pass"' /tmp/movvant-mobile-dom.html
+          if grep -Eq 'id="p-viagem"[^>]*class="[^"]*hide' /tmp/movvant-mobile-dom.html; then
+            echo 'Trip button click did not open the trip screen.'
             exit 1
           fi
-          echo 'Authenticated Android home shell: PASS'
+          echo 'Authenticated Android home + functional button: PASS'
