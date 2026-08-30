@@ -33,7 +33,7 @@ jobs:
           matched=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
-              if grep -q 'v162.77' /tmp/movvant.html && grep -q 'mvStableRouteControllerV16277' /tmp/movvant.html && grep -q 'Retornar pelo mesmo caminho' /tmp/movvant.html && grep -q 'mvChooseRouteV16277' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+              if grep -q 'v162.78' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16278' /tmp/movvant.html && grep -q 'Retornar pelo mesmo caminho' /tmp/movvant.html && grep -q 'color:#c8ff00' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
                 matched=1
                 break
               fi
@@ -42,7 +42,7 @@ jobs:
             sleep 3
           done
           test "$matched" = "1"
-          echo "Cloudflare exact live build 162.77 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare exact live build 162.78 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
