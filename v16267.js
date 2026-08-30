@@ -1,7 +1,7 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.80: keep the isolated trip start compatible with top-level lexical session state.
+// v162.81: keep trip persistence and post-start UI on the same lexical application state.
 (function(){
   const DEMO_VEHICLE='__mv_demo_vehicle__',DEMO_LOCATION='__mv_demo_location__';
   const byId=id=>document.getElementById(id);
@@ -39,20 +39,29 @@ const js=`
     // here rejected a valid, fully loaded session on Android.
     if(typeof sb==='undefined'||!org?.id||!ses?.user?.id)return msg('Sessão ou empresa não carregada. Atualize a página e tente novamente.',true);
     btn.disabled=true;const oldText=btn.textContent;btn.textContent='Iniciando...';
+    async function presentStarted(message,error=false){
+      try{await refreshAll()}catch(e){console.warn('v162.81 refresh after start',e)}
+      try{render()}catch(e){console.warn('v162.81 legacy render after start',e)}
+      try{renderActive()}catch(e){console.warn('v162.81 active render after start',e)}
+      byId('novaViagem')?.classList.add('hide');
+      byId('viagemAtiva')?.classList.remove('hide');
+      byId('resumoAtiva')?.classList.remove('hide');
+      try{show('viagem')}catch(_){}
+      setTimeout(()=>byId('viagemAtiva')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+      msg(message,error);
+    }
     try{
       const existing=await sb.from('km_trips').select('*').eq('organization_id',org.id).eq('user_id',ses.user.id).eq('status','in_progress').order('started_at',{ascending:false}).limit(1);
       if(existing.error)throw existing.error;
-      if(existing.data?.length){globalThis.activeTrip=existing.data[0];await refreshAll?.();render?.();show?.('viagem');return msg('Existe um deslocamento realmente em andamento. Continue ou finalize o atual.',true)}
-      globalThis.activeTrip=null;
+      if(existing.data?.length){activeTrip=existing.data[0];await presentStarted('Existe um deslocamento em andamento. O percurso atual foi aberto.');return}
+      activeTrip=null;
       const payload={organization_id:org.id,user_id:ses.user.id,vehicle_id:vehicle?.value===DEMO_VEHICLE?null:(vehicle?.value||null),location_id:location?.value===DEMO_LOCATION?null:(location?.value||null),trip_date:date?.value||new Date().toISOString().slice(0,10),started_at:new Date().toISOString(),origin:(origin?.value||'').trim()||null,destination:d,start_odometer:Number(startKm.value),usage_type:usage?.value==='personal'?'personal':'work',purpose:(purpose?.value||'').trim()||null,notes:(notes?.value||'').trim()||null,status:'in_progress'};
-      const r=await sb.from('km_trips').insert(payload).select('*').single();if(r.error)throw r.error;globalThis.activeTrip=r.data;
-      const planned=Array.isArray(globalThis.preTripStopsV127)?[...globalThis.preTripStopsV127]:[];
-      if(planned.length){const sr=await sb.from('km_stops').insert(planned.map((x,i)=>({trip_id:r.data.id,stop_order:i+1,place_name:x.place_name,notes:x.notes||null})));if(sr.error)throw sr.error;globalThis.preTripStopsV127=[]}
+      const r=await sb.from('km_trips').insert(payload).select('*').single();if(r.error)throw r.error;activeTrip=r.data;
+      const planned=Array.isArray(preTripStopsV127)?[...preTripStopsV127]:[];
+      if(planned.length){const sr=await sb.from('km_stops').insert(planned.map((x,i)=>({trip_id:r.data.id,stop_order:i+1,place_name:x.place_name,notes:x.notes||null})));if(sr.error)console.warn('v162.81 stops after start',sr.error);else preTripStopsV127=[]}
       try{localStorage.removeItem('km_trip_draft')}catch(_){}
-      await refreshAll?.();render?.();show?.('viagem');
-      setTimeout(()=>{const active=byId('viagemAtiva');active?.scrollIntoView({behavior:'smooth',block:'start'})},80);
-      msg('Deslocamento iniciado');
-    }catch(err){msg('Não foi possível iniciar o deslocamento: '+(err?.message||String(err)),true)}finally{btn.disabled=false;btn.textContent=oldText}
+      await presentStarted('Deslocamento iniciado');
+    }catch(err){if(activeTrip?.id)await presentStarted('Deslocamento iniciado. A interface foi recuperada após uma atualização parcial.');else msg('Não foi possível iniciar o deslocamento: '+(err?.message||String(err)),true)}finally{btn.disabled=false;btn.textContent=oldText}
   }
   function installStart(){
     const old=byId('btViagem');if(!old)return;
@@ -84,4 +93,4 @@ const css=`
 if(!s.includes('</style>'))throw new Error('v162.67 css anchor not found');
 s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.80: lexical session start and coherent resource state installed');
+console.log('Movvant v162.81: persisted trip and resilient active view installed');
