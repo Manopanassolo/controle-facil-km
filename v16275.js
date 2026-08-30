@@ -38,7 +38,8 @@ const js=`
   function sync(){
     const box=byId('routePlanResultsV131'),opts=globalThis.mvRouteOptionsV16272;if(!box||!Array.isArray(opts)||!opts.length)return;
     byId('mvPlannerModesV16273')?.remove();byId('mvPlannerHintV16273')?.remove();byId('mvCustomPlannerV16273')?.remove();
-    const selected=globalThis.mvSelectedRouteV16272,idx=Math.max(0,opts.indexOf(selected));if(!byId('mvGoogleRouteFrameV16275'))choose(idx);
+    [...box.querySelectorAll('[data-route72]')].forEach((b,n)=>{b.style.display=n<3?'':'none'});
+    const selected=globalThis.mvSelectedRouteV16272,idx=Math.max(0,opts.indexOf(selected));if(!byId('mvGoogleRouteFrameV16275'))choose(idx<3?idx:0);
   }
   globalThis.mvRouteMapUrlV16275=mapUrl;globalThis.mvChooseRouteV16275=choose;
   [0,200,500,1000,1800,3000].forEach(ms=>setTimeout(sync,ms));new MutationObserver(()=>requestAnimationFrame(sync)).observe(document.documentElement,{subtree:true,childList:true});
