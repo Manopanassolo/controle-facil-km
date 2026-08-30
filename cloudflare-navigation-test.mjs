@@ -20,7 +20,7 @@ try{
   result.history=await page.evaluate(()=>({page:document.body.dataset.mvPage,stored:localStorage.getItem('mv_last_page_v16282'),hash:location.hash,visible:!document.getElementById('p-historico')?.classList.contains('hide')}));
   await page.locator('#mvMenuToggleV16282').click();await page.waitForTimeout(80);
   result.menuOpen=await page.evaluate(()=>({open:document.body.classList.contains('mv-menu-open-v16282'),collapsed:document.querySelector('#app .nav')?.classList.contains('mv-nav-collapsed-v16282')}));
-  await page.locator('#app .nav [data-p="agenda"]').click();await page.waitForTimeout(120);
+  await navTo('agenda');
   result.autoCollapse=await page.evaluate(()=>({page:document.body.dataset.mvPage,open:document.body.classList.contains('mv-menu-open-v16282'),collapsed:document.querySelector('#app .nav')?.classList.contains('mv-nav-collapsed-v16282')}));
   await page.locator('#mvHomeV16282').click();await page.waitForTimeout(100);
   result.home=await page.evaluate(()=>({page:document.body.dataset.mvPage,visible:!document.getElementById('p-inicio')?.classList.contains('hide')}));
