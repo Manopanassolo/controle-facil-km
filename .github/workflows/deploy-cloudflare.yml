@@ -12,7 +12,7 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -43,30 +43,38 @@ jobs:
           grep -q 'v162.59' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Cloudflare live build 162.59 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+      - name: Prepare visual browser
+        timeout-minutes: 3
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium
       - name: Android visual and real typing test
         timeout-minutes: 2
         run: |
-          export CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
-          test -n "$CHROME"
           node cloudflare-visual-test.mjs
           test -s /tmp/movvant-android.png
           test -s /tmp/movvant-visual-result.json
           grep -q '"pass": true' /tmp/movvant-visual-result.json
           cat /tmp/movvant-visual-result.json
       - name: Upload Android visual evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: movvant-cloudflare-android-visual
           path: |
             /tmp/movvant-android.png
+            /tmp/movvant-android-failure.png
             /tmp/movvant-visual-result.json
+          if-no-files-found: ignore
           retention-days: 7
       - name: Verify Google Maps worker binding
+        if: success()
         run: |
           curl -fsS --max-time 20 "$MOVVANT_URL/api/maps-health" -o /tmp/maps-health.json
           cat /tmp/maps-health.json
           grep -q '"configured":true' /tmp/maps-health.json
       - name: Verify Places endpoint returns suggestions
+        if: success()
         run: |
           code=$(curl -sS --max-time 20 -w '%{http_code}' "$MOVVANT_URL/api/places?q=Avenida%20Paulista" -o /tmp/places.json)
           echo "Places HTTP: $code"
