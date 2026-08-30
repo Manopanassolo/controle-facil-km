@@ -28,9 +28,9 @@ const js=`
   }
   async function reconcileActive(){
     try{
-      if(!globalThis.activeTrip?.id||!globalThis.sb)return;
+      if(typeof activeTrip==='undefined'||!activeTrip?.id||typeof sb==='undefined')return;
       const r=await sb.from('km_trips').select('id,status').eq('id',activeTrip.id).maybeSingle();
-      if(!r?.data){globalThis.activeTrip=null;try{localStorage.removeItem('km_active_trip')}catch(_){};try{await refreshAll?.()}catch(_){};try{render?.()}catch(_){}}
+      if(!r?.data){activeTrip=null;try{localStorage.removeItem('km_active_trip')}catch(_){};try{await refreshAll?.()}catch(_){};try{render?.()}catch(_){}}
     }catch(e){console.error('v162.66 active reconcile',e)}
   }
   const mo=new MutationObserver(()=>{if(document.getElementById('routeEmbeddedMapV133'))requestAnimationFrame(strengthenRoute)});
