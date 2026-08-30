@@ -19,23 +19,25 @@ const js=`
     setTimeout(()=>{
       document.getElementById('auth')?.classList.add('hide');
       document.getElementById('app')?.classList.remove('hide');
-      try{if(typeof show==='function')show('inicio')}catch(_){}
-      const b=[...document.querySelectorAll('#p-inicio button,#p-inicio a,#p-inicio [role="button"]')].find(el=>/Novo deslocamento/i.test((el.textContent||''))||el.getAttribute('data-p-jump')==='viagem');
-      if(b)b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch'}));
+      activate();
+      try{if(typeof show==='function')show('viagem')}catch(_){}
+      const t=document.getElementById('p-viagem'),f=document.getElementById('novaViagem');
+      if(!t||!f){document.documentElement.dataset.mvTripScrollTest='fail';return}
+      const spacer=document.createElement('div');spacer.id='mvScrollProbeV16247';spacer.style.height='1600px';f.appendChild(spacer);
       setTimeout(()=>{
-        const t=document.getElementById('p-viagem'),f=document.getElementById('novaViagem');if(!t||!f)return;
-        const spacer=document.createElement('div');spacer.id='mvScrollProbeV16247';spacer.style.height='1400px';f.appendChild(spacer);
-        window.scrollTo(0,Math.min(500,document.documentElement.scrollHeight-window.innerHeight));
+        window.scrollTo(0,Math.min(500,Math.max(0,document.documentElement.scrollHeight-window.innerHeight-20)));
         const before=window.scrollY;
-        setTimeout(()=>{t.classList.add('hide');f.classList.add('hide')},300);
+        t.classList.add('hide');f.classList.add('hide');
         setTimeout(()=>{
           const after=window.scrollY,ct=getComputedStyle(t),cf=getComputedStyle(f);
           const ok=ct.display!=='none'&&cf.display!=='none'&&Math.abs(after-before)<80&&document.body.classList.contains('mv-trip-active-v16247');
+          document.documentElement.dataset.mvTripScrollBefore=String(Math.round(before));
+          document.documentElement.dataset.mvTripScrollAfter=String(Math.round(after));
           document.documentElement.dataset.mvTripScrollTest=ok?'pass':'fail';
           spacer.remove();
-        },900);
-      },500);
-    },300);
+        },1200);
+      },700);
+    },1200);
   }
 })();
 `;
