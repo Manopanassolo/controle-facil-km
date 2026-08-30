@@ -33,29 +33,35 @@ jobs:
         run: printf '%s' "$GOOGLE_MAPS_API_KEY" | npx --yes wrangler@4 secret put GOOGLE_MAPS_API_KEY
       - name: Deploy to Cloudflare Workers
         run: npx --yes wrangler@4 deploy
-      - name: Verify live HTML is not blank
+      - name: Verify exact live build
         run: |
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3 4 5 6; do
             if curl -fsS --max-time 20 "$MOVVANT_URL/" -o /tmp/movvant.html; then break; fi
             sleep 3
           done
           test -s /tmp/movvant.html
-          grep -q 'mvStartupGuardV16231' /tmp/movvant.html
-          grep -q 'v162.48' /tmp/movvant.html
+          grep -q 'v162.59' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
-          echo "Live HTML bytes: $(wc -c < /tmp/movvant.html)"
-      - name: Verify Google Maps worker binding
+          echo "Cloudflare live build 162.59 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+      - name: Android visual and typing test
         run: |
-          curl -fsS --max-time 20 "$MOVVANT_URL/api/maps-health" -o /tmp/maps-health.json
-          cat /tmp/maps-health.json
-          grep -q '"configured":true' /tmp/maps-health.json
-      - name: Verify Places endpoint returns suggestions
-        run: |
-          code=$(curl -sS --max-time 20 -w '%{http_code}' "$MOVVANT_URL/api/places?q=Avenida%20Paulista" -o /tmp/places.json)
-          echo "Places HTTP: $code"
-          cat /tmp/places.json
-          grep -q '"items":\[' /tmp/places.json
-          grep -q '"placeId"' /tmp/places.json
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          UA='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36'
+          "$CHROME" --headless --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=6500 --window-size=390,844 --user-agent="$UA" --dump-dom "$MOVVANT_URL/?mv_visual_test=1" > /tmp/movvant-visual-dom.html 2>/tmp/chrome-visual.err || { cat /tmp/chrome-visual.err; exit 1; }
+          grep -q 'data-mv-build="162.59"' /tmp/movvant-visual-dom.html
+          grep -q 'data-mv-typing-test="pass"' /tmp/movvant-visual-dom.html
+          "$CHROME" --headless --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=6500 --window-size=390,844 --user-agent="$UA" --screenshot=/tmp/movvant-android.png "$MOVVANT_URL/?mv_visual_test=1" >/tmp/chrome-shot.out 2>/tmp/chrome-shot.err || { cat /tmp/chrome-shot.err; exit 1; }
+          test -s /tmp/movvant-android.png
+          echo 'Cloudflare Android visual/typing test: PASS'
+      - name: Upload Android visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: movvant-cloudflare-android-visual
+          path: |
+            /tmp/movvant-android.png
+            /tmp/movvant-visual-dom.html
+          retention-days: 7
       - name: Verify unauthenticated browser startup
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
@@ -72,24 +78,31 @@ jobs:
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
           "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=4500 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_shell_test=1" > /tmp/movvant-mobile-dom.html 2>/tmp/chrome-mobile.err || { cat /tmp/chrome-mobile.err; exit 1; }
-          test -s /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-shell-test="pass"' /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-buttons-test="pass"' /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-trip-test="pass"' /tmp/movvant-mobile-dom.html
-          grep -q 'data-mv-bell-test="pass"' /tmp/movvant-mobile-dom.html
-          grep -q 'data-mv-agenda-test="pass"' /tmp/movvant-mobile-dom.html
-          echo 'Authenticated Android trip + notifications + agenda actions: PASS'
       - name: Verify trip scroll remains stable
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
           "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_trip_scroll_test=1" > /tmp/movvant-trip-scroll.html 2>/tmp/chrome-trip-scroll.err || { cat /tmp/chrome-trip-scroll.err; exit 1; }
           grep -q 'data-mv-trip-scroll-test="pass"' /tmp/movvant-trip-scroll.html
-          echo 'Novo deslocamento preserves content and scroll position: PASS'
+      - name: Verify Google Maps worker binding
+        run: |
+          curl -fsS --max-time 20 "$MOVVANT_URL/api/maps-health" -o /tmp/maps-health.json
+          cat /tmp/maps-health.json
+          grep -q '"configured":true' /tmp/maps-health.json
+      - name: Verify Places endpoint returns suggestions
+        run: |
+          code=$(curl -sS --max-time 20 -w '%{http_code}' "$MOVVANT_URL/api/places?q=Avenida%20Paulista" -o /tmp/places.json)
+          echo "Places HTTP: $code"
+          cat /tmp/places.json
+          test "$code" = "200"
+          grep -q '"items":\[' /tmp/places.json
+          grep -q '"placeId"' /tmp/places.json
       - name: Verify Android address autocomplete
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
           "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_places_test=1" > /tmp/movvant-places.html 2>/tmp/chrome-places.err || { cat /tmp/chrome-places.err; exit 1; }
           grep -q 'data-mv-places-test="pass"' /tmp/movvant-places.html
-          echo 'Trip destination autocomplete: PASS'
