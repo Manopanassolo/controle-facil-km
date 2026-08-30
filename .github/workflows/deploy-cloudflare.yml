@@ -33,7 +33,7 @@ jobs:
           matched=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
-              if grep -q 'v162.62' /tmp/movvant.html && grep -q 'Movvant' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+              if grep -q 'v162.63' /tmp/movvant.html && grep -q 'Movvant' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
                 matched=1
                 break
               fi
@@ -42,7 +42,7 @@ jobs:
             sleep 3
           done
           test "$matched" = "1"
-          echo "Cloudflare exact live build 162.62 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare exact live build 162.63 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
@@ -56,6 +56,13 @@ jobs:
           test -s /tmp/movvant-visual-result.json
           grep -q '"pass": true' /tmp/movvant-visual-result.json
           cat /tmp/movvant-visual-result.json
+      - name: Android two-tap autocomplete route flow
+        timeout-minutes: 2
+        run: |
+          node cloudflare-autocomplete-flow-test.mjs
+          test -s /tmp/movvant-autocomplete-flow.json
+          grep -q '"pass": true' /tmp/movvant-autocomplete-flow.json
+          cat /tmp/movvant-autocomplete-flow.json
       - name: Upload Android visual evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,6 +74,9 @@ jobs:
             /tmp/movvant-pretap.png
             /tmp/movvant-stop-open.png
             /tmp/movvant-visual-result.json
+            /tmp/movvant-autocomplete-flow.png
+            /tmp/movvant-autocomplete-flow-failure.png
+            /tmp/movvant-autocomplete-flow.json
           if-no-files-found: ignore
           retention-days: 7
       - name: Verify Google Maps worker binding
