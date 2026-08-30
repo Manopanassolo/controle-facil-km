@@ -33,7 +33,7 @@ jobs:
           matched=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
-              if grep -q 'v162.73' /tmp/movvant.html && grep -q 'mvPlannerModesV16273' /tmp/movvant.html && grep -q 'mvCustomPlannerV16273' /tmp/movvant.html && grep -q 'mvPlanRouteV16272' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+              if grep -q 'v162.74' /tmp/movvant.html && grep -q 'mvGoogleRouteFrameV16274' /tmp/movvant.html && grep -q 'Retornar pelo mesmo caminho' /tmp/movvant.html && grep -q 'mvPlanRouteV16272' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
                 matched=1
                 break
               fi
@@ -42,7 +42,7 @@ jobs:
             sleep 3
           done
           test "$matched" = "1"
-          echo "Cloudflare exact live build 162.73 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare exact live build 162.74 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
@@ -61,7 +61,7 @@ jobs:
           node cloudflare-autocomplete-flow-test.mjs
           test -s /tmp/movvant-autocomplete-flow.json
           grep -q '"pass": true' /tmp/movvant-autocomplete-flow.json
-      - name: Route stops and advanced planner visual test
+      - name: Route stops and planner visual test
         timeout-minutes: 2
         run: |
           node route-stop-sequence-test.mjs
