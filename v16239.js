@@ -1,26 +1,17 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.39: hard-bind the visible Home "Novo deslocamento" CTA on Android.
+// v162.42: hard-bind the visible Home "Novo deslocamento" CTA on Android.
 (function(){
   function forceTrip(){
+    globalThis.mvTripLockArm?.();
     const app=document.getElementById('app'),trip=document.getElementById('p-viagem');
     if(!app||!trip)return false;
-    try{if(typeof show==='function')show('viagem')}catch(e){console.warn('v162.39 show viagem',e)}
+    try{if(typeof show==='function')show('viagem')}catch(e){console.warn('v162.42 show viagem',e)}
     app.classList.remove('hide');app.hidden=false;
     app.querySelectorAll('section[id^="p-"]').forEach(sec=>{
-      if(sec===trip){
-        sec.classList.remove('hide');sec.hidden=false;
-        sec.style.setProperty('display','block','important');
-        sec.style.setProperty('visibility','visible','important');
-        sec.style.setProperty('opacity','1','important');
-        sec.style.setProperty('pointer-events','auto','important');
-      }else{
-        sec.classList.add('hide');
-        sec.style.removeProperty('display');
-        sec.style.removeProperty('visibility');
-        sec.style.removeProperty('opacity');
-      }
+      if(sec===trip){sec.classList.remove('hide');sec.hidden=false;sec.style.setProperty('display','block','important');sec.style.setProperty('visibility','visible','important');sec.style.setProperty('opacity','1','important');sec.style.setProperty('pointer-events','auto','important')}
+      else{sec.classList.add('hide');sec.style.removeProperty('display');sec.style.removeProperty('visibility');sec.style.removeProperty('opacity')}
     });
     document.body.classList.remove('km-menu-open','mv-lock-v1629');
     document.documentElement.classList.remove('mv-lock-v1629');
@@ -39,7 +30,7 @@ const js=`
   }
   function bind(){
     visibleTripButtons().forEach((b,i)=>{
-      b.id=b.id||('mvNovoDeslocamentoV16239_'+i);
+      b.id=b.id||('mvNovoDeslocamentoV16242_'+i);
       b.dataset.mvTripCta='1';
       b.style.setProperty('pointer-events','auto','important');
       b.style.setProperty('position','relative','important');
@@ -51,6 +42,7 @@ const js=`
   document.addEventListener('pointerdown',function(e){
     const b=e.target.closest?.('[data-mv-trip-cta="1"]');
     if(!b)return;
+    globalThis.mvTripLockArm?.();
     e.preventDefault();e.stopImmediatePropagation();forceTrip();
   },true);
   [50,180,500,1200,2500].forEach(ms=>setTimeout(bind,ms));
@@ -70,7 +62,7 @@ const js=`
   }
 })();
 `;
-if(!s.includes('carga();'))throw new Error('v162.39 startup anchor not found');
+if(!s.includes('carga();'))throw new Error('v162.42 startup anchor not found');
 s=s.replace('carga();',js+'\ncarga();');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.39: visible Novo deslocamento CTA hard-bound for Android');
+console.log('Movvant v162.42: visible Novo deslocamento CTA hard-bound with persistence lock');
