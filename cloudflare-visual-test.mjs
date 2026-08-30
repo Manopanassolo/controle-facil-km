@@ -1,7 +1,21 @@
 import fs from 'node:fs';
+import http from 'node:http';
+import crypto from 'node:crypto';
 import { chromium } from 'playwright';
 
 const base = process.env.MOVVANT_URL || 'https://movvant.panassolofilho.workers.dev';
+const localHtmlPath = new URL('./dist/index.html', import.meta.url);
+const localHtml = fs.readFileSync(localHtmlPath, 'utf8');
+const sha = text => crypto.createHash('sha256').update(text).digest('hex');
+const server = http.createServer((req,res)=>{
+  if(req.url?.startsWith('/api/')){
+    res.writeHead(404,{'content-type':'application/json'});res.end('{"qa":"api checked separately"}');return;
+  }
+  res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});
+  res.end(localHtml);
+});
+await new Promise(resolve=>server.listen(4173,'127.0.0.1',resolve));
+
 const browser = await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const context = await browser.newContext({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36',isMobile:true,hasTouch:true,deviceScaleFactor:1});
 const page = await context.newPage();
@@ -11,14 +25,15 @@ const mark=async(name)=>{result.checkpoints.push(name);console.log('CHECKPOINT',
 try {
   console.log('CHECKPOINT preflight');
   const preflight=await context.request.get(base+'/',{timeout:15000,failOnStatusCode:false});
-  result.preflight={status:preflight.status(),ok:preflight.ok()};
+  const liveHtml=await preflight.text();
+  result.preflight={status:preflight.status(),ok:preflight.ok(),liveSha:sha(liveHtml),localSha:sha(localHtml),sameAsset:sha(liveHtml)===sha(localHtml)};
   if(!preflight.ok())throw new Error('Cloudflare preflight HTTP '+preflight.status());
-  let html=await preflight.text();
-  const baseTag='<base href="'+base.replace(/\/$/,'')+'/">';
-  html=/<head[^>]*>/i.test(html)?html.replace(/<head([^>]*)>/i,'<head$1>'+baseTag):baseTag+html;
+  if(!result.preflight.sameAsset)throw new Error('Live Cloudflare HTML differs from exact local production candidate');
+  if(!liveHtml.includes('v162.62'))throw new Error('Live Cloudflare HTML missing v162.62 marker');
+
   console.log('CHECKPOINT render');
-  await page.setContent(html,{waitUntil:'domcontentloaded',timeout:15000});
-  await page.waitForTimeout(1800);
+  await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:15000});
+  await page.waitForTimeout(2200);
   const shell=await page.evaluate(()=>{
     const auth=document.getElementById('auth'),app=document.getElementById('app'),trip=document.getElementById('p-viagem'),form=document.getElementById('novaViagem'),route=document.getElementById('directRouteStackV127');
     if(auth)auth.classList.add('hide');
@@ -31,7 +46,7 @@ try {
     return {app:!!app,trip:!!trip,form:!!form,route:!!route,origin:!!o,destination:!!d,cleanOrigin:o?.dataset.mvCleanV16261==='1',cleanDestination:d?.dataset.mvCleanV16261==='1'};
   });
   Object.assign(result,{shell});
-  if(!shell.app||!shell.trip||!shell.form||!shell.route||!shell.origin||!shell.destination||!shell.cleanOrigin||!shell.cleanDestination)throw new Error('v162.61 trip shell incomplete: '+JSON.stringify(shell));
+  if(!shell.app||!shell.trip||!shell.form||!shell.route||!shell.origin||!shell.destination||!shell.cleanOrigin||!shell.cleanDestination)throw new Error('v162.62 trip shell incomplete: '+JSON.stringify(shell));
   await page.waitForTimeout(300);
   await mark('pretap');
   const diag=await page.evaluate(()=>{
@@ -89,7 +104,7 @@ try {
   const compactStop=!!stopBefore.row&&stopBefore.row.h<=95&&(!stopBefore.add||stopBefore.add.h<=44)&&!stopBefore.listText.includes('Sem paradas. Adicione somente se fizer parte do percurso.');
   const cleanEditor=stopAfter.open&&stopAfter.entryVisible&&(!stopAfter.toggle||stopAfter.toggle.h<=44)&&(!stopAfter.input||stopAfter.input.h<=52)&&(!stopAfter.add||stopAfter.add.h<=44);
   result.stopChecks={compactStop,cleanEditor};
-  result.pass=keyboard.value==='Avenida Paulista'&&keyboard.active&&touch.active&&touch.hitId==='origem'&&final.originEditable&&final.destinationEditable&&final.pointer!=='none'&&final.originVisible&&final.destinationVisible&&final.routeVisible&&final.cleanOrigin&&final.cleanDestination&&!final.oldProxyPresent&&final.versionMarker&&compactStop&&cleanEditor;
+  result.pass=result.preflight.sameAsset&&keyboard.value==='Avenida Paulista'&&keyboard.active&&touch.active&&touch.hitId==='origem'&&final.originEditable&&final.destinationEditable&&final.pointer!=='none'&&final.originVisible&&final.destinationVisible&&final.routeVisible&&final.cleanOrigin&&final.cleanDestination&&!final.oldProxyPresent&&final.versionMarker&&compactStop&&cleanEditor;
   fs.writeFileSync('/tmp/movvant-visual-result.json',JSON.stringify(result,null,2));
   await page.screenshot({path:'/tmp/movvant-android.png',fullPage:false,timeout:5000});
   console.log('RESULT',JSON.stringify(result));
@@ -99,4 +114,7 @@ try {
   try{await page.screenshot({path:'/tmp/movvant-android-failure.png',fullPage:false,timeout:5000})}catch{}
   fs.writeFileSync('/tmp/movvant-visual-result.json',JSON.stringify(result,null,2));
   process.exitCode=1;
-} finally {await browser.close()}
+} finally {
+  await browser.close();
+  await new Promise(resolve=>server.close(resolve));
+}
