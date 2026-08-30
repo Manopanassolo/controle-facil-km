@@ -11,3 +11,12 @@ for(const re of [/#app[^\{]*\{[^\}]*\}/g,/#p-inicio[^\{]*\{[^\}]*\}/g,/\.w[^\{]*
   const m=[...style.matchAll(re)].map(x=>x[0]);
   console.log('\nCSS '+re+':\n'+m.join('\n'));
 }
+const bad='section{display:none!important}';
+const bi=s.indexOf(bad);
+console.log('\n=== GLOBAL SECTION HIDE @ '+bi+' ===');
+if(bi>=0){
+  console.log(s.slice(Math.max(0,bi-3000),Math.min(s.length,bi+1200)));
+  const before=s.slice(0,bi);
+  const comments=[...before.matchAll(/\/\*[^*]*v\d[^*]*\*\//gi)];
+  console.log('Nearest version comment:',comments.at(-1)?.[0]||'none');
+}
