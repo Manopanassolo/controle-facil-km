@@ -1,57 +1,60 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.82: persistent page navigation, safe in-app back/home and auto-collapsing mobile menu.
+// v162.82 performance hotfix: persistent navigation without continuous DOM observation.
 (function(){
   const VERSION='162.82';
   const PAGE_KEY='mv_last_page_v16282';
   const STACK_KEY='mv_nav_stack_v16282';
   const byId=id=>document.getElementById(id);
   const nav=()=>document.querySelector('#app .nav');
-  const pages=()=>[...document.querySelectorAll('#app [id^="p-"]')].map(x=>x.id.slice(2));
-  const valid=n=>!!n&&pages().includes(n);
+  let pageSet=new Set();
+  const refreshPages=()=>{pageSet=new Set([...document.querySelectorAll('#app [id^="p-"]')].map(x=>x.id.slice(2)));return pageSet};
+  const valid=n=>!!n&&(pageSet.has(n)||refreshPages().has(n));
   const hashPage=()=>{try{const m=location.hash.match(/(?:^#|[&#])p=([^&]+)/);return m?decodeURIComponent(m[1]):''}catch(_){return''}};
   const safeStored=()=>{try{return localStorage.getItem(PAGE_KEY)||''}catch(_){return''}};
   const initial=()=>{const a=history.state?.mvPage,b=hashPage(),c=safeStored();return valid(a)?a:valid(b)?b:valid(c)?c:'inicio'};
-  let current=initial(),restoring=false,restoreDone=false;
+  refreshPages();
+  let current=initial(),restoring=false,restoreDone=false,shellInstalled=false,resizeQueued=false;
   function stackRead(){try{const v=JSON.parse(sessionStorage.getItem(STACK_KEY)||'[]');return Array.isArray(v)?v.filter(valid).slice(-30):[]}catch(_){return[]}}
   function stackWrite(v){try{sessionStorage.setItem(STACK_KEY,JSON.stringify(v.slice(-30)))}catch(_){}}
   function remember(n){try{localStorage.setItem(PAGE_KEY,n)}catch(_){} }
   function urlFor(n){const u=new URL(location.href);u.hash='p='+encodeURIComponent(n);return u.pathname+u.search+u.hash}
   function setHistory(n,replace=false){try{history[replace?'replaceState':'pushState']({...(history.state||{}),mvPage:n,mvVersion:VERSION},'',urlFor(n))}catch(_){} }
+  function isMobile(){return matchMedia('(max-width: 820px)').matches}
   function closeMenu(){const n=nav();if(!n)return;n.classList.add('mv-nav-collapsed-v16282');document.body.classList.remove('mv-menu-open-v16282');const b=byId('mvMenuToggleV16282');if(b)b.setAttribute('aria-expanded','false')}
   function openMenu(){const n=nav();if(!n)return;n.classList.remove('mv-nav-collapsed-v16282');document.body.classList.add('mv-menu-open-v16282');const b=byId('mvMenuToggleV16282');if(b)b.setAttribute('aria-expanded','true')}
-  function active(n){document.querySelectorAll('#app .nav [data-p]').forEach(b=>{const on=b.dataset.p===n;b.classList.toggle('mv-current-v16282',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});const title=byId('mvPageTitleV16282'),btn=document.querySelector('#app .nav [data-p="'+CSS.escape(n)+'"]');if(title)title.textContent=btn?.textContent?.trim()||'Movvant';const back=byId('mvBackV16282');if(back)back.disabled=n==='inicio'&&stackRead().length===0}
-  function afterShow(n){if(!valid(n))return;current=n;remember(n);active(n);if(matchMedia('(max-width: 820px)').matches)closeMenu();document.body.dataset.mvPage=n}
+  function active(n){const items=document.querySelectorAll('#app .nav [data-p]');let selected=null;items.forEach(b=>{const on=b.dataset.p===n;if(on)selected=b;b.classList.toggle('mv-current-v16282',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});const title=byId('mvPageTitleV16282');if(title)title.textContent=selected?.textContent?.trim()||'Movvant';const back=byId('mvBackV16282');if(back)back.disabled=n==='inicio'&&stackRead().length===0}
+  function afterShow(n){if(!valid(n))return;current=n;remember(n);active(n);if(isMobile())closeMenu();document.body.dataset.mvPage=n}
   let legacyShow=null;
   try{if(typeof show==='function'){legacyShow=show;show=function(n){if(!valid(n))return legacyShow(n);const previous=current;if(!restoring&&previous&&previous!==n){const st=stackRead();st.push(previous);stackWrite(st);setHistory(n,false)}else if(restoring){setHistory(n,true)}const r=legacyShow(n);afterShow(n);return r}}}catch(e){console.warn('v162.82 show wrapper',e)}
   function direct(n,replace=true){if(!valid(n))n='inicio';restoring=true;try{if(legacyShow)legacyShow(n);else{document.querySelectorAll('#app [id^="p-"]').forEach(x=>x.classList.add('hide'));byId('p-'+n)?.classList.remove('hide')}if(replace)setHistory(n,true);afterShow(n)}finally{restoring=false}}
-  function navigate(n){if(!valid(n))return;const previous=current;if(previous&&previous!==n){const st=stackRead();st.push(previous);stackWrite(st)}current=n;remember(n);setHistory(n,false);setTimeout(()=>direct(n,true),0)}
+  function navigate(n){if(!valid(n)||n===current){if(isMobile())closeMenu();return}const previous=current;if(previous){const st=stackRead();st.push(previous);stackWrite(st)}current=n;remember(n);setHistory(n,false);direct(n,true)}
   function goHome(){if(current!=='inicio'){const st=stackRead();st.push(current);stackWrite(st)}direct('inicio',true)}
   function goBack(){const st=stackRead();let prev='';while(st.length&&!prev){const x=st.pop();if(valid(x)&&x!==current)prev=x}stackWrite(st);direct(prev||'inicio',true)}
   function installShell(){
-    const app=byId('app'),n=nav();if(!app||!n)return;
+    if(shellInstalled&&byId('mvTopNavV16282'))return true;
+    const app=byId('app'),n=nav();if(!app||!n)return false;
+    refreshPages();
     let bar=byId('mvTopNavV16282');
     if(!bar){bar=document.createElement('div');bar.id='mvTopNavV16282';bar.className='mv-topnav-v16282';bar.innerHTML='<button type="button" id="mvMenuToggleV16282" aria-label="Abrir menu" aria-expanded="false">☰</button><button type="button" id="mvBackV16282" aria-label="Voltar">←</button><button type="button" id="mvHomeV16282" aria-label="Tela inicial">⌂</button><strong id="mvPageTitleV16282">Movvant</strong>';n.insertAdjacentElement('beforebegin',bar);byId('mvMenuToggleV16282').onclick=()=>document.body.classList.contains('mv-menu-open-v16282')?closeMenu():openMenu();byId('mvBackV16282').onclick=goBack;byId('mvHomeV16282').onclick=goHome}
-    document.querySelectorAll('[data-p-jump]').forEach(b=>{if(b.dataset.mvAutoCollapse82)return;b.dataset.mvAutoCollapse82='1';b.addEventListener('click',()=>setTimeout(closeMenu,0))});
-    if(matchMedia('(max-width: 820px)').matches&&!document.body.classList.contains('mv-menu-open-v16282'))closeMenu();active(current);
+    document.querySelectorAll('[data-p-jump]').forEach(b=>{if(b.dataset.mvAutoCollapse82)return;b.dataset.mvAutoCollapse82='1';b.addEventListener('click',()=>{if(isMobile())closeMenu()})});
+    shellInstalled=true;
+    if(isMobile()&&!document.body.classList.contains('mv-menu-open-v16282'))closeMenu();active(current);return true;
   }
   function tryRestore(){
-    installShell();const app=byId('app');if(!app||app.classList.contains('hide')||restoreDone)return;
-    const target=initial();restoreDone=true;direct(target,true);
+    if(!installShell())return false;const app=byId('app');if(!app||app.classList.contains('hide')||restoreDone)return false;
+    const target=initial();restoreDone=true;direct(target,true);return true;
   }
   window.addEventListener('popstate',e=>{const n=valid(e.state?.mvPage)?e.state.mvPage:(valid(hashPage())?hashPage():'inicio');direct(n,false)});
   window.addEventListener('hashchange',()=>{const n=hashPage();if(valid(n)&&n!==current)direct(n,false)});
-  window.addEventListener('resize',()=>{installShell();if(!matchMedia('(max-width: 820px)').matches){nav()?.classList.remove('mv-nav-collapsed-v16282');document.body.classList.remove('mv-menu-open-v16282')}});
+  window.addEventListener('resize',()=>{if(resizeQueued)return;resizeQueued=true;requestAnimationFrame(()=>{resizeQueued=false;if(!isMobile()){nav()?.classList.remove('mv-nav-collapsed-v16282');document.body.classList.remove('mv-menu-open-v16282')}else if(!document.body.classList.contains('mv-menu-open-v16282'))closeMenu()})});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('mv-menu-open-v16282'))closeMenu()});
-  document.addEventListener('click',e=>{const b=e.target?.closest?.('#app .nav [data-p]');if(b){const target=b.dataset.p;if(valid(target)){navigate(target);if(matchMedia('(max-width: 820px)').matches)closeMenu()}return}if(!matchMedia('(max-width: 820px)').matches||!document.body.classList.contains('mv-menu-open-v16282'))return;const n=nav(),bar=byId('mvTopNavV16282');if(n&&!n.contains(e.target)&&bar&&!bar.contains(e.target))closeMenu()},true);
-  // Observe only structural DOM changes. Watching class mutations caused a self-triggering
-  // loop because installShell/active/closeMenu also change classes, which could starve
-  // Android's main thread and freeze real keyboard input.
-  let queued=false;
-  const mo=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;installShell();tryRestore()})});
-  try{mo.observe(document.documentElement,{subtree:true,childList:true})}catch(_){}
-  [0,120,350,800,1500,2800].forEach(ms=>setTimeout(()=>{installShell();tryRestore()},ms));
+  document.addEventListener('click',e=>{const b=e.target?.closest?.('#app .nav [data-p]');if(b){const target=b.dataset.p;if(valid(target))navigate(target);return}if(!isMobile()||!document.body.classList.contains('mv-menu-open-v16282'))return;const n=nav(),bar=byId('mvTopNavV16282');if(n&&!n.contains(e.target)&&bar&&!bar.contains(e.target))closeMenu()},true);
+  // Lightweight bootstrap only. No permanent MutationObserver: the prior subtree observer
+  // woke up on every dynamic DOM insertion and made long mobile sessions progressively heavy.
+  const boot=[0,120,350,900,1800];
+  for(const ms of boot)setTimeout(()=>{if(tryRestore()&&shellInstalled){}},ms);
   globalThis.mvNavigationV16282={home:goHome,back:goBack,navigate,openMenu,closeMenu,get page(){return current}};
 })();
 `;
@@ -77,4 +80,4 @@ const css=`
 if(!s.includes('</style>'))throw new Error('v162.82 css anchor not found');
 s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.82: persistent navigation, back/home and auto-collapse installed');
+console.log('Movvant v162.82 performance hotfix: persistent navigation without continuous DOM observer');
