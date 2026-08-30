@@ -51,7 +51,8 @@ jobs:
           grep -q '"configured":true' /tmp/maps-health.json
       - name: Verify Places endpoint returns suggestions
         run: |
-          curl -fsS --max-time 20 "$MOVVANT_URL/api/places?q=Avenida%20Paulista" -o /tmp/places.json
+          code=$(curl -sS --max-time 20 -w '%{http_code}' "$MOVVANT_URL/api/places?q=Avenida%20Paulista" -o /tmp/places.json)
+          echo "Places HTTP: $code"
           cat /tmp/places.json
           grep -q '"items":\[' /tmp/places.json
           grep -q '"placeId"' /tmp/places.json
