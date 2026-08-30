@@ -38,8 +38,15 @@ const js=`
       }catch(err){msg('Não foi possível iniciar o deslocamento: '+(err?.message||String(err)),true)}finally{btn.disabled=false;btn.textContent=oldText}
     },true);
   }
-  const ro=new MutationObserver(()=>{prepare();bind()});ro.observe(document.documentElement,{subtree:true,childList:true});
-  setTimeout(bind,0);setTimeout(bind,500);setTimeout(bind,1200);
+  try{
+    if(typeof MutationObserver==='function'&&document.documentElement){
+      const ro=new MutationObserver(()=>{try{prepare();bind()}catch(e){console.error('v162.29 observer',e)}});
+      ro.observe(document.documentElement,{subtree:true,childList:true});
+    }
+  }catch(e){console.error('v162.29 observer init skipped',e)}
+  setTimeout(()=>{try{bind()}catch(e){console.error('v162.29 bind',e)}},0);
+  setTimeout(()=>{try{bind()}catch(e){console.error('v162.29 bind',e)}},500);
+  setTimeout(()=>{try{bind()}catch(e){console.error('v162.29 bind',e)}},1200);
 })();
 `;
 if(!s.includes('carga();'))throw new Error('v162.29 startup anchor not found');
