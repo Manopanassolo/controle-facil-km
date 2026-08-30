@@ -17,3 +17,5 @@ jobs:
           node-version: '24'
       - name: Build and validate production candidate
         run: npm run build
+      - name: Inspect rendered shell
+        run: node inspect-shell.js
