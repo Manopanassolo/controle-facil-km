@@ -41,6 +41,7 @@ jobs:
           done
           test -s /tmp/movvant.html
           grep -q 'mvStartupGuardV16231' /tmp/movvant.html
+          grep -q 'v162.36' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Live HTML bytes: $(wc -c < /tmp/movvant.html)"
       - name: Verify Google Maps worker binding
@@ -48,18 +49,27 @@ jobs:
           curl -fsS --max-time 20 "$MOVVANT_URL/api/maps-health" -o /tmp/maps-health.json
           cat /tmp/maps-health.json
           grep -q '"configured":true' /tmp/maps-health.json
-      - name: Verify live browser does not recover from blank screen
+      - name: Verify unauthenticated browser startup
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
-          if [ -z "$CHROME" ]; then
-            echo 'Chrome not available on runner; HTTP startup smoke test already passed.'
-            exit 0
-          fi
-          "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=7000 --dump-dom "$MOVVANT_URL/" > /tmp/movvant-dom.html 2>/tmp/chrome.err || { cat /tmp/chrome.err; exit 1; }
+          test -n "$CHROME"
+          "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=7000 --window-size=390,844 --dump-dom "$MOVVANT_URL/" > /tmp/movvant-dom.html 2>/tmp/chrome.err || { cat /tmp/chrome.err; exit 1; }
           test -s /tmp/movvant-dom.html
           if grep -q 'id="mvStartupRecoveryV16231"' /tmp/movvant-dom.html; then
             echo 'Blank-screen recovery panel appeared in live browser.'
             exit 1
           fi
           grep -Eq 'id="auth"|id="app"' /tmp/movvant-dom.html
-          echo 'Live browser startup smoke test: PASS'
+      - name: Verify authenticated Android home shell
+        run: |
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=4500 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_shell_test=1" > /tmp/movvant-mobile-dom.html 2>/tmp/chrome-mobile.err || { cat /tmp/chrome-mobile.err; exit 1; }
+          test -s /tmp/movvant-mobile-dom.html
+          grep -q 'data-mv-shell-test="pass"' /tmp/movvant-mobile-dom.html
+          grep -Eq 'id="p-inicio"[^>]*class="[^"]*home-compact-v136|id="p-inicio"' /tmp/movvant-mobile-dom.html
+          if grep -Eq 'id="p-inicio"[^>]*class="[^"]*hide' /tmp/movvant-mobile-dom.html; then
+            echo 'Authenticated Android home remained hidden.'
+            exit 1
+          fi
+          echo 'Authenticated Android home shell: PASS'
