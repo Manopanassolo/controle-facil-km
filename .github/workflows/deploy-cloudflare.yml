@@ -64,6 +64,7 @@ jobs:
           path: |
             /tmp/movvant-android.png
             /tmp/movvant-android-failure.png
+            /tmp/movvant-pretap.png
             /tmp/movvant-visual-result.json
           if-no-files-found: ignore
           retention-days: 7
