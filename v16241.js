@@ -1,7 +1,7 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.41: protect the first seconds of Novo deslocamento from delayed startup rerenders.
+// v162.42: protect Novo deslocamento from delayed startup rerenders.
 (function(){
   let tripLockUntil=0;
   let restoring=false;
@@ -19,12 +19,10 @@ const js=`
       });
     }finally{restoring=false}
   }
-  function armTripLock(){tripLockUntil=Date.now()+3200;forceTripStable()}
+  function armTripLock(){tripLockUntil=Date.now()+5000;forceTripStable()}
+  globalThis.mvTripLockArm=armTripLock;
+  globalThis.mvTripLockCancel=()=>{tripLockUntil=0};
   function isTripCTA(el){return !!el?.closest?.('[data-mv-trip-cta="1"],#p-inicio [data-p-jump="viagem"]')}
-  document.addEventListener('pointerdown',e=>{
-    if(isTripCTA(e.target)){armTripLock();return}
-    if(tripLockUntil>Date.now())tripLockUntil=0;
-  },true);
   document.addEventListener('click',e=>{
     if(isTripCTA(e.target)){armTripLock();return}
     if(tripLockUntil>Date.now())tripLockUntil=0;
@@ -43,12 +41,12 @@ const js=`
       try{if(typeof show==='function')show('inicio')}catch(_){}
       const b=[...document.querySelectorAll('#p-inicio button,#p-inicio a,#p-inicio [role="button"]')].find(el=>/Novo deslocamento/i.test((el.textContent||''))||el.getAttribute('data-p-jump')==='viagem');
       if(b)b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch'}));
-      setTimeout(()=>{const t=trip();const ok=!!t&&!t.classList.contains('hide')&&getComputedStyle(t).display!=='none';document.documentElement.dataset.mvTripPersistTest=ok?'pass':'fail'},2400);
+      setTimeout(()=>{const t=trip();const ok=!!t&&!t.classList.contains('hide')&&getComputedStyle(t).display!=='none';document.documentElement.dataset.mvTripPersistTest=ok?'pass':'fail'},3600);
     },300);
   }
 })();
 `;
-if(!s.includes('carga();'))throw new Error('v162.41 startup anchor not found');
+if(!s.includes('carga();'))throw new Error('v162.42 startup anchor not found');
 s=s.replace('carga();',js+'\ncarga();');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.41: Novo deslocamento protected from delayed startup rerenders');
+console.log('Movvant v162.42: Novo deslocamento persistence lock active');
