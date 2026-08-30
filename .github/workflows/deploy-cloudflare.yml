@@ -33,7 +33,7 @@ jobs:
           matched=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
-              if grep -q 'v162.81' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'presentStarted' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+              if grep -q 'v162.82' /tmp/movvant.html && grep -q 'mvTopNavV16282' /tmp/movvant.html && grep -q 'mv_last_page_v16282' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'presentStarted' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
                 matched=1
                 break
               fi
@@ -42,7 +42,7 @@ jobs:
             sleep 3
           done
           test "$matched" = "1"
-          echo "Cloudflare exact live build 162.81 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare exact live build 162.82 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
@@ -55,6 +55,12 @@ jobs:
           test -s /tmp/movvant-android.png
           test -s /tmp/movvant-visual-result.json
           grep -q '"pass": true' /tmp/movvant-visual-result.json
+      - name: Android navigation persistence test
+        timeout-minutes: 2
+        run: |
+          node cloudflare-navigation-test.mjs
+          test -s /tmp/movvant-navigation.json
+          grep -q '"pass": true' /tmp/movvant-navigation.json
       - name: Android two-tap autocomplete route flow
         timeout-minutes: 2
         run: |
@@ -80,6 +86,9 @@ jobs:
             /tmp/movvant-pretap.png
             /tmp/movvant-stop-open.png
             /tmp/movvant-visual-result.json
+            /tmp/movvant-navigation.png
+            /tmp/movvant-navigation-failure.png
+            /tmp/movvant-navigation.json
             /tmp/movvant-autocomplete-flow.png
             /tmp/movvant-autocomplete-flow-failure.png
             /tmp/movvant-autocomplete-flow.json
