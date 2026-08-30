@@ -17,6 +17,7 @@ const js=`
   function path(o){return [o.origin,...clean(o.stops),o.destination,...(o.round?[o.origin]:[])].filter(Boolean).join(' → ')}
   function specialCard(o,i){const toll=o.item.hasTolls?(Number(o.item.tollTotalBRL)>0?'Pedágios estimados: '+money(o.item.tollTotalBRL):'Com pedágio'):'Sem pedágio identificado';return '<button type="button" class="route-choice-v131 mv-route72 mv-sameway74" data-route74="'+i+'"><div class="route-choice-head-v131"><b>↩ Retornar pelo mesmo caminho</b><span>'+dur(o.item.duration)+'</span></div><div class="route-choice-metrics-v131"><strong>'+km(o.item.distanceMeters)+'</strong><span>'+toll+'</span></div><small>'+esc(path(o))+'</small><em>Ida escolhida + retorno pelo trajeto inverso</em></button>'}
   function simplify(){
+    if(globalThis.mvStableRouteControllerV16277)return;
     const box=byId('routePlanResultsV131');if(!box)return;
     byId('mvPlannerModesV16273')?.remove();byId('mvPlannerHintV16273')?.remove();byId('mvCustomPlannerV16273')?.remove();
     box.querySelectorAll('.mv-route72').forEach(x=>x.classList.remove('mv-suggested-hidden73'));
