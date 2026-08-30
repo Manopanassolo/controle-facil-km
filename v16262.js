@@ -7,7 +7,8 @@ const js=`
     const point=document.querySelector('#directRouteStackV127 .route-point-v126.stops');
     const body=point?.querySelector('.route-point-body-v126');
     const marker=point?.querySelector('.route-marker-v126');
-    const entry=document.getElementById('preTripStopNameV127')?.closest('.pre-stop-entry-v127');
+    const stopInput=document.getElementById('preTripStopNameV127');
+    const entry=stopInput?.closest('.pre-stop-entry-v127');
     const list=document.getElementById('preTripStopsListV127');
     if(!point||!body||!entry||!list)return;
     point.classList.add('mv-stop-v16262');
@@ -18,17 +19,31 @@ const js=`
       toggle.type='button';toggle.id='mvStopToggleV16262';toggle.className='mv-stop-toggle-v16262';
       toggle.innerHTML='<span>+</span><b>Adicionar parada</b>';
       body.insertBefore(toggle,entry);
-      toggle.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();point.classList.toggle('mv-stop-open-v16262');toggle.querySelector('b').textContent=point.classList.contains('mv-stop-open-v16262')?'Fechar':'Adicionar parada';if(point.classList.contains('mv-stop-open-v16262'))setTimeout(()=>document.getElementById('preTripStopNameV127')?.focus(),40)});
     }else{
       const icon=toggle.querySelector('span');if(icon&&icon.textContent!=='+')icon.textContent='+';
     }
+    // Rebind on every sync. Some legacy route updates clone/recreate DOM nodes after an
+    // autocomplete confirmation, which preserves markup but drops addEventListener handlers.
+    toggle.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      point.classList.toggle('mv-stop-open-v16262');
+      const open=point.classList.contains('mv-stop-open-v16262');
+      const label=toggle.querySelector('b');if(label)label.textContent=open?'Fechar':'Adicionar parada';
+      if(open)setTimeout(()=>document.getElementById('preTripStopNameV127')?.focus(),40);
+    };
     [...body.children].forEach(el=>{
       if(el===toggle||el===entry||el===list||el.tagName==='SMALL')return;
       const txt=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
       if(txt.includes('adicionar parada')||txt==='+'||txt==='＋')el.remove();
     });
     const add=document.getElementById('preTripStopAddV127');
-    if(add&&add.textContent!=='Adicionar')add.textContent='Adicionar';
+    if(add){
+      if(add.textContent!=='Adicionar')add.textContent='Adicionar';
+      add.onclick=e=>{e.preventDefault();e.stopPropagation();if(typeof addPreTripStopV127==='function')addPreTripStopV127()};
+    }
+    if(stopInput){
+      stopInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(typeof addPreTripStopV127==='function')addPreTripStopV127()}};
+    }
     const empty=list.querySelector('.muted.small');
     if(empty&&empty.style.display!=='none')empty.style.display='none';
     const hasRows=!!list.querySelector('.pre-stop-row-v127');
@@ -42,6 +57,7 @@ const js=`
   };
   const mo=new MutationObserver(requestSync);
   mo.observe(document.documentElement,{subtree:true,childList:true});
+  document.addEventListener('change',e=>{if(e.target?.matches?.('#origem,#destino,#preTripStopNameV127'))setTimeout(syncStops,0)},true);
   [0,120,500,1200,2400].forEach(ms=>setTimeout(syncStops,ms));
 })();
 `;
