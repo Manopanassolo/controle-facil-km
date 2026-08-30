@@ -18,6 +18,12 @@ const js=`
       body.insertBefore(toggle,entry);
       toggle.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();point.classList.toggle('mv-stop-open-v16262');toggle.querySelector('b').textContent=point.classList.contains('mv-stop-open-v16262')?'Fechar':'Adicionar parada';if(point.classList.contains('mv-stop-open-v16262'))setTimeout(()=>document.getElementById('preTripStopNameV127')?.focus(),40)});
     }
+    // Purge any obsolete stop CTA injected by older patches. Only the v162.62 toggle remains.
+    [...body.children].forEach(el=>{
+      if(el===toggle||el===entry||el===list||el.tagName==='SMALL')return;
+      const txt=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+      if(txt.includes('adicionar parada')||txt==='+'||txt==='＋')el.remove();
+    });
     const add=document.getElementById('preTripStopAddV127');
     if(add&&add.textContent!=='Adicionar')add.textContent='Adicionar';
     const empty=list.querySelector('.muted.small');
@@ -48,9 +54,9 @@ const css=`
 #p-viagem #directRouteStackV127 .route-point-body-v126>small{margin:0 0 5px!important;font-size:12.5px!important;line-height:16px!important}
 #p-viagem #directRouteStackV127 #origem,#p-viagem #directRouteStackV127 #destino{height:50px!important;min-height:50px!important;padding:0 14px!important;font-size:15px!important;border-radius:8px!important}
 #p-viagem #directRouteStackV127 .route-gps-v127{min-height:38px!important;margin-top:6px!important;padding:6px 9px!important;font-size:11px!important}
-#p-viagem #directRouteStackV127 .mv-stop-v16262:after,#p-viagem #directRouteStackV127 .mv-approved-stop-v16255:after{display:none!important;content:none!important}
+#p-viagem #directRouteStackV127 .route-point-v126.stops:before,#p-viagem #directRouteStackV127 .route-point-v126.stops:after{display:none!important;content:none!important}
 #p-viagem #directRouteStackV127 .mv-stop-v16262 .route-point-body-v126>small{display:none!important}
-#p-viagem #directRouteStackV127 .mv-stop-v16262{cursor:default!important}
+#p-viagem #directRouteStackV127 .mv-stop-v16262{cursor:default!important;min-height:0!important}
 #p-viagem #directRouteStackV127 .mv-stop-toggle-v16262{display:flex!important;align-items:center!important;gap:7px!important;width:auto!important;min-height:36px!important;height:36px!important;margin:0!important;padding:0 10px!important;border:1px solid #dce3ec!important;border-radius:8px!important;background:#f8fafc!important;color:#405067!important;box-shadow:none!important;font-size:12px!important;font-weight:600!important}
 #p-viagem #directRouteStackV127 .mv-stop-toggle-v16262 span{font-size:18px!important;line-height:1!important;color:#12458f!important}
 #p-viagem #directRouteStackV127 .mv-stop-v16262 .pre-stop-entry-v127{display:none!important;margin-top:8px!important;grid-template-columns:1fr!important;gap:6px!important}
