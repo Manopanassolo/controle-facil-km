@@ -45,7 +45,12 @@ const js=`
   window.addEventListener('resize',()=>{installShell();if(!matchMedia('(max-width: 820px)').matches){nav()?.classList.remove('mv-nav-collapsed-v16282');document.body.classList.remove('mv-menu-open-v16282')}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('mv-menu-open-v16282'))closeMenu()});
   document.addEventListener('click',e=>{if(!matchMedia('(max-width: 820px)').matches||!document.body.classList.contains('mv-menu-open-v16282'))return;const n=nav(),bar=byId('mvTopNavV16282');if(n&&!n.contains(e.target)&&bar&&!bar.contains(e.target))closeMenu()},true);
-  const mo=new MutationObserver(()=>requestAnimationFrame(()=>{installShell();tryRestore()}));try{mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']})}catch(_){}
+  // Observe only structural DOM changes. Watching class mutations caused a self-triggering
+  // loop because installShell/active/closeMenu also change classes, which could starve
+  // Android's main thread and freeze real keyboard input.
+  let queued=false;
+  const mo=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;installShell();tryRestore()})});
+  try{mo.observe(document.documentElement,{subtree:true,childList:true})}catch(_){}
   [0,120,350,800,1500,2800].forEach(ms=>setTimeout(()=>{installShell();tryRestore()},ms));
   globalThis.mvNavigationV16282={home:goHome,back:goBack,openMenu,closeMenu,get page(){return current}};
 })();
