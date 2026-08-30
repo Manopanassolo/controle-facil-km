@@ -18,6 +18,7 @@ const js=`
     box.append(cont,finish);warning.appendChild(box);
   }
   function normalizeLeaflet(){
+    if(globalThis.mvNativeLeafletControllerV16278)return;
     document.querySelectorAll('#routeEmbeddedMapV133 .leaflet-tile').forEach(img=>{
       img.style.setProperty('width','256px','important');img.style.setProperty('height','256px','important');img.style.setProperty('max-width','none','important');img.style.setProperty('max-height','none','important');
     });
