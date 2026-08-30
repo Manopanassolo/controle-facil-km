@@ -33,7 +33,7 @@ jobs:
           matched=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
-              if grep -q 'v162.82' /tmp/movvant.html && grep -q 'mvTopNavV16282' /tmp/movvant.html && grep -q 'mv_last_page_v16282' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'presentStarted' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+              if grep -q 'v162.88' /tmp/movvant.html && grep -q 'mvHome88' /tmp/movvant.html && grep -q 'mvTopNavV16282' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
                 matched=1
                 break
               fi
@@ -42,7 +42,7 @@ jobs:
             sleep 3
           done
           test "$matched" = "1"
-          echo "Cloudflare exact live build 162.82 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare exact live build 162.88 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
@@ -53,8 +53,14 @@ jobs:
         run: |
           node cloudflare-visual-test.mjs
           test -s /tmp/movvant-android.png
-          test -s /tmp/movvant-visual-result.json
           grep -q '"pass": true' /tmp/movvant-visual-result.json
+      - name: Real shell clicks and desktop landscape test
+        timeout-minutes: 2
+        run: |
+          node cloudflare-shell-real-click-test.mjs
+          test -s /tmp/movvant-shell-real-click.json
+          grep -q '"pass": true' /tmp/movvant-shell-real-click.json
+          test -s /tmp/movvant-desktop-landscape.png
       - name: Android navigation persistence test
         timeout-minutes: 2
         run: |
@@ -73,28 +79,23 @@ jobs:
           node route-stop-sequence-test.mjs
           test -s /tmp/movvant-route-stops.json
           grep -q '"pass": true' /tmp/movvant-route-stops.json
-          test -s /tmp/movvant-route-stops.png
-          cat /tmp/movvant-route-stops.json
-      - name: Upload Android visual evidence
+      - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: movvant-cloudflare-android-visual
+          name: movvant-cloudflare-visual
           path: |
             /tmp/movvant-android.png
-            /tmp/movvant-android-failure.png
-            /tmp/movvant-pretap.png
-            /tmp/movvant-stop-open.png
-            /tmp/movvant-visual-result.json
             /tmp/movvant-navigation.png
-            /tmp/movvant-navigation-failure.png
-            /tmp/movvant-navigation.json
             /tmp/movvant-autocomplete-flow.png
-            /tmp/movvant-autocomplete-flow-failure.png
-            /tmp/movvant-autocomplete-flow.json
             /tmp/movvant-route-stops.png
-            /tmp/movvant-route-stops-failure.png
+            /tmp/movvant-real-click-mobile.png
+            /tmp/movvant-desktop-landscape.png
+            /tmp/movvant-visual-result.json
+            /tmp/movvant-navigation.json
+            /tmp/movvant-autocomplete-flow.json
             /tmp/movvant-route-stops.json
+            /tmp/movvant-shell-real-click.json
           if-no-files-found: ignore
           retention-days: 7
       - name: Verify Google Maps worker binding
