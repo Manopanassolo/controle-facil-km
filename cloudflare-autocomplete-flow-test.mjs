@@ -25,6 +25,7 @@ await new Promise(r=>server.listen(4174,'127.0.0.1',r));mark('server');
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});mark('browser');
 const context=await browser.newContext({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36',isMobile:true,hasTouch:true,deviceScaleFactor:1});
 const page=await context.newPage();page.setDefaultTimeout(5000);
+await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',r=>r.fulfill({status:200,contentType:'application/javascript',body:'export function createClient(){return {auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}}}'}));
 async function expose(){await page.evaluate(()=>{const auth=document.getElementById('auth'),app=document.getElementById('app'),trip=document.getElementById('p-viagem'),form=document.getElementById('novaViagem'),route=document.getElementById('directRouteStackV127');auth?.classList.add('hide');if(app){app.classList.remove('hide');app.style.setProperty('display','block','important')}document.body.classList.add('mv-trip-active-v16247');document.body.dataset.mvRoute='viagem';for(const root of [trip,form,route]){let n=root;while(n&&n!==document.body){n.classList?.remove('hide');n.style?.setProperty('display','block','important');n.style?.setProperty('visibility','visible','important');n=n.parentElement}}route?.scrollIntoView({block:'center'})})}
 async function twoTap(fieldId,text,label){
   mark(label+'-fill');const input=page.locator('#'+fieldId);await input.fill('');await input.focus();await input.pressSequentially(text,{delay:15});
@@ -35,7 +36,7 @@ async function twoTap(fieldId,text,label){
 }
 function assertTwoTap(label,x,expected){if(x.afterFirst!==x.before||!x.state1.selected||!/toque novamente/i.test(x.state1.hint)||!x.state1.visible||!x.afterSecond.includes(expected)||!x.portalHidden)throw new Error(label+' two-tap failed: '+JSON.stringify(x))}
 try{
-  mark('goto');await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(2200);await expose();mark('exposed');
+  mark('goto');await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>globalThis.mvStableRouteControllerV16277===true);await expose();mark('exposed');
   result.origin=await twoTap('origem','Avenida Paulista','origin');assertTwoTap('Origem',result.origin,'Avenida Paulista');
   mark('toggle-scroll');const toggle=page.locator('#mvStopToggleV16262');await toggle.scrollIntoViewIfNeeded();mark('toggle-click');await toggle.click({timeout:3000});mark('toggle-clicked');
   const stopInput=page.locator('#preTripStopNameV127');await stopInput.waitFor({state:'visible',timeout:3000});mark('stop-visible');
