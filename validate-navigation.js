@@ -14,9 +14,19 @@ const required=[
 ];
 const missing=required.filter(x=>!s.includes(x));
 if(missing.length){console.error('Navigation validation failed. Missing:',missing);process.exit(1)}
-const pageIds=[...s.matchAll(/<section id="p-([^"]+)"/g)].map(m=>m[1]);
-if(!pageIds.includes('inicio')||!pageIds.includes('viagem')||!pageIds.includes('historico')){console.error('Navigation validation failed: core pages missing',pageIds);process.exit(1)}
-const navButtons=[...s.matchAll(/data-p="([^"]+)"/g)].map(m=>m[1]);
-const invalid=[...new Set(navButtons)].filter(x=>!pageIds.includes(x));
+
+// Pages are created both in the base HTML and by later runtime modules (for example
+// Recursos/Assinatura). Accept either quote style because generated modules use both.
+const pageIds=[...s.matchAll(/id=["']p-([a-z0-9_-]+)["']/gi)].map(m=>m[1]);
+const pages=[...new Set(pageIds)];
+if(!pages.includes('inicio')||!pages.includes('viagem')||!pages.includes('historico')){
+  console.error('Navigation validation failed: core pages missing',pages);process.exit(1)
+}
+
+// Only literal page targets count. Ignore selector/template fragments such as '+p+'
+// and CSS.escape expressions embedded in generated JavaScript.
+const navButtons=[...s.matchAll(/data-p=["']([a-z0-9_-]+)["']/gi)].map(m=>m[1]);
+const targets=[...new Set(navButtons)];
+const invalid=targets.filter(x=>!pages.includes(x));
 if(invalid.length){console.error('Navigation validation failed: buttons without pages',invalid);process.exit(1)}
-console.log('Navigation validation OK:',pageIds.length,'pages and',new Set(navButtons).size,'navigation targets');
+console.log('Navigation validation OK:',pages.length,'pages and',targets.length,'literal navigation targets');
