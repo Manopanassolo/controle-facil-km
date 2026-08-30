@@ -41,7 +41,7 @@ jobs:
           done
           test -s /tmp/movvant.html
           grep -q 'mvStartupGuardV16231' /tmp/movvant.html
-          grep -q 'v162.40' /tmp/movvant.html
+          grep -q 'v162.44' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Live HTML bytes: $(wc -c < /tmp/movvant.html)"
       - name: Verify Google Maps worker binding
@@ -72,10 +72,10 @@ jobs:
           grep -q 'data-mv-bell-test="pass"' /tmp/movvant-mobile-dom.html
           grep -q 'data-mv-agenda-test="pass"' /tmp/movvant-mobile-dom.html
           echo 'Authenticated Android trip + notifications + agenda actions: PASS'
-      - name: Verify Novo deslocamento stays open
+      - name: Verify trip content remains visible
         run: |
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
-          "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=4200 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_trip_persist_test=1" > /tmp/movvant-trip-persist.html 2>/tmp/chrome-trip-persist.err || { cat /tmp/chrome-trip-persist.err; exit 1; }
-          grep -q 'data-mv-trip-persist-test="pass"' /tmp/movvant-trip-persist.html
-          echo 'Novo deslocamento remains open after delayed startup window: PASS'
+          "$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=4600 --window-size=390,844 --user-agent='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' --dump-dom "$MOVVANT_URL/?mv_trip_stable_test=1" > /tmp/movvant-trip-stable.html 2>/tmp/chrome-trip-stable.err || { cat /tmp/chrome-trip-stable.err; exit 1; }
+          grep -q 'data-mv-trip-stable-test="pass"' /tmp/movvant-trip-stable.html
+          echo 'Novo deslocamento content remains visible after 3.8 seconds: PASS'
