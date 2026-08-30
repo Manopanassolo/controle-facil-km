@@ -41,7 +41,7 @@ jobs:
           done
           test -s /tmp/movvant.html
           grep -q 'mvStartupGuardV16231' /tmp/movvant.html
-          grep -q 'v162.46' /tmp/movvant.html
+          grep -q 'v162.47' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Live HTML bytes: $(wc -c < /tmp/movvant.html)"
       - name: Verify Google Maps worker binding
