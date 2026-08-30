@@ -35,9 +35,10 @@ jobs:
             sleep 3
           done
           test -s /tmp/movvant.html
-          grep -q 'v162.61' /tmp/movvant.html
+          grep -q 'v162.62' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
-          echo "Cloudflare live build 162.61 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          cmp -s /tmp/movvant.html dist/index.html
+          echo "Cloudflare exact live build 162.62 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
@@ -60,6 +61,7 @@ jobs:
             /tmp/movvant-android.png
             /tmp/movvant-android-failure.png
             /tmp/movvant-pretap.png
+            /tmp/movvant-stop-open.png
             /tmp/movvant-visual-result.json
           if-no-files-found: ignore
           retention-days: 7
