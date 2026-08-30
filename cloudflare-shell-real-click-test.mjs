@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import http from 'node:http';
+import { chromium } from 'playwright';
+const html=fs.readFileSync(new URL('./dist/index.html',import.meta.url),'utf8');
+const server=http.createServer((req,res)=>{if(req.url?.startsWith('/api/')){res.writeHead(404,{'content-type':'application/json'});res.end('{}');return}res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(html)});
+await new Promise(r=>server.listen(4175,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const result={};
+async function expose(page){await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(1000);await page.evaluate(()=>{document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide');globalThis.mvUiV16288?.sync?.()});await page.waitForTimeout(400)}
+try{
+ const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});mobile.setDefaultTimeout(5000);await expose(mobile);
+ result.mobile=await mobile.evaluate(()=>({dock:!!document.getElementById('mvBottomDock85'),dockVisible:getComputedStyle(document.getElementById('mvBottomDock85')).display!=='none',legacy:[...document.querySelectorAll('[id^="mvBottomV16249"]')].every(x=>getComputedStyle(x).display==='none')}));
+ await mobile.locator('#mvBottomDock85 [data-mv-dock="menu"]').click();await mobile.waitForTimeout(100);result.mobile.menuOpen=await mobile.evaluate(()=>document.body.classList.contains('mv-menu-open-v16282'));
+ await mobile.locator('#app>.nav [data-p="agenda"]').click();await mobile.waitForTimeout(150);result.mobile.agenda=await mobile.evaluate(()=>document.body.dataset.mvPage==='agenda'&&!document.getElementById('p-agenda')?.classList.contains('hide'));
+ await mobile.locator('#mvBottomDock85 [data-mv-dock="inicio"]').click();await mobile.waitForTimeout(150);result.mobile.home=await mobile.evaluate(()=>document.body.dataset.mvPage==='inicio'&&!document.getElementById('p-inicio')?.classList.contains('hide'));
+ await mobile.screenshot({path:'/tmp/movvant-real-click-mobile.png'});await mobile.close();
+ const desktop=await browser.newPage({viewport:{width:1440,height:900}});desktop.setDefaultTimeout(5000);await expose(desktop);
+ result.desktop=await desktop.evaluate(()=>{const nav=document.querySelector('#app>.nav'),dock=document.getElementById('mvBottomDock85'),home=document.getElementById('mvHome88'),grid=home?.querySelector('.mv-homegrid88'),g=grid?getComputedStyle(grid):null;return{classed:document.body.classList.contains('mv-desktop88'),sidebarVisible:!!nav&&getComputedStyle(nav).display!=='none'&&nav.getBoundingClientRect().width>=190,dockHidden:!!dock&&getComputedStyle(dock).display==='none',homeVisible:!!home&&getComputedStyle(home).display!=='none',legacyHidden:[...document.querySelectorAll('#p-inicio>.mv-homelegacy88')].every(x=>getComputedStyle(x).display==='none'),gridColumns:g?.gridTemplateColumns||'',gridWidth:grid?.getBoundingClientRect().width||0}});
+ await desktop.locator('#app>.nav [data-p="historico"]').click();await desktop.waitForTimeout(150);result.desktop.history=await desktop.evaluate(()=>document.body.dataset.mvPage==='historico'&&!document.getElementById('p-historico')?.classList.contains('hide'));
+ await desktop.locator('#mvHomeV16282').click();await desktop.waitForTimeout(150);result.desktop.home=await desktop.evaluate(()=>document.body.dataset.mvPage==='inicio'&&!document.getElementById('p-inicio')?.classList.contains('hide'));
+ await desktop.screenshot({path:'/tmp/movvant-desktop-landscape.png',fullPage:false});
+ result.pass=result.mobile.dock&&result.mobile.dockVisible&&result.mobile.legacy&&result.mobile.menuOpen&&result.mobile.agenda&&result.mobile.home&&result.desktop.classed&&result.desktop.sidebarVisible&&result.desktop.dockHidden&&result.desktop.homeVisible&&result.desktop.legacyHidden&&result.desktop.gridWidth>900&&result.desktop.gridColumns.split(' ').length>=2&&result.desktop.history&&result.desktop.home;
+ fs.writeFileSync('/tmp/movvant-shell-real-click.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));if(!result.pass)process.exitCode=1;
+}catch(e){result.pass=false;result.error=String(e?.stack||e);fs.writeFileSync('/tmp/movvant-shell-real-click.json',JSON.stringify(result,null,2));console.error(e);process.exitCode=1}finally{await browser.close();await new Promise(r=>server.close(r))}
