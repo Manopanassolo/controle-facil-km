@@ -1,7 +1,7 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.67: use Google's own embedded route map and isolate trip start from legacy duplicate handlers.
+// v162.80: keep the isolated trip start compatible with top-level lexical session state.
 (function(){
   const DEMO_VEHICLE='__mv_demo_vehicle__',DEMO_LOCATION='__mv_demo_location__';
   const byId=id=>document.getElementById(id);
@@ -34,7 +34,10 @@ const js=`
     const date=field('dataViagem','dataViagem'),usage=field('tipoUso','tipoUso'),origin=field('origem','origem'),purpose=field('motivo','motivo'),notes=field('obs','obs');
     const d=(destination?.value||'').trim();if(!d)return msg('Informe o destino',true);
     if(startKm?.value==null||startKm.value==='')return msg('Informe o KM inicial',true);
-    if(!globalThis.sb||!globalThis.org?.id||!globalThis.ses?.user?.id)return msg('Sessão ou empresa não carregada. Atualize a página e tente novamente.',true);
+    // org/ses/sb are declared with top-level let/const by the application. They are
+    // intentionally not properties of globalThis in browsers, so checking window.*
+    // here rejected a valid, fully loaded session on Android.
+    if(typeof sb==='undefined'||!org?.id||!ses?.user?.id)return msg('Sessão ou empresa não carregada. Atualize a página e tente novamente.',true);
     btn.disabled=true;const oldText=btn.textContent;btn.textContent='Iniciando...';
     try{
       const existing=await sb.from('km_trips').select('*').eq('organization_id',org.id).eq('user_id',ses.user.id).eq('status','in_progress').order('started_at',{ascending:false}).limit(1);
@@ -57,7 +60,14 @@ const js=`
     let btn=byId('mvStartTripV16267');
     if(!btn){btn=document.createElement('button');btn.id='mvStartTripV16267';btn.type='button';btn.textContent='Iniciar deslocamento';btn.className=old.className;old.insertAdjacentElement('afterend',btn);btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();startTrip(btn)},true)}
   }
-  function sync(){installStart();rebindMap()}
+  function reconcileResourceState(){
+    const vehicle=field('veiculo','veiculo'),location=field('local','local');
+    const ready=!!vehicle?.value&&!!location?.value;if(!ready)return;
+    const empty=byId('emptyVehTripV122');if(empty)empty.style.setProperty('display','none','important');
+    const context=byId('tripResourceContextV123');
+    if(context&&(vehicle.value===DEMO_VEHICLE||location.value===DEMO_LOCATION))context.innerHTML='<b>Veículo: Veículo teste · ABC1D23</b><br>Unidade: Unidade teste · Matriz · contexto de homologação';
+  }
+  function sync(){installStart();reconcileResourceState();rebindMap()}
   const mo=new MutationObserver(()=>requestAnimationFrame(sync));try{mo.observe(document.documentElement,{subtree:true,childList:true})}catch(_){}
   [0,250,800,1600,3000].forEach(ms=>setTimeout(sync,ms));
 })();
@@ -74,4 +84,4 @@ const css=`
 if(!s.includes('</style>'))throw new Error('v162.67 css anchor not found');
 s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.67: Google Maps route embed and isolated trip start installed');
+console.log('Movvant v162.80: lexical session start and coherent resource state installed');
