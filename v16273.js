@@ -46,7 +46,7 @@ const js=`
     const rec=byId('mvRecalcCustom73');if(rec)rec.onclick=()=>{const btn=byId('mvPlanRouteV16272');if(btn)btn.click()};
   }
   function boxFirstRoute(){const box=byId('routePlanResultsV131');box?.querySelector('.mv-route72')?.click()}
-  function decorate(){const box=byId('routePlanResultsV131');if(!box)return;if(box.querySelector('.mv-route72'))ensureToolbar(box)}
+  function decorate(){if(globalThis.mvStableRouteControllerV16277)return;const box=byId('routePlanResultsV131');if(!box)return;if(box.querySelector('.mv-route72'))ensureToolbar(box)}
   [0,250,600,1200,2400].forEach(ms=>setTimeout(decorate,ms));
   new MutationObserver(()=>requestAnimationFrame(decorate)).observe(document.documentElement,{subtree:true,childList:true});
 })();
