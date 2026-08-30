@@ -1,16 +1,17 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.78: single-owner route selection and native Leaflet zoom synchronization.
+// v162.79: persistent touch zoom and independent outbound/return route styles.
 (function(){
   globalThis.mvStableRouteControllerV16277=true;
   globalThis.mvNativeLeafletControllerV16278=true;
+  globalThis.mvNativeLeafletControllerV16279=true;
   const byId=id=>document.getElementById(id);
   const clean=arr=>(arr||[]).map(x=>typeof x==='string'?x:String(x?.place_name||'')).map(x=>x.trim()).filter(Boolean);
   const seconds=v=>Number(String(v||'0').replace('s',''))||0;
   const duration=v=>{const m=Math.round(seconds(v)/60),h=Math.floor(m/60);return h?(h+'h '+String(m%60).padStart(2,'0')+'min'):(m+' min')};
   const distance=v=>(Number(v||0)/1000).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km';
-  let map=null,layers=null,loadToken=0,activeIndex=-1,lastTouchAt=0;
+  let map=null,layers=null,loadToken=0,activeIndex=-1,lastTouchAt=0,userViewLocked=false;
   function decode(str){
     if(!str)return[];let i=0,lat=0,lng=0,out=[];
     while(i<str.length){let b,shift=0,result=0;do{b=str.charCodeAt(i++)-63;result|=(b&31)<<shift;shift+=5}while(b>=32&&i<=str.length);lat+=result&1?~(result>>1):(result>>1);shift=0;result=0;do{b=str.charCodeAt(i++)-63;result|=(b&31)<<shift;shift+=5}while(b>=32&&i<=str.length);lng+=result&1?~(result>>1):(result>>1);out.push([lat/1e5,lng/1e5])}
@@ -37,13 +38,13 @@ const js=`
   }
   function addLayers(L,o,c){
     layers.clearLayers();
-    if(c.out.length)L.polyline(c.out,{weight:7,opacity:.92,color:'#1767cf',lineCap:'round'}).addTo(layers);
-    if(c.back.length)L.polyline(c.back,{weight:5,opacity:.92,color:o.sameWayReturn?'#18a36b':'#f28c28',dashArray:o.sameWayReturn?'9 7':null,lineCap:'round'}).addTo(layers);
+    if(c.out.length)L.polyline(c.out,{weight:7,opacity:.92,color:'#1767cf',lineCap:'round',className:'mv-route-outbound79'}).addTo(layers);
+    if(c.back.length)L.polyline(c.back,{weight:6,opacity:.96,color:'#f28c28',dashArray:o.sameWayReturn?'9 7':null,lineCap:'round',className:'mv-route-return79'}).addTo(layers);
     markerPoints(o,c).forEach(x=>L.circleMarker(x.p,{radius:10,weight:3,color:'#fff',fillColor:x.label==='D'?'#e14b4b':'#1767cf',fillOpacity:1}).bindTooltip(x.title).addTo(layers));
-    const bounds=L.latLngBounds(c.all);if(bounds.isValid())map.fitBounds(bounds,{padding:[22,22],animate:false});requestAnimationFrame(()=>map?.invalidateSize({animate:false}));
+    const bounds=L.latLngBounds(c.all);if(!userViewLocked&&bounds.isValid())map.fitBounds(bounds,{padding:[22,22],animate:false});requestAnimationFrame(()=>map?.invalidateSize({animate:false}));
   }
   async function enhance(box,o,c,token){
-    try{const L=await loadLeafletV133();if(token!==loadToken||!box.isConnected)return;if(!map){box.replaceChildren();map=L.map(box,{zoomControl:true,attributionControl:true,preferCanvas:false,zoomAnimation:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);layers=L.layerGroup().addTo(map);globalThis.mvRouteMapV16278=map;globalThis.mvRouteLayersV16278=layers}addLayers(L,o,c)}catch(_){/* instant SVG remains usable */}
+    try{const L=await loadLeafletV133();if(token!==loadToken||!box.isConnected)return;if(!map){box.replaceChildren();map=L.map(box,{zoomControl:true,attributionControl:true,preferCanvas:false,zoomAnimation:true,touchZoom:true,scrollWheelZoom:true});map.on('zoomstart dragstart',()=>{userViewLocked=true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);layers=L.layerGroup().addTo(map);globalThis.mvRouteMapV16278=map;globalThis.mvRouteLayersV16278=layers;globalThis.mvRouteUserViewLockedV16279=()=>userViewLocked}addLayers(L,o,c)}catch(_){/* instant SVG remains usable */}
   }
   function draw(o){
     const box=byId('routeEmbeddedMapV133'),st=byId('routeMapStatusV133');if(!box||!o)return;
@@ -54,7 +55,7 @@ const js=`
   }
   function choose(i){
     const opts=globalThis.mvRouteOptionsV16272||[],o=opts[i];if(!o||i===activeIndex&&globalThis.mvSelectedRouteV16272===o)return;
-    activeIndex=i;globalThis.mvSelectedRouteV16272=o;globalThis.mvChosenStopOrderV16270=[...clean(o.stops)];
+    activeIndex=i;userViewLocked=false;globalThis.mvSelectedRouteV16272=o;globalThis.mvChosenStopOrderV16270=[...clean(o.stops)];
     document.querySelectorAll('#routePlanResultsV131 [data-route72],#routePlanResultsV131 [data-route74]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.route72??b.dataset.route74)===i));draw(o);
   }
   function ensureSameWay(box,opts){
@@ -88,6 +89,9 @@ const css=`
 .mv-route-fallback77{display:block;width:100%;height:100%;background:linear-gradient(135deg,#eef3f8,#f9fbfd)}.mv-route-fallback77 polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}.mv-route-fallback77 .out{stroke:#1767cf;stroke-width:7}.mv-route-fallback77 .back{stroke:#18a36b;stroke-width:5;stroke-dasharray:10 7}.mv-route-fallback77 circle{fill:#1767cf;stroke:#fff;stroke-width:3}.mv-route-fallback77 text{fill:#fff;font:700 11px Arial;text-anchor:middle}
 #routeEmbeddedMapV133 .leaflet-overlay-pane svg{overflow:hidden!important;transform-origin:0 0!important}
 #routeEmbeddedMapV133 .leaflet-overlay-pane path{filter:none!important}
+#routeEmbeddedMapV133.leaflet-container{touch-action:none!important;-ms-touch-action:none!important}
+#routeEmbeddedMapV133 .leaflet-overlay-pane path.mv-route-outbound79{stroke:#1767cf!important;stroke-width:7px!important;stroke-opacity:.92!important}
+#routeEmbeddedMapV133 .leaflet-overlay-pane path.mv-route-return79{stroke:#f28c28!important;stroke-width:6px!important;stroke-opacity:.96!important}
 #routePlanResultsV131 .mv-route72:not(.selected),#routePlanResultsV131 .mv-route72:not(.selected) b,#routePlanResultsV131 .mv-route72:not(.selected) strong,#routePlanResultsV131 .mv-route72:not(.selected) span,#routePlanResultsV131 .mv-route72:not(.selected) small,#routePlanResultsV131 .mv-route72:not(.selected) em{color:#c8ff00!important;opacity:1!important}
 `;
-if(!s.includes('</style>'))throw new Error('v162.78 css anchor not found');s=s.replace('</style>',css+'\n</style>');fs.writeFileSync('dist/index.html',s);console.log('Movvant v162.78: native Leaflet zoom sync and lime route-card contrast active');
+if(!s.includes('</style>'))throw new Error('v162.79 css anchor not found');s=s.replace('</style>',css+'\n</style>');fs.writeFileSync('dist/index.html',s);console.log('Movvant v162.79: persistent touch zoom and orange return route active');
