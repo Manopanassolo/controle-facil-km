@@ -3,6 +3,7 @@
   "name": "movvant",
   "main": "cloudflare-worker.js",
   "compatibility_date": "2026-08-29",
+  "keep_vars": true,
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
