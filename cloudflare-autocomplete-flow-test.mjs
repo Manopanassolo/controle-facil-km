@@ -50,17 +50,24 @@ try{
   await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(2300);await expose();
   result.origin=await twoTap('origem','Avenida Paulista');assertTwoTap('Origem',result.origin,'Avenida Paulista');
 
-  await page.locator('#mvStopToggleV16262').tap();await page.waitForTimeout(120);
+  const toggle=page.locator('#mvStopToggleV16262');await toggle.scrollIntoViewIfNeeded();
+  await toggle.click();
+  const stopInput=page.locator('#preTripStopNameV127');
+  await stopInput.waitFor({state:'visible'});
+  result.stopEditorOpen=await page.locator('#directRouteStackV127 .route-point-v126.stops').evaluate(el=>el.classList.contains('mv-stop-open-v16262'));
+  if(!result.stopEditorOpen)throw new Error('Stop editor did not open');
+
   result.stop=await twoTap('preTripStopNameV127','Praça da Sé');assertTwoTap('Stop',result.stop,'Praça da Sé');
-  await page.locator('#preTripStopAddV127').tap();await page.waitForTimeout(150);
+  await page.locator('#preTripStopAddV127').click();await page.waitForTimeout(150);
   result.stopAdded=await page.locator('#preTripStopsListV127').innerText();
   if(!result.stopAdded.includes('Praça da Sé'))throw new Error('Stop was not added');
 
   result.destination=await twoTap('destino','Aeroporto Congonhas');assertTwoTap('Destino',result.destination,'Aeroporto de Congonhas');
+  await page.locator('#destino').focus();
   result.destinationUsable=await page.locator('#destino').evaluate(el=>!el.disabled&&!el.readOnly&&document.activeElement===el);
   if(!result.destinationUsable)throw new Error('Destino not usable after stop');
   result.pass=true;
   await page.screenshot({path:'/tmp/movvant-autocomplete-flow.png',fullPage:false});
-}catch(e){result.pass=false;result.error=String(e?.message||e);try{await page.screenshot({path:'/tmp/movvant-autocomplete-flow-failure.png',fullPage:false})}catch{}process.exitCode=1}
+}catch(e){result.pass=false;result.error=String(e?.message||e);try{result.debug=await page.evaluate(()=>({stopClass:document.querySelector('#directRouteStackV127 .route-point-v126.stops')?.className,stopDisplay:getComputedStyle(document.getElementById('preTripStopNameV127')||document.body).display,activeId:document.activeElement?.id||''}))}catch{}try{await page.screenshot({path:'/tmp/movvant-autocomplete-flow-failure.png',fullPage:false})}catch{}process.exitCode=1}
 fs.writeFileSync('/tmp/movvant-autocomplete-flow.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 await browser.close();await new Promise(r=>server.close(r));
