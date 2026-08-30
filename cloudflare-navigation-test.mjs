@@ -16,11 +16,13 @@ try{
   await page.waitForTimeout(900);
   await page.evaluate(()=>{document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide')});
   await page.waitForTimeout(450);
-  result.shell=await page.evaluate(()=>({top:!!document.getElementById('mvTopNavV16282'),menu:!!document.getElementById('mvMenuToggleV16282'),back:!!document.getElementById('mvBackV16282'),home:!!document.getElementById('mvHomeV16282'),api:!!globalThis.mvNavigationV16282?.navigate,historyButton:!!document.querySelector('#app .nav [data-p="historico"]'),agendaButton:!!document.querySelector('#app .nav [data-p="agenda"]')}));
+  result.shell=await page.evaluate(()=>({top:!!document.getElementById('mvTopNavV16282'),menu:!!document.getElementById('mvMenuToggleV16282'),dockMenu:!!document.querySelector('#mvBottomDock85 [data-mv-dock="menu"]'),back:!!document.getElementById('mvBackV16282'),home:!!document.getElementById('mvHomeV16282'),api:!!globalThis.mvNavigationV16282?.navigate,historyButton:!!document.querySelector('#app .nav [data-p="historico"]'),agendaButton:!!document.querySelector('#app .nav [data-p="agenda"]')}));
   result.initial=await state();
   await navTo('historico'); result.afterHistory=await state();
   result.history=await page.evaluate(()=>({page:document.body.dataset.mvPage,stored:localStorage.getItem('mv_last_page_v16282'),hash:location.hash,visible:!document.getElementById('p-historico')?.classList.contains('hide')}));
-  await page.locator('#mvMenuToggleV16282').click();await page.waitForTimeout(80);
+  const mobileMenu=page.locator('#mvBottomDock85 [data-mv-dock="menu"]');
+  if(await mobileMenu.isVisible())await mobileMenu.click();else await page.locator('#mvMenuToggleV16282').click();
+  await page.waitForTimeout(80);
   result.menuOpen=await page.evaluate(()=>({open:document.body.classList.contains('mv-menu-open-v16282'),collapsed:document.querySelector('#app .nav')?.classList.contains('mv-nav-collapsed-v16282')}));
   await navTo('agenda'); result.afterAgenda=await state();
   result.autoCollapse=await page.evaluate(()=>({page:document.body.dataset.mvPage,open:document.body.classList.contains('mv-menu-open-v16282'),collapsed:document.querySelector('#app .nav')?.classList.contains('mv-nav-collapsed-v16282')}));
