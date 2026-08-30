@@ -26,13 +26,13 @@ const js=`
   let legacyShow=null;
   try{if(typeof show==='function'){legacyShow=show;show=function(n){if(!valid(n))return legacyShow(n);const previous=current;if(!restoring&&previous&&previous!==n){const st=stackRead();st.push(previous);stackWrite(st);setHistory(n,false)}else if(restoring){setHistory(n,true)}const r=legacyShow(n);afterShow(n);return r}}}catch(e){console.warn('v162.82 show wrapper',e)}
   function direct(n,replace=true){if(!valid(n))n='inicio';restoring=true;try{if(legacyShow)legacyShow(n);else{document.querySelectorAll('#app [id^="p-"]').forEach(x=>x.classList.add('hide'));byId('p-'+n)?.classList.remove('hide')}if(replace)setHistory(n,true);afterShow(n)}finally{restoring=false}}
+  function navigate(n){if(!valid(n))return;const previous=current;if(previous&&previous!==n){const st=stackRead();st.push(previous);stackWrite(st)}current=n;remember(n);setHistory(n,false);setTimeout(()=>direct(n,true),0)}
   function goHome(){if(current!=='inicio'){const st=stackRead();st.push(current);stackWrite(st)}direct('inicio',true)}
   function goBack(){const st=stackRead();let prev='';while(st.length&&!prev){const x=st.pop();if(valid(x)&&x!==current)prev=x}stackWrite(st);direct(prev||'inicio',true)}
   function installShell(){
     const app=byId('app'),n=nav();if(!app||!n)return;
     let bar=byId('mvTopNavV16282');
     if(!bar){bar=document.createElement('div');bar.id='mvTopNavV16282';bar.className='mv-topnav-v16282';bar.innerHTML='<button type="button" id="mvMenuToggleV16282" aria-label="Abrir menu" aria-expanded="false">☰</button><button type="button" id="mvBackV16282" aria-label="Voltar">←</button><button type="button" id="mvHomeV16282" aria-label="Tela inicial">⌂</button><strong id="mvPageTitleV16282">Movvant</strong>';n.insertAdjacentElement('beforebegin',bar);byId('mvMenuToggleV16282').onclick=()=>document.body.classList.contains('mv-menu-open-v16282')?closeMenu():openMenu();byId('mvBackV16282').onclick=goBack;byId('mvHomeV16282').onclick=goHome}
-    n.querySelectorAll('[data-p]').forEach(b=>{if(b.dataset.mvAutoCollapse82)return;b.dataset.mvAutoCollapse82='1';b.addEventListener('click',()=>{const target=b.dataset.p;if(valid(target)&&current!==target){const previous=current,st=stackRead();if(previous)st.push(previous);stackWrite(st);current=target;remember(target);setHistory(target,false)}setTimeout(()=>{if(valid(target))afterShow(target);closeMenu()},0)},true)});
     document.querySelectorAll('[data-p-jump]').forEach(b=>{if(b.dataset.mvAutoCollapse82)return;b.dataset.mvAutoCollapse82='1';b.addEventListener('click',()=>setTimeout(closeMenu,0))});
     if(matchMedia('(max-width: 820px)').matches&&!document.body.classList.contains('mv-menu-open-v16282'))closeMenu();active(current);
   }
@@ -44,7 +44,7 @@ const js=`
   window.addEventListener('hashchange',()=>{const n=hashPage();if(valid(n)&&n!==current)direct(n,false)});
   window.addEventListener('resize',()=>{installShell();if(!matchMedia('(max-width: 820px)').matches){nav()?.classList.remove('mv-nav-collapsed-v16282');document.body.classList.remove('mv-menu-open-v16282')}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('mv-menu-open-v16282'))closeMenu()});
-  document.addEventListener('click',e=>{if(!matchMedia('(max-width: 820px)').matches||!document.body.classList.contains('mv-menu-open-v16282'))return;const n=nav(),bar=byId('mvTopNavV16282');if(n&&!n.contains(e.target)&&bar&&!bar.contains(e.target))closeMenu()},true);
+  document.addEventListener('click',e=>{const b=e.target?.closest?.('#app .nav [data-p]');if(b){const target=b.dataset.p;if(valid(target)){navigate(target);if(matchMedia('(max-width: 820px)').matches)closeMenu()}return}if(!matchMedia('(max-width: 820px)').matches||!document.body.classList.contains('mv-menu-open-v16282'))return;const n=nav(),bar=byId('mvTopNavV16282');if(n&&!n.contains(e.target)&&bar&&!bar.contains(e.target))closeMenu()},true);
   // Observe only structural DOM changes. Watching class mutations caused a self-triggering
   // loop because installShell/active/closeMenu also change classes, which could starve
   // Android's main thread and freeze real keyboard input.
@@ -52,7 +52,7 @@ const js=`
   const mo=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;installShell();tryRestore()})});
   try{mo.observe(document.documentElement,{subtree:true,childList:true})}catch(_){}
   [0,120,350,800,1500,2800].forEach(ms=>setTimeout(()=>{installShell();tryRestore()},ms));
-  globalThis.mvNavigationV16282={home:goHome,back:goBack,openMenu,closeMenu,get page(){return current}};
+  globalThis.mvNavigationV16282={home:goHome,back:goBack,navigate,openMenu,closeMenu,get page(){return current}};
 })();
 `;
 if(!s.includes('carga();'))throw new Error('v162.82 startup anchor not found');
