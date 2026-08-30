@@ -28,8 +28,7 @@ jobs:
       - name: Build validated candidate
         run: npm run build
       - name: Require Google Maps key
-        run: |
-          test -n "$GOOGLE_MAPS_API_KEY"
+        run: test -n "$GOOGLE_MAPS_API_KEY"
       - name: Provision Google Maps key
         run: printf '%s' "$GOOGLE_MAPS_API_KEY" | npx --yes wrangler@4 secret put GOOGLE_MAPS_API_KEY
       - name: Deploy to Cloudflare Workers
@@ -44,34 +43,23 @@ jobs:
           grep -q 'v162.59' /tmp/movvant.html
           grep -q 'Movvant' /tmp/movvant.html
           echo "Cloudflare live build 162.59 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
-      - name: Android visual and typing test
+      - name: Android visual and real typing test
         timeout-minutes: 2
         run: |
-          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          export CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
-          UA='Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36'
-          set +e
-          timeout 30s "$CHROME" --headless --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=6500 --window-size=390,844 --user-agent="$UA" --dump-dom "$MOVVANT_URL/?mv_visual_test=1" > /tmp/movvant-visual-dom.html 2>/tmp/chrome-visual.err
-          DOM_RC=$?
-          set -e
-          if [ "$DOM_RC" -ne 0 ] && [ "$DOM_RC" -ne 124 ]; then cat /tmp/chrome-visual.err; exit "$DOM_RC"; fi
-          test -s /tmp/movvant-visual-dom.html
-          grep -q 'data-mv-build="162.59"' /tmp/movvant-visual-dom.html
-          grep -q 'data-mv-typing-test="pass"' /tmp/movvant-visual-dom.html
-          set +e
-          timeout 30s "$CHROME" --headless --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=6500 --window-size=390,844 --user-agent="$UA" --screenshot=/tmp/movvant-android.png "$MOVVANT_URL/?mv_visual_test=1" >/tmp/chrome-shot.out 2>/tmp/chrome-shot.err
-          SHOT_RC=$?
-          set -e
-          if [ "$SHOT_RC" -ne 0 ] && [ "$SHOT_RC" -ne 124 ]; then cat /tmp/chrome-shot.err; exit "$SHOT_RC"; fi
+          node cloudflare-visual-test.mjs
           test -s /tmp/movvant-android.png
-          echo 'Cloudflare Android visual/typing test: PASS'
+          test -s /tmp/movvant-visual-result.json
+          grep -q '"pass": true' /tmp/movvant-visual-result.json
+          cat /tmp/movvant-visual-result.json
       - name: Upload Android visual evidence
         uses: actions/upload-artifact@v4
         with:
           name: movvant-cloudflare-android-visual
           path: |
             /tmp/movvant-android.png
-            /tmp/movvant-visual-dom.html
+            /tmp/movvant-visual-result.json
           retention-days: 7
       - name: Verify Google Maps worker binding
         run: |
