@@ -4,6 +4,7 @@ const js=`
 // v162.66: ensure the computed route polyline is visibly rendered above tiles and reconcile stale active trips.
 (function(){
   function strengthenRoute(){
+    if(globalThis.mvNativeLeafletControllerV16278)return;
     try{
       if(typeof routeLayerV133!=='undefined'&&routeLayerV133?.setStyle){
         routeLayerV133.setStyle({color:'#0b57d0',weight:8,opacity:1,lineCap:'round',lineJoin:'round'});
