@@ -18,12 +18,20 @@ const js=`
       body.insertBefore(toggle,entry);
       toggle.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();point.classList.toggle('mv-stop-open-v16262');toggle.querySelector('b').textContent=point.classList.contains('mv-stop-open-v16262')?'Fechar':'Adicionar parada';if(point.classList.contains('mv-stop-open-v16262'))setTimeout(()=>document.getElementById('preTripStopNameV127')?.focus(),40)});
     }
-    const add=document.getElementById('preTripStopAddV127');if(add)add.textContent='Adicionar';
-    const empty=list.querySelector('.muted.small');if(empty)empty.style.display='none';
+    const add=document.getElementById('preTripStopAddV127');
+    if(add&&add.textContent!=='Adicionar')add.textContent='Adicionar';
+    const empty=list.querySelector('.muted.small');
+    if(empty&&empty.style.display!=='none')empty.style.display='none';
     const hasRows=!!list.querySelector('.pre-stop-row-v127');
     point.classList.toggle('mv-stop-has-items-v16262',hasRows);
   }
-  const mo=new MutationObserver(()=>syncStops());
+  let scheduled=false;
+  const requestSync=()=>{
+    if(scheduled)return;
+    scheduled=true;
+    queueMicrotask(()=>{scheduled=false;syncStops()});
+  };
+  const mo=new MutationObserver(requestSync);
   mo.observe(document.documentElement,{subtree:true,childList:true});
   [0,120,500,1200,2400].forEach(ms=>setTimeout(syncStops,ms));
 })();
