@@ -27,6 +27,13 @@ const checks=[
   ['map has fallback tile provider',/basemaps\.cartocdn\.com\/light_all/],
   ['map handles missing polyline visibly',/Rota calculada, mas sem desenho retornado pelo Google/],
   ['map handles visual load failure visibly',/Mapa visual indisponível/],
+  ['v162.32 guided trip wizard present',/Movvant v162\.32|mvTripWizardV16232/],
+  ['wizard has four stages',/const maxStep=4/],
+  ['wizard has back navigation',/mvTripBackV16232/],
+  ['wizard has next navigation',/mvTripNextV16232/],
+  ['wizard validates destination before advancing',/Informe o destino para avançar/],
+  ['wizard validates initial odometer before confirmation',/Informe o KM inicial para avançar/],
+  ['wizard shows confirmation summary',/mvTripSummaryV16232/],
 ];
 const workerChecks=[
   ['worker routes endpoint exists',/path==='\/api\/routes'/],
@@ -43,4 +50,4 @@ for(const [name,re] of workerChecks){const ok=re.test(worker);console.log((ok?'P
 if(/distance_km\s*:\s*0/.test(s)){console.error('FAIL generated distance_km is still explicitly written');failed++;}
 if(/Cannot set properties of null \(setting 'textContent'\)/.test(s)){console.error('FAIL known null textContent error text leaked into build');failed++;}
 if(failed){console.error(`Core flow regression checks failed: ${failed}`);process.exit(1)}
-console.log('Core trip + map regression contract: PASS');
+console.log('Core trip + map + wizard regression contract: PASS');
