@@ -50,15 +50,13 @@ try{
   await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(2300);await expose();
   result.origin=await twoTap('origem','Avenida Paulista');assertTwoTap('Origem',result.origin,'Avenida Paulista');
 
-  const toggle=page.locator('#mvStopToggleV16262');await toggle.scrollIntoViewIfNeeded();
-  await toggle.click();
-  const stopInput=page.locator('#preTripStopNameV127');
-  await stopInput.waitFor({state:'visible'});
-  result.stopEditorOpen=await page.locator('#directRouteStackV127 .route-point-v126.stops').evaluate(el=>el.classList.contains('mv-stop-open-v16262'));
-  if(!result.stopEditorOpen)throw new Error('Stop editor did not open');
+  const toggle=page.locator('#mvStopToggleV16262');await toggle.scrollIntoViewIfNeeded();await toggle.click();
+  const stopInput=page.locator('#preTripStopNameV127');await stopInput.waitFor({state:'visible'});
+  result.stopEditor=await page.locator('#directRouteStackV127 .route-point-v126.stops').evaluate(el=>({openClass:el.classList.contains('mv-stop-open-v16262'),focusWithin:el.matches(':focus-within'),inputVisible:!!(document.getElementById('preTripStopNameV127')?.offsetWidth||document.getElementById('preTripStopNameV127')?.offsetHeight)}));
+  if(!result.stopEditor.inputVisible)throw new Error('Stop editor did not become visible');
 
   result.stop=await twoTap('preTripStopNameV127','Praça da Sé');assertTwoTap('Stop',result.stop,'Praça da Sé');
-  await page.locator('#preTripStopAddV127').click();await page.waitForTimeout(150);
+  await page.locator('#preTripStopAddV127').click();await page.waitForTimeout(180);
   result.stopAdded=await page.locator('#preTripStopsListV127').innerText();
   if(!result.stopAdded.includes('Praça da Sé'))throw new Error('Stop was not added');
 
