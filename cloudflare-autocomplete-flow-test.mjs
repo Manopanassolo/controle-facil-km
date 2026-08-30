@@ -37,26 +37,28 @@ async function twoTap(fieldId,text){
   const choice=page.locator('#mvRouteChoicesV16263 button[data-mv-choice63]').first();await choice.waitFor({state:'visible'});
   const before=await input.inputValue();await choice.tap();await page.waitForTimeout(180);
   const afterFirst=await input.inputValue();
-  const state1=await choice.evaluate(b=>({selected:b.classList.contains('mv-choice-selected-v16263'),hint:b.querySelector('.mv-confirm-v16263')?.textContent||'',visible:!!(b.offsetWidth||b.offsetHeight||b.getClientRects().length)}));
+  const state1=await choice.evaluate(b=>({selected:b.classList.contains('mv-selected-v16263'),hint:b.querySelector('em')?.textContent||'',visible:!!(b.offsetWidth||b.offsetHeight||b.getClientRects().length)}));
   await choice.tap();await page.waitForTimeout(180);
   const afterSecond=await input.inputValue();
   const portalHidden=await page.locator('#mvRouteChoicesV16263').evaluate(p=>p.classList.contains('hide'));
   return {before,afterFirst,state1,afterSecond,portalHidden};
 }
+function assertTwoTap(label,x,expected){
+  if(x.afterFirst!==x.before||!x.state1.selected||!/toque novamente/i.test(x.state1.hint)||!x.state1.visible||!x.afterSecond.includes(expected)||!x.portalHidden)throw new Error(label+' two-tap failed: '+JSON.stringify(x));
+}
 try{
   await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(2300);await expose();
-  result.origin=await twoTap('origem','Avenida Paulista');
-  if(result.origin.afterFirst!==result.origin.before||!result.origin.state1.selected||!/toque novamente/i.test(result.origin.state1.hint)||!result.origin.state1.visible||!result.origin.afterSecond.includes('Avenida Paulista')||!result.origin.portalHidden)throw new Error('Origem two-tap failed: '+JSON.stringify(result.origin));
+  result.origin=await twoTap('origem','Avenida Paulista');assertTwoTap('Origem',result.origin,'Avenida Paulista');
 
   await page.locator('#mvStopToggleV16262').tap();await page.waitForTimeout(120);
-  result.stop=await twoTap('preTripStopNameV127','Praça da Sé');
-  if(result.stop.afterFirst!==result.stop.before||!result.stop.state1.selected||!/toque novamente/i.test(result.stop.state1.hint)||!result.stop.afterSecond.includes('Praça da Sé')||!result.stop.portalHidden)throw new Error('Stop two-tap failed: '+JSON.stringify(result.stop));
+  result.stop=await twoTap('preTripStopNameV127','Praça da Sé');assertTwoTap('Stop',result.stop,'Praça da Sé');
   await page.locator('#preTripStopAddV127').tap();await page.waitForTimeout(150);
   result.stopAdded=await page.locator('#preTripStopsListV127').innerText();
   if(!result.stopAdded.includes('Praça da Sé'))throw new Error('Stop was not added');
 
-  result.destination=await twoTap('destino','Aeroporto Congonhas');
-  if(result.destination.afterFirst!==result.destination.before||!result.destination.state1.selected||!result.destination.afterSecond.includes('Aeroporto de Congonhas')||!result.destination.portalHidden)throw new Error('Destino two-tap failed: '+JSON.stringify(result.destination));
+  result.destination=await twoTap('destino','Aeroporto Congonhas');assertTwoTap('Destino',result.destination,'Aeroporto de Congonhas');
+  result.destinationUsable=await page.locator('#destino').evaluate(el=>!el.disabled&&!el.readOnly&&document.activeElement===el);
+  if(!result.destinationUsable)throw new Error('Destino not usable after stop');
   result.pass=true;
   await page.screenshot({path:'/tmp/movvant-autocomplete-flow.png',fullPage:false});
 }catch(e){result.pass=false;result.error=String(e?.message||e);try{await page.screenshot({path:'/tmp/movvant-autocomplete-flow-failure.png',fullPage:false})}catch{}process.exitCode=1}
