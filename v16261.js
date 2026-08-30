@@ -5,6 +5,7 @@ const js=`
 (function(){
   const ids=new Set(['origem','destino']);
   let active=null,timer=0,items=[];
+  function isRouteField(el){return !!(el&&ids.has(el.id)&&el.closest?.('#p-viagem'))}
   function oldPortalOff(){
     ['mvPlacesV16248','mvNativePlacesV16260'].forEach(id=>{const p=document.getElementById(id);if(p){p.classList.add('hide');p.style.setProperty('display','none','important');p.style.setProperty('visibility','hidden','important');p.style.setProperty('pointer-events','none','important')}})
   }
@@ -19,7 +20,7 @@ const js=`
     const v60=document.getElementById(id==='origem'?'mvOrigemNativeV16260':'mvDestinoNativeV16260');
     const value=(v60?.value||old.value||'');
     if(v60)v60.remove();
-    if(old.dataset.mvCleanV16261==='1'){old.disabled=false;old.readOnly=false;old.style.removeProperty('display');old.style.removeProperty('visibility');old.style.removeProperty('opacity');return old}
+    if(old.dataset.mvCleanV16261==='1'){old.disabled=false;old.readOnly=false;old.classList.remove('mv-legacy-route-input-v16260');old.removeAttribute('aria-hidden');old.style.removeProperty('display');old.style.removeProperty('visibility');old.style.removeProperty('opacity');old.tabIndex=0;return old}
     const fresh=old.cloneNode(false);
     fresh.id=id;fresh.value=value;fresh.type='text';fresh.disabled=false;fresh.readOnly=false;fresh.removeAttribute('disabled');fresh.removeAttribute('readonly');fresh.removeAttribute('aria-hidden');fresh.tabIndex=0;fresh.inputMode='text';fresh.autocomplete='off';fresh.setAttribute('autocorrect','off');fresh.spellcheck=false;fresh.dataset.mvCleanV16261='1';
     fresh.classList.remove('mv-legacy-route-input-v16260');
@@ -29,10 +30,15 @@ const js=`
   }
   function install(){oldPortalOff();ids.forEach(rebuild)}
   function onInput(el){active=el;oldPortalOff();clearTimeout(timer);timer=setTimeout(()=>search(el),220)}
-  window.addEventListener('input',e=>{if(!ids.has(e.target?.id)||!e.target.closest?.('#p-viagem'))return;e.stopPropagation();onInput(e.target)},true);
-  window.addEventListener('focusin',e=>{if(!ids.has(e.target?.id)||!e.target.closest?.('#p-viagem'))return;active=e.target;oldPortalOff();if(e.target.value.trim().length>=2){clearTimeout(timer);timer=setTimeout(()=>search(e.target),100)}},true);
-  document.addEventListener('pointerdown',e=>{const b=e.target.closest?.('#mvRouteChoicesV16261 button[data-mv-choice]');if(!b)return;e.preventDefault();const x=items[Number(b.dataset.mvChoice)];if(!x||!active)return;active.value=x.text||[x.mainText,x.secondaryText].filter(Boolean).join(', ');active.dataset.placeId=x.placeId||'';active.dispatchEvent(new Event('change',{bubbles:true}));close();active.focus()},true);
-  document.addEventListener('click',e=>{const b=e.target.closest?.('#mvRouteChoicesV16261 button[data-mv-choice]');if(!b)return;e.preventDefault()},true);
+  // Sole event authority for the two native route fields. We never preventDefault on native
+  // gestures, so Android keeps its normal focus/keyboard action, while old delegated handlers
+  // are prevented from re-entering, replacing or blurring these fields.
+  for(const type of ['pointerdown','touchstart','click'])window.addEventListener(type,e=>{if(!isRouteField(e.target))return;e.stopImmediatePropagation()},true);
+  window.addEventListener('focus',e=>{if(!isRouteField(e.target))return;active=e.target;oldPortalOff();e.stopImmediatePropagation()},true);
+  window.addEventListener('focusin',e=>{if(!isRouteField(e.target))return;active=e.target;oldPortalOff();if(e.target.value.trim().length>=2){clearTimeout(timer);timer=setTimeout(()=>search(e.target),100)}e.stopImmediatePropagation()},true);
+  window.addEventListener('input',e=>{if(!isRouteField(e.target))return;onInput(e.target);e.stopImmediatePropagation()},true);
+  document.addEventListener('pointerdown',e=>{const b=e.target.closest?.('#mvRouteChoicesV16261 button[data-mv-choice]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();const x=items[Number(b.dataset.mvChoice)];if(!x||!active)return;active.value=x.text||[x.mainText,x.secondaryText].filter(Boolean).join(', ');active.dataset.placeId=x.placeId||'';active.dispatchEvent(new Event('change',{bubbles:true}));close();active.focus()},true);
+  document.addEventListener('click',e=>{const b=e.target.closest?.('#mvRouteChoicesV16261 button[data-mv-choice]');if(!b)return;e.preventDefault();e.stopImmediatePropagation()},true);
   document.addEventListener('scroll',()=>{if(active&&document.activeElement===active)position(active)},true);
   window.addEventListener('resize',()=>{if(active&&document.activeElement===active)position(active)});
   install();[120,500,1200,2500].forEach(ms=>setTimeout(install,ms));
