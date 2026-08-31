@@ -1,7 +1,7 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v163.20: unified autocomplete; second tap arms on pointerdown and commits only on pointerup.
+// v163.26: unified autocomplete; second tap commits on pointerup and closes just after the gesture.
 (function(){
   const routeIds=new Set(['origem','destino','preTripStopNameV127']);
   let active=null,timer=0,items=[],selectedIndex=-1,boundTarget=null,hideTimer=0,closeTimer=0,pendingCommit=null;
@@ -16,7 +16,7 @@ const js=`
   function onInput(el){active=el;suppressLegacy();clearTimeout(timer);timer=setTimeout(()=>search(el),280)}
   function choiceText(b,x){const main=b?.querySelector('b')?.textContent?.trim()||x?.mainText||x?.text||'';const secondary=b?.querySelector('span')?.textContent?.trim()||x?.secondaryText||'';return x?.text||[main,secondary].filter(Boolean).join(' - ')}
   function armCommit(index,b){const x=items[index],target=boundTarget;if(!isField(target))return false;const value=choiceText(b,x);if(!value)return false;clearTimeout(timer);clearTimeout(hideTimer);clearTimeout(closeTimer);pendingCommit={index,target,value,placeId:x?.placeId||''};return true}
-  function finishCommit(index){const c=pendingCommit;if(!c||c.index!==index||!isField(c.target))return false;c.target.value=c.value;c.target.dataset.placeId=c.placeId;active=c.target;const p=portal();selectedIndex=-1;pendingCommit=null;p.classList.add('hide');hideTimer=setTimeout(()=>{p.innerHTML='';items=[];boundTarget=null},80);return true}
+  function finishCommit(index){const c=pendingCommit;if(!c||c.index!==index||!isField(c.target))return false;c.target.value=c.value;c.target.dataset.placeId=c.placeId;active=c.target;const p=portal();selectedIndex=-1;pendingCommit=null;hideTimer=setTimeout(()=>p.classList.add('hide'),24);closeTimer=setTimeout(()=>{p.classList.add('hide');p.innerHTML='';items=[];boundTarget=null},96);return true}
   function selectFirst(b,e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();const idx=Number(b.dataset.mvChoice63);if(!Number.isInteger(idx))return;clearTimeout(timer);selectedIndex=idx;const p=portal();p.querySelectorAll('button[data-mv-choice63]').forEach((btn,i)=>{const sel=i===idx;btn.classList.toggle('mv-selected-v16263',sel);const em=btn.querySelector('em');if(em)em.textContent=sel?'Selecionado — toque novamente para confirmar':'Toque para selecionar'})}
   function stopPoint(){return document.querySelector('#directRouteStackV127 .route-point-v126.stops')}
   function toggleStop(e){const t=e.target?.closest?.('#mvStopToggleV16262');if(!t)return false;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();const point=stopPoint();if(!point)return true;point.classList.add('mv-stop-v16262');point.classList.toggle('mv-stop-open-v16262');const open=point.classList.contains('mv-stop-open-v16262');const label=t.querySelector('b');if(label)label.textContent=open?'Fechar':'Adicionar parada';if(open)setTimeout(()=>{const f=document.getElementById('preTripStopNameV127');if(f){active=f;f.focus({preventScroll:true})}},40);return true}
@@ -27,15 +27,15 @@ const js=`
   window.addEventListener('focusin',e=>{if(!isField(e.target))return;active=e.target;suppressLegacy();if(e.target.value.trim().length>=2){clearTimeout(timer);timer=setTimeout(()=>search(e.target),140)}e.stopImmediatePropagation()},true);
   window.addEventListener('input',e=>{if(!isField(e.target))return;onInput(e.target);e.stopImmediatePropagation()},true);
   document.addEventListener('pointerdown',e=>{const b=e.target.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]');if(!b)return;const idx=Number(b.dataset.mvChoice63);const second=selectedIndex===idx||b.classList.contains('mv-selected-v16263');e.preventDefault();e.stopPropagation();if(second)armCommit(idx,b)},true);
-  document.addEventListener('pointerup',e=>{const b=e.target.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]');if(!b)return;const idx=Number(b.dataset.mvChoice63);if(pendingCommit&&pendingCommit.index===idx){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();finishCommit(idx);return}selectFirst(b,e)},true);
+  document.addEventListener('pointerup',e=>{const b=e.target.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]');if(!b)return;const idx=Number(b.dataset.mvChoice63);if(pendingCommit&&pendingCommit.index===idx){e.preventDefault();e.stopPropagation();finishCommit(idx);return}selectFirst(b,e)},true);
   document.addEventListener('click',e=>{const b=e.target.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]');if(!b)return;e.preventDefault();e.stopImmediatePropagation()},true);
   document.addEventListener('scroll',()=>{if(boundTarget&&!portal().classList.contains('hide'))position(boundTarget)},true);window.addEventListener('resize',()=>{if(boundTarget&&!portal().classList.contains('hide'))position(boundTarget)});
   function install(){suppressLegacy();const stop=document.getElementById('preTripStopNameV127');if(stop){stop.setAttribute('autocomplete','off');stop.dataset.geoV125='1'}}install();[120,500,1200,2500].forEach(ms=>setTimeout(install,ms));
 })();
 `;
-if(!s.includes('carga();'))throw new Error('v163.20 startup anchor not found');s=s.replace('carga();',js+'\ncarga();');
+if(!s.includes('carga();'))throw new Error('v163.26 startup anchor not found');s=s.replace('carga();',js+'\ncarga();');
 const css=`
-/* v163.20 safe Android autocomplete */
+/* v163.26 safe Android autocomplete */
 #mvRouteChoicesV16261,#mvPlacesV16248,#mvNativePlacesV16260{display:none!important;visibility:hidden!important;pointer-events:none!important}
 #mvRouteChoicesV16263{position:fixed!important;z-index:2147483646!important;max-height:min(330px,42vh)!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;background:#fff!important;border:1px solid #d7dee8!important;border-radius:12px!important;box-shadow:0 10px 28px rgba(15,23,42,.18)!important;padding:5px 8px!important;touch-action:pan-y!important}
 #mvRouteChoicesV16263.hide{display:none!important}
@@ -48,4 +48,4 @@ const css=`
 #mvRouteChoicesV16263 button.mv-selected-v16263 b,#mvRouteChoicesV16263 button.mv-selected-v16263 em{color:#0f4a9d!important;font-weight:700!important}
 #mvRouteChoicesV16263 .mv-route-google-v16263{padding:8px 10px!important;background:#fff!important;color:#8a94a3!important;text-align:right!important;font-size:11px!important}
 `;
-if(!s.includes('</style>'))throw new Error('v163.20 css anchor not found');s=s.replace('</style>',css+'\n</style>');fs.writeFileSync('dist/index.html',s);console.log('Movvant v163.20: pointerup value commit autocomplete installed');
+if(!s.includes('</style>'))throw new Error('v163.26 css anchor not found');s=s.replace('</style>',css+'\n</style>');fs.writeFileSync('dist/index.html',s);console.log('Movvant v163.26: post-gesture autocomplete close installed');
