@@ -42,7 +42,18 @@ jobs:
             sleep 3
           done
           test "$matched" = "1"
-          echo "Cloudflare exact live build 162.88 confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+          echo "Cloudflare exact live build confirmed; bytes: $(wc -c < /tmp/movvant.html)"
+      - name: Verify real Routes endpoint
+        run: |
+          code=$(curl -sS --max-time 30 -G -w '%{http_code}' \
+            --data-urlencode 'origin=Avenida Paulista, São Paulo - SP, Brasil' \
+            --data-urlencode 'destination=Aeroporto de Congonhas, São Paulo - SP, Brasil' \
+            "$MOVVANT_URL/api/routes" -o /tmp/routes.json)
+          echo "Routes HTTP: $code"
+          cat /tmp/routes.json
+          test "$code" = "200"
+          grep -q '"items":\[' /tmp/routes.json
+          grep -Eq '"distanceMeters":[1-9][0-9]*' /tmp/routes.json
       - name: Prepare visual browser
         timeout-minutes: 3
         run: |
