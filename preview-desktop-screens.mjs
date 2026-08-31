@@ -1,0 +1,7 @@
+import fs from 'node:fs';import http from 'node:http';import {chromium} from 'playwright';
+const html=fs.readFileSync(new URL('./dist/index.html',import.meta.url),'utf8');
+const server=http.createServer((req,res)=>{if(req.url?.startsWith('/api/')){res.writeHead(404,{'content-type':'application/json'});res.end('{}');return}res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(html)});await new Promise(r=>server.listen(4177,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:900}});await page.goto('http://127.0.0.1:4177/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(1200);await page.evaluate(()=>{document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide');document.body.classList.add('mv-web131');globalThis.mvUiV16288?.sync?.()});await page.waitForTimeout(500);
+async function shot(name,sel){const b=page.locator(sel).first();if(await b.count()){await b.click();await page.waitForTimeout(350)}await page.screenshot({path:'/tmp/movvant-preview-'+name+'.png',fullPage:false})}
+await shot('dashboard','#app>.nav [data-p="inicio"]');await shot('painel','#app>.nav [data-p="painel"]');await shot('agenda','#app>.nav [data-p="agenda"]');await shot('viagem','#app>.nav [data-p="viagem"]');
+await browser.close();await new Promise(r=>server.close(r));
