@@ -79,7 +79,7 @@ const js=`
     {label:'Gestão',items:[['veiculos','Frota'],['equipe','Equipe'],['custos','Despesas']]},
     {label:'Sistema',items:[['notificacoes','Avisos'],['auditoria','Auditoria'],['backup','Backup'],['config','Configurações'],['perfil','Meu perfil'],['ajuda','Ajuda']]}
   ];
-  function approvedMenuMarkup(){return '<div class="mv-navgroups140">'+menuGroups.map((g,i)=>'<div class="mv-menugroup140"><button class="mv-menutrigger140" type="button" data-mvgroup="'+i+'">'+g.label+' <span>▾</span></button><div class="mv-submenu140">'+g.items.map(x=>'<button type="button" data-mvroute="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>').join('')+'</div>'}
+  function menuMarkup(){return '<div class="mv-navgroups140">'+menuGroups.map((g,i)=>'<div class="mv-menugroup140"><button class="mv-menutrigger140" type="button" data-mvgroup="'+i+'">'+g.label+' <span>▾</span></button><div class="mv-submenu140">'+g.items.map(x=>'<button type="button" data-mvroute="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>').join('')+'</div>'}
   function desktopGo(route){
     const old=[...document.querySelectorAll('#app>.nav [data-p]')].find(b=>b.dataset.p===route);
     if(old){old.click();return true}
@@ -87,13 +87,13 @@ const js=`
     return false;
   }
   function ensureApprovedDesktopMenu(){
-    if(innerWidth<900)return;
-    const nav=document.getElementById('mvDesktopNav132');if(!nav)return;
-    const valid=nav.classList.contains('mv-grouped140')&&nav.querySelectorAll('.mv-menugroup140').length===4;
-    if(!valid){nav.classList.add('mv-grouped140');nav.innerHTML=approvedMenuMarkup();nav.dataset.mvApproved16346='1'}
-    if(!nav.dataset.mvBound16346){
-      nav.dataset.mvBound16346='1';
-      nav.addEventListener('click',e=>{const b=e.target.closest('[data-mvroute]');if(!b)return;e.preventDefault();e.stopPropagation();desktopGo(b.dataset.mvroute)})
+    const old=document.getElementById('mvDesktopNav132');
+    let nav=document.getElementById('mvDesktopNav16346');
+    if(innerWidth<900){if(nav)nav.remove();if(old)old.style.removeProperty('display');return}
+    if(old)old.style.setProperty('display','none','important');
+    if(!nav){
+      nav=document.createElement('nav');nav.id='mvDesktopNav16346';nav.setAttribute('aria-label','Navegação principal');nav.innerHTML=menuMarkup();document.body.appendChild(nav);
+      nav.addEventListener('click',e=>{const b=e.target.closest('[data-mvroute]');if(!b)return;e.preventDefault();e.stopPropagation();desktopGo(b.dataset.mvroute)});
     }
   }
 
@@ -103,7 +103,7 @@ const js=`
   function ensureHeader(){
     for(const oldId of ['mvDesktopHeader132','mvDesktopHeader143','mvDesktopHeader144']){const old=document.getElementById(oldId);if(old)old.remove()}
     let h=document.getElementById(ID);
-    if(innerWidth<900){if(h)h.remove();return}
+    if(innerWidth<900){if(h)h.remove();ensureApprovedDesktopMenu();return}
     if(!h){h=document.createElement('div');h.id=ID;h.setAttribute('role','banner');h.innerHTML=html;document.body.prepend(h)}
     h.removeAttribute('hidden');h.className='';h.style.cssText=headerCss;
     ensureApprovedDesktopMenu();
@@ -116,7 +116,24 @@ const js=`
   setInterval(ensureHeader,1000);
 })();
 `;
-if(!s.includes('</body>'))throw new Error('v163.46 body anchor not found');
+const css=`
+@media(min-width:900px){
+ #mvDesktopNav132{display:none!important;visibility:hidden!important;pointer-events:none!important}
+ #mvDesktopNav16346{display:flex!important;align-items:center!important;justify-content:center!important;position:fixed!important;z-index:2147483000!important;top:56px!important;left:0!important;right:0!important;height:46px!important;margin:0!important;padding:0!important;background:#fff!important;border:0!important;border-bottom:1px solid #dce3ec!important;box-shadow:none!important;overflow:visible!important}
+ #mvDesktopNav16346 .mv-navgroups140{width:auto!important;min-width:520px!important;max-width:680px!important;display:grid!important;grid-template-columns:repeat(4,auto)!important;justify-content:center!important;gap:18px!important;margin:0 auto!important;padding:0 14px!important;overflow:visible!important}
+ #mvDesktopNav16346 .mv-menugroup140{position:relative!important;height:30px!important;display:flex!important;align-items:center!important}
+ #mvDesktopNav16346 .mv-menutrigger140{display:flex!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:96px!important;height:30px!important;min-height:30px!important;padding:0 12px!important;margin:0!important;border:0!important;border-radius:6px!important;background:#0c356b!important;color:#fff!important;font-size:11px!important;font-weight:750!important;line-height:1!important;white-space:nowrap!important;box-shadow:none!important}
+ #mvDesktopNav16346 .mv-menutrigger140 span{font-size:9px!important;margin-left:5px!important}
+ #mvDesktopNav16346 .mv-submenu140{position:absolute!important;z-index:2147483646!important;top:34px!important;left:0!important;min-width:190px!important;width:max-content!important;max-width:300px!important;background:#fff!important;border:1px solid #d9e2ec!important;border-radius:9px!important;box-shadow:0 14px 34px rgba(15,42,68,.16)!important;padding:6px!important;display:none!important}
+ #mvDesktopNav16346 .mv-menugroup140:hover .mv-submenu140,#mvDesktopNav16346 .mv-menugroup140:focus-within .mv-submenu140{display:grid!important;gap:3px!important}
+ #mvDesktopNav16346 .mv-menugroup140:last-child .mv-submenu140{left:auto!important;right:0!important}
+ #mvDesktopNav16346 .mv-submenu140 button{display:block!important;width:100%!important;text-align:left!important;border:0!important;background:#fff!important;color:#334155!important;padding:8px 10px!important;border-radius:6px!important;font-size:11px!important;font-weight:650!important;white-space:nowrap!important;box-shadow:none!important}
+ #mvDesktopNav16346 .mv-submenu140 button:hover,#mvDesktopNav16346 .mv-submenu140 button:focus{background:#edf6ff!important;color:#0867c7!important}
+}
+@media(max-width:899px){#mvDesktopNav16346{display:none!important}}
+`;
+if(!s.includes('</style>')||!s.includes('</body>'))throw new Error('v163.46 anchors not found');
+s=s.replace('</style>',css+'\n</style>');
 s=s.replace('</body>','<script id="mvRuntime16346">'+js.replace(/<\/script>/g,'<\\/script>')+'</script>\n</body>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v163.46 web API authority, planner, stable header, approved grouped desktop menu and canonical mobile navigation installed');
+console.log('Movvant v163.46 web API authority, planner, stable header, final approved grouped desktop menu and canonical mobile navigation installed');
