@@ -34,6 +34,10 @@ try {
   console.log('CHECKPOINT render');
   await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:15000});
   await page.waitForTimeout(2200);
+  // v162.93 intentionally keeps route planning collapsed. Open it before testing
+  // the route fields, stops and native Android interactions inside that panel.
+  await page.evaluate(()=>{const fold=document.getElementById('mvRouteFold93');if(fold)fold.open=true});
+  await page.waitForTimeout(180);
   const shell=await page.evaluate(()=>{
     const auth=document.getElementById('auth'),app=document.getElementById('app'),trip=document.getElementById('p-viagem'),form=document.getElementById('novaViagem'),route=document.getElementById('directRouteStackV127');
     if(auth)auth.classList.add('hide');
