@@ -24,14 +24,27 @@ const js=`
   }
 
   function canonicalMobileNavigate(route){
-    if(innerWidth>=900||!route||typeof globalThis.show!=='function')return false;
+    if(innerWidth>=900||!route)return false;
     if(route==='viagem'&&typeof globalThis.mvTripLockArm==='function'){
       try{globalThis.mvTripLockArm()}catch(_){}
     }
-    try{globalThis.show(route)}catch(_){return false}
+    let ok=false;
+    try{
+      if(typeof globalThis.mvWindowNavigationV16307?.activate==='function'){
+        globalThis.mvWindowNavigationV16307.activate(route);ok=true;
+      }else if(typeof globalThis.mvNavigationV16282?.navigate==='function'){
+        globalThis.mvNavigationV16282.navigate(route);ok=true;
+      }
+    }catch(_){ok=false}
+    if(!ok){
+      const page=document.getElementById('p-'+route);
+      if(!page)return false;
+      document.querySelectorAll('#app>[id^="p-"]').forEach(x=>x.classList.add('hide'));
+      page.classList.remove('hide');page.removeAttribute('hidden');ok=true;
+    }
     document.body.dataset.mv53=route;document.body.dataset.mvRoute=route;
     document.body.classList.remove('km-menu-open','mv-menu-open-v16282');
-    return true;
+    return ok;
   }
   globalThis.mvCanonicalNavigationV16346={navigate:canonicalMobileNavigate};
 
