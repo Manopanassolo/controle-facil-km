@@ -73,6 +73,30 @@ const js=`
     e.preventDefault();e.stopImmediatePropagation();
   },true);
 
+  const menuGroups=[
+    {label:'Visão geral',items:[['inicio','Dashboard'],['painel','Painel ADM'],['relatorios','Relatórios']]},
+    {label:'Operação',items:[['viagem','Novo percurso'],['historico','Viagens'],['rotas','Rotas'],['agenda','Agenda']]},
+    {label:'Gestão',items:[['veiculos','Frota'],['equipe','Equipe'],['custos','Despesas']]},
+    {label:'Sistema',items:[['notificacoes','Avisos'],['auditoria','Auditoria'],['backup','Backup'],['config','Configurações'],['perfil','Meu perfil'],['ajuda','Ajuda']]}
+  ];
+  function approvedMenuMarkup(){return '<div class="mv-navgroups140">'+menuGroups.map((g,i)=>'<div class="mv-menugroup140"><button class="mv-menutrigger140" type="button" data-mvgroup="'+i+'">'+g.label+' <span>▾</span></button><div class="mv-submenu140">'+g.items.map(x=>'<button type="button" data-mvroute="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>').join('')+'</div>'}
+  function desktopGo(route){
+    const old=[...document.querySelectorAll('#app>.nav [data-p]')].find(b=>b.dataset.p===route);
+    if(old){old.click();return true}
+    try{if(typeof globalThis.mvNavigationV16282?.navigate==='function'){globalThis.mvNavigationV16282.navigate(route);return true}}catch(_){}
+    return false;
+  }
+  function ensureApprovedDesktopMenu(){
+    if(innerWidth<900)return;
+    const nav=document.getElementById('mvDesktopNav132');if(!nav)return;
+    const valid=nav.classList.contains('mv-grouped140')&&nav.querySelectorAll('.mv-menugroup140').length===4;
+    if(!valid){nav.classList.add('mv-grouped140');nav.innerHTML=approvedMenuMarkup();nav.dataset.mvApproved16346='1'}
+    if(!nav.dataset.mvBound16346){
+      nav.dataset.mvBound16346='1';
+      nav.addEventListener('click',e=>{const b=e.target.closest('[data-mvroute]');if(!b)return;e.preventDefault();e.stopPropagation();desktopGo(b.dataset.mvroute)})
+    }
+  }
+
   const ID='mvDesktopHeader16346';
   const html='<div class="mv-dbrand132"><span class="mv-dmark132">M</span><span><strong>Movvant</strong><small>INTELIGÊNCIA COMERCIAL EM CAMPO</small></span></div><div id="mvDesktopTitle16346">Dashboard</div><button class="mv-dbell132" type="button" aria-label="Notificações">●</button>';
   const headerCss='display:grid!important;grid-template-columns:minmax(260px,1fr) auto minmax(260px,1fr)!important;align-items:center!important;position:fixed!important;left:0!important;right:0!important;top:0!important;height:56px!important;min-height:56px!important;max-height:56px!important;padding:0 24px!important;margin:0!important;background:#082b50!important;color:#fff!important;visibility:visible!important;opacity:1!important;z-index:2147483647!important;box-sizing:border-box!important;border:0!important;border-bottom:1px solid #17446f!important;box-shadow:0 1px 5px rgba(8,32,58,.16)!important;transform:none!important;clip:auto!important;clip-path:none!important;pointer-events:auto!important';
@@ -82,6 +106,7 @@ const js=`
     if(innerWidth<900){if(h)h.remove();return}
     if(!h){h=document.createElement('div');h.id=ID;h.setAttribute('role','banner');h.innerHTML=html;document.body.prepend(h)}
     h.removeAttribute('hidden');h.className='';h.style.cssText=headerCss;
+    ensureApprovedDesktopMenu();
     ensureWebPlanner();
   }
   let busy=false;function schedule(){if(busy)return;busy=true;requestAnimationFrame(()=>{busy=false;ensureHeader()})}
@@ -94,4 +119,4 @@ const js=`
 if(!s.includes('</body>'))throw new Error('v163.46 body anchor not found');
 s=s.replace('</body>','<script id="mvRuntime16346">'+js.replace(/<\/script>/g,'<\\/script>')+'</script>\n</body>');
 fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v163.46 web API authority, planner, stable header and canonical mobile navigation installed');
+console.log('Movvant v163.46 web API authority, planner, stable header, approved grouped desktop menu and canonical mobile navigation installed');
