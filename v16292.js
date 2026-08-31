@@ -1,37 +1,35 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.95: capture two-tap authority before legacy handlers can stop propagation.
+// v163.06: authoritative second-tap confirmation. Keep first tap on v162.63; delay DOM removal until native tap completes.
 (function(){
+  const ids=new Set(['origem','destino','preTripStopNameV127']);
   function portal(){return document.getElementById('mvRouteChoicesV16263')}
-  function choice(e){return e.target?.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]')}
-  let armed=null,armedAt=0,lastInput=null;
+  let lastInput=null,lastAt=0;
+  function remember(el){if(el&&ids.has(el.id)){lastInput=el;lastAt=Date.now()}}
+  window.addEventListener('pointerdown',e=>remember(e.target),true);
+  window.addEventListener('focusin',e=>remember(e.target),true);
+  window.addEventListener('input',e=>remember(e.target),true);
   window.addEventListener('pointerup',e=>{
-    const b=choice(e);if(!b)return;
+    const b=e.target?.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]');
+    if(!b||!b.classList.contains('mv-selected-v16263'))return; // first tap is handled by v162.63
+    let input=(lastInput&&Date.now()-lastAt<15000)?lastInput:null;
     const active=document.activeElement;
-    const input=(active&&['origem','destino','preTripStopNameV127'].includes(active.id))?active:lastInput;
+    if(active&&ids.has(active.id)&&(active===lastInput||!input))input=active;
     if(!input)return;
-    lastInput=input;
-    const idx=b.dataset.mvChoice63,now=Date.now(),key=input.id+':'+idx;
-    const isSelected=b.classList.contains('mv-selected-v16263');
-    if(!isSelected&&armed!==key){armed=key;armedAt=now;return}
-    if(isSelected||(armed===key&&now-armedAt<2500)){
-      setTimeout(()=>{
-        const p=portal();if(!p||p.classList.contains('hide')){armed=null;return}
-        const current=p.querySelector('button[data-mv-choice63="'+idx+'"]');
-        if(!current||!current.classList.contains('mv-selected-v16263'))return;
-        const main=current.querySelector('b')?.textContent?.trim()||'';
-        const secondary=current.querySelector('span')?.textContent?.trim()||'';
-        const text=[main,secondary].filter(Boolean).join(secondary?' - ':'');
-        if(text){input.value=text;input.dispatchEvent(new Event('change',{bubbles:true}))}
-        p.classList.add('hide');p.innerHTML='';armed=null;
-        input.focus({preventScroll:true});
-      },0)
-    }
+    const main=b.querySelector('b')?.textContent?.trim()||'';
+    const secondary=b.querySelector('span')?.textContent?.trim()||'';
+    const text=[main,secondary].filter(Boolean).join(secondary?' - ':'');
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
+    const target=input;
+    // Delay closing so the native/Playwright tap can finish against a still-attached button.
+    setTimeout(()=>{
+      if(text){target.value=text;target.dispatchEvent(new Event('change',{bubbles:true}))}
+      const p=portal();if(p){p.classList.add('hide');p.innerHTML=''}
+      target.focus({preventScroll:true});
+    },60);
   },true);
-  window.addEventListener('focusin',e=>{if(['origem','destino','preTripStopNameV127'].includes(e.target?.id))lastInput=e.target},true);
-  document.addEventListener('input',e=>{if(['origem','destino','preTripStopNameV127'].includes(e.target?.id)){armed=null;lastInput=e.target}},true);
 })();
 `;
-if(!s.includes('carga();'))throw new Error('v162.95 startup anchor');s=s.replace('carga();',js+'\ncarga();');
-fs.writeFileSync('dist/index.html',s);console.log('Movvant v162.95: captured stop confirmation authority installed');
+if(!s.includes('carga();'))throw new Error('v163.06 autocomplete anchor');s=s.replace('carga();',js+'\ncarga();');
+fs.writeFileSync('dist/index.html',s);console.log('Movvant v163.06: native-safe deterministic second-tap autocomplete authority installed');
