@@ -23,15 +23,24 @@ const js=`
     if(!btn.dataset.mvReady16346){btn.dataset.mvReady16346='1';btn.onclick=async e=>{e.preventDefault();e.stopPropagation();if(typeof globalThis.planRouteV131!=='function'){try{globalThis.msg?.('Planejador de rota não carregado',true)}catch(_){}return}btn.disabled=true;const old=btn.textContent;btn.textContent='Planejando rota…';try{await globalThis.planRouteV131()}finally{btn.disabled=false;btn.textContent=old}}}
   }
 
+  function canonicalMobileNavigate(route){
+    if(innerWidth>=900||!route||typeof globalThis.show!=='function')return false;
+    if(route==='viagem'&&typeof globalThis.mvTripLockArm==='function'){
+      try{globalThis.mvTripLockArm()}catch(_){}
+    }
+    try{globalThis.show(route)}catch(_){return false}
+    document.body.dataset.mv53=route;document.body.dataset.mvRoute=route;
+    document.body.classList.remove('km-menu-open','mv-menu-open-v16282');
+    return true;
+  }
+  globalThis.mvCanonicalNavigationV16346={navigate:canonicalMobileNavigate};
+
   document.addEventListener('click',e=>{
     if(innerWidth>=900)return;
     const b=e.target.closest?.('[data-p],[data-p-jump],[data-page]');if(!b)return;
     const route=b.dataset.p||b.dataset.pJump||b.dataset.page;if(!route)return;
-    if(typeof globalThis.show!=='function')return;
+    if(!canonicalMobileNavigate(route))return;
     e.preventDefault();e.stopImmediatePropagation();
-    try{globalThis.show(route)}catch(_){return}
-    document.body.dataset.mv53=route;document.body.dataset.mvRoute=route;
-    document.body.classList.remove('km-menu-open','mv-menu-open-v16282');
   },true);
 
   const ID='mvDesktopHeader16346';
