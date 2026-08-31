@@ -9,14 +9,11 @@ const js=`
     if(!raw.includes('/api/places')) return nativeFetch(input,init);
     try{
       const r=await nativeFetch(input,init);
-      if(r.ok) return r;
+      const type=String(r.headers.get('content-type')||'').toLowerCase();
+      if(r.ok&&type.includes('application/json')) return r;
     }catch(_){ }
-    try{
-      const u=new URL(raw,location.origin);
-      return await nativeFetch(WORKER+u.pathname+u.search,{...(init||{}),cache:'no-store',mode:'cors'});
-    }catch(e){
-      throw e;
-    }
+    const u=new URL(raw,location.origin);
+    return nativeFetch(WORKER+u.pathname+u.search,{...(init||{}),cache:'no-store',mode:'cors'});
   }
   window.fetch=fetchPlaces;
   window.mvPlacesFallbackV16345={worker:WORKER,active:true};
