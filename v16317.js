@@ -23,6 +23,25 @@ const js=`
     if(!btn.dataset.mvReady16346){btn.dataset.mvReady16346='1';btn.onclick=async e=>{e.preventDefault();e.stopPropagation();if(typeof globalThis.planRouteV131!=='function'){try{globalThis.msg?.('Planejador de rota não carregado',true)}catch(_){}return}btn.disabled=true;const old=btn.textContent;btn.textContent='Planejando rota…';try{await globalThis.planRouteV131()}finally{btn.disabled=false;btn.textContent=old}}}
   }
 
+  function enforceMobilePage(route){
+    if(innerWidth>=900||!route)return false;
+    const target=document.getElementById('p-'+route);if(!target)return false;
+    document.querySelectorAll('#app>[id^="p-"]').forEach(page=>{
+      const active=page===target;
+      page.classList.toggle('hide',!active);
+      if(active){
+        page.removeAttribute('hidden');
+        page.style.setProperty('display','block','important');
+        page.style.setProperty('visibility','visible','important');
+        page.style.setProperty('opacity','1','important');
+        page.style.setProperty('pointer-events','auto','important');
+      }else{
+        page.style.setProperty('display','none','important');
+      }
+    });
+    return true;
+  }
+
   function canonicalMobileNavigate(route){
     if(innerWidth>=900||!route)return false;
     if(route==='viagem'&&typeof globalThis.mvTripLockArm==='function'){
@@ -36,17 +55,15 @@ const js=`
         globalThis.mvNavigationV16282.navigate(route);ok=true;
       }
     }catch(_){ok=false}
-    if(!ok){
-      const page=document.getElementById('p-'+route);
-      if(!page)return false;
-      document.querySelectorAll('#app>[id^="p-"]').forEach(x=>x.classList.add('hide'));
-      page.classList.remove('hide');page.removeAttribute('hidden');ok=true;
-    }
     document.body.dataset.mv53=route;document.body.dataset.mvRoute=route;
     document.body.classList.remove('km-menu-open','mv-menu-open-v16282');
+    ok=enforceMobilePage(route)||ok;
+    requestAnimationFrame(()=>enforceMobilePage(route));
+    setTimeout(()=>enforceMobilePage(route),80);
+    setTimeout(()=>enforceMobilePage(route),240);
     return ok;
   }
-  globalThis.mvCanonicalNavigationV16346={navigate:canonicalMobileNavigate};
+  globalThis.mvCanonicalNavigationV16346={navigate:canonicalMobileNavigate,enforce:enforceMobilePage};
 
   document.addEventListener('click',e=>{
     if(innerWidth>=900)return;
