@@ -1,11 +1,12 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v162.63: unified safe autocomplete for origin, stop and destination; two-tap confirmation on Android.
+// v163.09: unified safe autocomplete with deterministic two-tap confirmation for origin, stop and destination.
 (function(){
   const routeIds=new Set(['origem','destino','preTripStopNameV127']);
   let active=null,timer=0,items=[],selectedIndex=-1;
   function isField(el){return !!(el&&routeIds.has(el.id)&&el.closest?.('#p-viagem'))}
+  function currentTarget(){const f=document.activeElement;return isField(f)?f:(isField(active)?active:null)}
   function portal(){let p=document.getElementById('mvRouteChoicesV16263');if(!p){p=document.createElement('div');p.id='mvRouteChoicesV16263';p.className='hide';document.body.appendChild(p)}return p}
   function suppressLegacy(){
     ['mvRouteChoicesV16261','mvPlacesV16248','mvNativePlacesV16260'].forEach(id=>{const p=document.getElementById(id);if(p){p.classList.add('hide');p.style.setProperty('display','none','important');p.style.setProperty('pointer-events','none','important')}});
@@ -16,46 +17,38 @@ const js=`
   function render(arr,input){items=Array.isArray(arr)?arr:[];selectedIndex=-1;if(!items.length){close();return}const p=portal();p.innerHTML=items.map((x,i)=>'<button type="button" data-mv-choice63="'+i+'"><b>'+esc(x.mainText||x.text)+'</b><span>'+esc(x.secondaryText||'')+'</span><em>Toque para selecionar</em></button>').join('')+'<div class="mv-route-google-v16263">Resultados fornecidos pelo Google</div>';position(input);p.classList.remove('hide')}
   async function search(input){const q=input.value.trim();if(q.length<2){close();return}try{const r=await fetch('/api/places?q='+encodeURIComponent(q),{cache:'no-store'});const j=await r.json().catch(()=>({items:[]}));if(active===input&&input.value.trim()===q)render(j.items||[],input)}catch(_){close()}}
   function onInput(el){active=el;suppressLegacy();clearTimeout(timer);timer=setTimeout(()=>search(el),280)}
-  function confirmSelection(index){
-    const x=items[index],target=active;if(!x||!target)return;
-    target.value=x.text||[x.mainText,x.secondaryText].filter(Boolean).join(', ');target.dataset.placeId=x.placeId||'';
-    target.dispatchEvent(new Event('change',{bubbles:true}));close();target.focus({preventScroll:true});
+  function choiceText(b,x){const main=b?.querySelector('b')?.textContent?.trim()||x?.mainText||x?.text||'';const secondary=b?.querySelector('span')?.textContent?.trim()||x?.secondaryText||'';return x?.text||[main,secondary].filter(Boolean).join(' - ')}
+  function confirmSelection(index,b){
+    const x=items[index],target=currentTarget();if(!target)return;
+    const value=choiceText(b,x);if(!value)return;
+    clearTimeout(timer);
+    target.value=value;target.dataset.placeId=x?.placeId||'';
+    target.dispatchEvent(new Event('change',{bubbles:true}));close();target.focus({preventScroll:true});active=target;
   }
   function handleChoice(b,e){
     e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
-    const idx=Number(b.dataset.mvChoice63);if(!Number.isInteger(idx)||!items[idx])return;
+    const idx=Number(b.dataset.mvChoice63);if(!Number.isInteger(idx))return;
     const p=portal();
-    if(selectedIndex!==idx){
-      selectedIndex=idx;
-      p.querySelectorAll('button[data-mv-choice63]').forEach((btn,i)=>{const sel=i===idx;btn.classList.toggle('mv-selected-v16263',sel);const em=btn.querySelector('em');if(em)em.textContent=sel?'Selecionado — toque novamente para confirmar':'Toque para selecionar'});
-      b.scrollIntoView({block:'nearest'});
-      return;
-    }
-    confirmSelection(idx);
+    // The DOM selected state is authoritative. This survives delayed searches/re-renders better than a stale closure index.
+    if(b.classList.contains('mv-selected-v16263')){confirmSelection(idx,b);return}
+    clearTimeout(timer);selectedIndex=idx;
+    p.querySelectorAll('button[data-mv-choice63]').forEach((btn,i)=>{const sel=i===idx;btn.classList.toggle('mv-selected-v16263',sel);const em=btn.querySelector('em');if(em)em.textContent=sel?'Selecionado — toque novamente para confirmar':'Toque para selecionar'});
+    b.scrollIntoView({block:'nearest'});
   }
   function stopPoint(){return document.querySelector('#directRouteStackV127 .route-point-v126.stops')}
   function toggleStop(e){
     const t=e.target?.closest?.('#mvStopToggleV16262');if(!t)return false;
     e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
     const point=stopPoint();if(!point)return true;
-    point.classList.add('mv-stop-v16262');
-    point.classList.toggle('mv-stop-open-v16262');
-    const open=point.classList.contains('mv-stop-open-v16262');
-    const label=t.querySelector('b');if(label)label.textContent=open?'Fechar':'Adicionar parada';
-    if(open)setTimeout(()=>document.getElementById('preTripStopNameV127')?.focus({preventScroll:true}),40);
+    point.classList.add('mv-stop-v16262');point.classList.toggle('mv-stop-open-v16262');
+    const open=point.classList.contains('mv-stop-open-v16262');const label=t.querySelector('b');if(label)label.textContent=open?'Fechar':'Adicionar parada';
+    if(open)setTimeout(()=>{const f=document.getElementById('preTripStopNameV127');if(f){active=f;f.focus({preventScroll:true})}},40);
     return true;
   }
-  function addStop(e){
-    const b=e.target?.closest?.('#preTripStopAddV127');if(!b)return false;
-    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
-    if(typeof addPreTripStopV127==='function')addPreTripStopV127();
-    return true;
-  }
-  // Stable delegated stop authority. It survives any DOM clone/re-render after a place confirmation.
+  function addStop(e){const b=e.target?.closest?.('#preTripStopAddV127');if(!b)return false;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();if(typeof addPreTripStopV127==='function')addPreTripStopV127();return true}
   document.addEventListener('click',e=>{if(toggleStop(e))return;if(addStop(e))return},true);
   document.addEventListener('keydown',e=>{if(e.target?.id==='preTripStopNameV127'&&e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();if(typeof addPreTripStopV127==='function')addPreTripStopV127()}},true);
-
-  for(const type of ['pointerdown','touchstart','click'])window.addEventListener(type,e=>{if(!isField(e.target))return;suppressLegacy();e.stopImmediatePropagation()},true);
+  for(const type of ['pointerdown','touchstart','click'])window.addEventListener(type,e=>{if(!isField(e.target))return;active=e.target;suppressLegacy();e.stopImmediatePropagation()},true);
   window.addEventListener('focusin',e=>{if(!isField(e.target))return;active=e.target;suppressLegacy();if(e.target.value.trim().length>=2){clearTimeout(timer);timer=setTimeout(()=>search(e.target),140)}e.stopImmediatePropagation()},true);
   window.addEventListener('input',e=>{if(!isField(e.target))return;onInput(e.target);e.stopImmediatePropagation()},true);
   document.addEventListener('pointerup',e=>{const b=e.target.closest?.('#mvRouteChoicesV16263 button[data-mv-choice63]');if(!b)return;handleChoice(b,e)},true);
@@ -67,10 +60,9 @@ const js=`
   install();[120,500,1200,2500].forEach(ms=>setTimeout(install,ms));
 })();
 `;
-if(!s.includes('carga();'))throw new Error('v162.63 startup anchor not found');
-s=s.replace('carga();',js+'\ncarga();');
+if(!s.includes('carga();'))throw new Error('v163.09 startup anchor not found');s=s.replace('carga();',js+'\ncarga();');
 const css=`
-/* v162.63 safe Android autocomplete */
+/* v163.09 safe Android autocomplete */
 #mvRouteChoicesV16261,#mvPlacesV16248,#mvNativePlacesV16260{display:none!important;visibility:hidden!important;pointer-events:none!important}
 #mvRouteChoicesV16263{position:fixed!important;z-index:2147483646!important;max-height:min(330px,42vh)!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;background:#fff!important;border:1px solid #d7dee8!important;border-radius:12px!important;box-shadow:0 10px 28px rgba(15,23,42,.18)!important;padding:5px 8px!important;touch-action:pan-y!important}
 #mvRouteChoicesV16263.hide{display:none!important}
@@ -84,7 +76,5 @@ const css=`
 #mvRouteChoicesV16263 button.mv-selected-v16263 em{color:#0f4a9d!important;font-weight:700!important}
 #mvRouteChoicesV16263 .mv-route-google-v16263{padding:8px 10px!important;background:#fff!important;color:#8a94a3!important;text-align:right!important;font-size:11px!important}
 `;
-if(!s.includes('</style>'))throw new Error('v162.63 css anchor not found');
-s=s.replace('</style>',css+'\n</style>');
-fs.writeFileSync('dist/index.html',s);
-console.log('Movvant v162.63: safe two-tap Android autocomplete installed');
+if(!s.includes('</style>'))throw new Error('v163.09 css anchor not found');s=s.replace('</style>',css+'\n</style>');
+fs.writeFileSync('dist/index.html',s);console.log('Movvant v163.09: deterministic two-tap Android autocomplete installed');
