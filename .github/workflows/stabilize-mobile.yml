@@ -19,15 +19,23 @@ jobs:
         run: npm run build
       - name: Inspect rendered shell
         run: node inspect-shell.js
-      - name: Capture desktop visual preview
+      - name: Install browser for visual and all-screen audit
         if: github.event_name == 'pull_request'
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
-          node preview-desktop-screens.mjs
-      - name: Upload desktop visual preview
+      - name: Capture desktop visual preview
+        if: github.event_name == 'pull_request'
+        run: node preview-desktop-screens.mjs
+      - name: Audit 100 percent of rendered screens
+        if: github.event_name == 'pull_request'
+        run: node all-screens-audit.mjs
+      - name: Upload visual and all-screen evidence
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: movvant-v16331-desktop-preview
-          path: /tmp/movvant-preview-*.png
+          name: movvant-v16346-full-screen-audit
+          path: |
+            /tmp/movvant-preview-*.png
+            /tmp/movvant-audit-*.png
+            /tmp/movvant-all-screens-audit.json
