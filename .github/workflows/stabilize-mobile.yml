@@ -31,7 +31,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node all-screens-audit.mjs
       - name: Upload visual and all-screen evidence
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: movvant-v16346-full-screen-audit
