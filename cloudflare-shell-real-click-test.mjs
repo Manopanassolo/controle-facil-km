@@ -11,7 +11,7 @@ async function expose(page){
   await page.evaluate(()=>{
     globalThis.mvAuthAuthorityV16356?.showLoggedIn?.();
     document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide');
-    globalThis.mvNavigationV16282?.navigate?.('inicio');
+    globalThis.mvNavigationV164?.navigate?.('inicio');
     globalThis.mvUiAuthorityV16354?.sync?.();
     globalThis.mvGoogleConnectV16360?.bind?.();
   });
@@ -22,8 +22,8 @@ async function expose(page){
 try{
  const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});mobile.setDefaultTimeout(5000);await expose(mobile);
  result.mobile=await mobile.evaluate(()=>{const notify=document.getElementById('mvNotifyV16321'),desktopNav=document.getElementById('mvDesktopNav132'),desktopHeaders=['mvDesktopHeader132','mvDesktopHeader143','mvDesktopHeader144'].map(id=>document.getElementById(id)).filter(Boolean),dock=document.getElementById('mvBottomDock85'),ds=dock?getComputedStyle(dock):null;return{dock:!!dock,dockVisible:!!dock&&ds.display!=='none'&&ds.visibility!=='hidden'&&Number(ds.opacity)!==0,dockDisplay:ds?.display||'',dockAuthority:dock?.dataset.mvAuthority||'',authState:document.body.dataset.mvAuth||'',legacy:[...document.querySelectorAll('[id^="mvBottomV16249"]')].every(x=>getComputedStyle(x).display==='none'),desktopShellHidden:(!desktopNav||getComputedStyle(desktopNav).display==='none')&&desktopHeaders.every(x=>getComputedStyle(x).display==='none'),notifyVisible:!!notify&&getComputedStyle(notify).display!=='none'}});
- await mobile.locator('#mvBottomDock85 [data-mv-dock="menu"]').click();await mobile.waitForTimeout(100);result.mobile.menuOpen=await mobile.evaluate(()=>document.body.classList.contains('mv-menu-open-v16282'));
- await mobile.locator('#app>.nav [data-p="agenda"]').click();await mobile.waitForTimeout(150);result.mobile.agenda=await mobile.evaluate(()=>document.body.dataset.mvPage==='agenda'&&!document.getElementById('p-agenda')?.classList.contains('hide'));
+ await mobile.locator('#mvBottomDock85 [data-mv-dock="menu"]').click();await mobile.waitForTimeout(100);result.mobile.menuOpen=await mobile.evaluate(()=>document.getElementById('mvMenu164')?.classList.contains('open')===true);
+ await mobile.locator('#mvMenu164 [data-page164="agenda"]').click();await mobile.waitForTimeout(150);result.mobile.agenda=await mobile.evaluate(()=>document.body.dataset.mvPage==='agenda'&&!document.getElementById('p-agenda')?.classList.contains('hide'));
  await mobile.locator('#mvBottomDock85 [data-mv-dock="inicio"]').click();await mobile.waitForTimeout(150);result.mobile.home=await mobile.evaluate(()=>document.body.dataset.mvPage==='inicio'&&!document.getElementById('p-inicio')?.classList.contains('hide'));
  const tripCta=mobile.locator('[data-mv88="viagem"]').first();await tripCta.click();await mobile.waitForTimeout(150);result.mobile.trip=await mobile.evaluate(()=>document.body.dataset.mvPage==='viagem'&&getComputedStyle(document.getElementById('p-viagem')).display!=='none'&&getComputedStyle(document.getElementById('novaViagem')).display!=='none');
  await mobile.screenshot({path:'/tmp/movvant-real-click-mobile.png'});await mobile.close();
