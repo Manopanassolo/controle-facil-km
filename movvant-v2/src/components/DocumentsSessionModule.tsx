@@ -1,48 +1,30 @@
 'use client';
 
-import { useState } from 'react';
-import { PrototypeActionButton } from './PrototypeActionButton';
 import { PrototypeFormDialog, PrototypeFormValues } from './PrototypeFormDialog';
+import { DocumentKind, DocumentScope, useSessionActivity } from './SessionActivityProvider';
 
-type DocumentItem = { title: string; detail: string; status: string; session?: boolean };
+function text(values:PrototypeFormValues,key:string){const current=values[key];return Array.isArray(current)?current.join(' · '):current||'';}
+function formatDate(date:string){if(!date)return 'Sem validade';const[y,m,d]=date.split('-');return`${d}/${m}/${y}`;}
+function warningDays(value:string){return Number(value.replace(/\D/g,''))||30;}
 
-const initialDocs: DocumentItem[] = [
-  { title: 'CNH · Marcos Paulo', detail: 'Validade 18/03/2028', status: 'Válido' },
-  { title: 'CRLV · SUV Comercial', detail: 'Licenciamento 2026', status: 'Válido' },
-  { title: 'Seguro · Hatch Vendas', detail: 'Renova em 42 dias', status: 'Atenção' },
-  { title: 'Comprovante · Utilitário', detail: 'Atualizado em 25/08', status: 'Válido' }
-];
-
-function text(values: PrototypeFormValues, key: string) {
-  const current = values[key];
-  return Array.isArray(current) ? current.join(' · ') : current || '';
-}
-
-export function DocumentsSessionModule() {
-  const [sessionDocs, setSessionDocs] = useState<DocumentItem[]>([]);
-  const docs = [...sessionDocs, ...initialDocs];
-
-  function addDocument(values: PrototypeFormValues) {
-    const rawDate = text(values, 'validade');
-    const formatted = rawDate ? rawDate.split('-').reverse().join('/') : 'Sem validade';
-    setSessionDocs((current) => [{
-      title: `${text(values, 'tipo')} · ${text(values, 'vinculo')}`,
-      detail: rawDate ? `Validade ${formatted}` : 'Sem validade informada',
-      status: text(values, 'status'),
-      session: true
-    }, ...current]);
-  }
-
-  return <section className="panel">
-    <div className="panel-title-row"><h2>Documentos monitorados</h2><PrototypeFormDialog trigger="+ Adicionar documento" title="Adicionar documento" description="Valide tipo, vínculo, validade e regra de alerta antes de conectarmos armazenamento de arquivos." onValidate={addDocument} fields={[
-      {name:'tipo',label:'Tipo de documento',type:'select',required:true,options:['CNH','CRLV','Seguro','Comprovante','Contrato','Outro']},
-      {name:'vinculo',label:'Vinculado a',required:true,placeholder:'Usuário ou veículo'},
-      {name:'validade',label:'Data de validade',type:'date'},
-      {name:'alerta',label:'Alertar com antecedência',type:'select',options:['7 dias','15 dias','30 dias','45 dias','60 dias']},
-      {name:'status',label:'Status',type:'select',required:true,options:['Válido','Atenção','Pendente']},
-      {name:'observacao',label:'Observação',type:'textarea',placeholder:'Informações adicionais do documento'}
-    ]} /></div>
-    {sessionDocs.length ? <div className="session-banner"><strong>{sessionDocs.length} documento(s) local(is)</strong><span>Somente nesta sessão · nenhum arquivo foi enviado.</span></div> : null}
-    <div className="document-list">{docs.map((doc, index) => <div className={`document-row ${doc.session ? 'session-row' : ''}`} key={`${doc.title}-${index}`}><div className="document-copy"><strong>{doc.title}</strong><span>{doc.detail}</span>{doc.session ? <em className="session-chip">Somente nesta sessão</em> : null}</div><div className="row-actions"><span className={`tag ${doc.status === 'Válido' ? 'success' : 'warning'}`}>{doc.status}</span><PrototypeActionButton className="secondary-button" title={doc.title} description="Abrirá detalhes, arquivo anexado, validade, alertas e histórico de atualização deste documento.">Abrir</PrototypeActionButton></div></div>)}</div>
-  </section>;
+export function DocumentsSessionModule(){
+ const{documents,documentAlerts,addDocument,renewDocument,clearSessionDocuments}=useSessionActivity();
+ const sessionCount=documents.filter((doc)=>doc.source==='session').length;
+ function createDocument(values:PrototypeFormValues){const tipo=text(values,'tipo') as DocumentKind;const scope=text(values,'escopo') as DocumentScope;addDocument({kind:tipo,scope,subject:text(values,'vinculo'),expiryDate:text(values,'validade'),warningDays:warningDays(text(values,'alerta')),note:text(values,'observacao')});}
+ function renew(documentId:string,values:PrototypeFormValues){renewDocument(documentId,text(values,'validade'),warningDays(text(values,'alerta')),text(values,'observacao'));}
+ return <section className="panel">
+  <div className="panel-title-row"><div><h2>Documentos monitorados</h2><span>Validade, alertas e bloqueios operacionais específicos.</span></div><div className="row-actions">{sessionCount?<button type="button" className="secondary-button" onClick={clearSessionDocuments}>Limpar documentos da sessão</button>:null}<PrototypeFormDialog trigger="+ Adicionar documento" title="Adicionar documento" description="Cadastre a validade. CNH, CRLV e Seguro vencidos podem bloquear apenas a operação que depende deles." onValidate={createDocument} fields={[
+   {name:'tipo',label:'Tipo de documento',type:'select',required:true,options:['CNH','CRLV','Seguro','Comprovante','Contrato','Outro']},
+   {name:'escopo',label:'Escopo',type:'select',required:true,options:[{label:'Condutor',value:'condutor'},{label:'Veículo',value:'veiculo'},{label:'Geral',value:'geral'}]},
+   {name:'vinculo',label:'Vinculado a',required:true,placeholder:'Nome exato do condutor ou veículo'},
+   {name:'validade',label:'Data de validade',type:'date',required:true},
+   {name:'alerta',label:'Alertar com antecedência',type:'select',required:true,options:['7 dias','15 dias','30 dias','45 dias','60 dias']},
+   {name:'observacao',label:'Observação',type:'textarea',placeholder:'Informações adicionais'}
+  ]}/></div></div>
+  {sessionCount?<div className="session-banner"><strong>{sessionCount} documento(s) criado(s) nesta sessão</strong><span>Nenhum arquivo foi enviado; a homologação valida regras de validade e operação.</span></div>:null}
+  <div className="document-list">{documents.map((doc)=>{const alert=documentAlerts.find((item)=>item.documentId===doc.id);const status=alert?.state==='vencido'?'Vencido':alert?.state==='proximo'?'Próximo do vencimento':'Válido';return <div className={`document-row ${doc.source==='session'?'session-row':''}`} key={doc.id}><div className="document-copy"><strong>{doc.kind} · {doc.subject}</strong><span>Validade {formatDate(doc.expiryDate)} · alerta {doc.warningDays} dias · {doc.scope}</span>{alert?.blocksOperation?<span className="tag warning">Bloqueia operação correspondente</span>:null}{doc.source==='session'?<em className="session-chip">Somente nesta sessão</em>:null}</div><div className="row-actions"><span className={`tag ${status==='Válido'?'success':'warning'}`}>{status}</span><PrototypeFormDialog trigger="Renovar" className="secondary-button" title={`Renovar ${doc.kind}`} description="Atualize a validade; o bloqueio é recalculado imediatamente." onValidate={(values)=>renew(doc.id,values)} fields={[
+    {name:'validade',label:'Nova validade',type:'date',required:true},{name:'alerta',label:'Alertar com antecedência',type:'select',required:true,options:['7 dias','15 dias','30 dias','45 dias','60 dias']},{name:'observacao',label:'Observação',type:'textarea',placeholder:'Número, protocolo ou observação da renovação'}
+   ]}/></div></div>;})}</div>
+  <div className="soft-box"><strong>Regra operacional</strong><span>CNH vencida bloqueia o condutor; CRLV ou Seguro vencidos bloqueiam somente o veículo vinculado. Documentos gerais não interrompem rotas automaticamente.</span></div>
+ </section>;
 }
