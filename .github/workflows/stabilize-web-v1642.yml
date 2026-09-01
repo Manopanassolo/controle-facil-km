@@ -33,7 +33,7 @@ jobs:
           s=s.replace("function boot(){ensure();sync()} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();[80,300,900].forEach(x=>setTimeout(boot,x));addEventListener('hashchange',()=>setTimeout(sync,30));addEventListener('resize',boot);","function boot(){ensure();sync()} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();addEventListener('hashchange',()=>requestAnimationFrame(sync));addEventListener('resize',boot);");
           s=s.replace("document.body.dataset.mvNavAuthority='164.1'","document.body.dataset.mvNavAuthority='164.2'");
           s=s.replace("mvVersion:'164.1'","mvVersion:'164.2'");
-          s=s.replace("v164.0: single canonical navigation authority.","v164.2: single canonical navigation authority with direct module lifecycle.");
+          s=s.replace("// v164.0: single canonical navigation authority.","// v164.0: single canonical navigation authority.\n// v164.2: direct module lifecycle and stable web shell.");
           fs.writeFileSync('index.html',s);
           EOF
           node build.js
