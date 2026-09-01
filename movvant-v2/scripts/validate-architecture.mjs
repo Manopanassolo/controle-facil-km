@@ -68,6 +68,12 @@ for (const slug of requiredPhysicalRoutes) {
 const dashboardPage = path.join(src, 'app', 'dashboard', 'page.tsx');
 if (fs.existsSync(dashboardPage) && !fs.readFileSync(dashboardPage, 'utf8').includes('DashboardByRole')) violations.push('Dashboard route must use the role-aware dashboard');
 
+const routePage = path.join(src, 'app', 'roteiros', 'page.tsx');
+if (fs.existsSync(routePage) && !fs.readFileSync(routePage, 'utf8').includes('RouteSessionModule')) violations.push('Routes must use RouteSessionModule for local KM homologation');
+
+const fieldPage = path.join(src, 'app', 'campo', 'page.tsx');
+if (fs.existsSync(fieldPage) && !fs.readFileSync(fieldPage, 'utf8').includes('FieldJourneyModule')) violations.push('Field Mode must use FieldJourneyModule for guided local homologation');
+
 const genericModulePage = path.join(src, 'app', '[module]', 'page.tsx');
 if (fs.existsSync(genericModulePage)) violations.push('Dynamic [module] page is forbidden: all canonical modules must remain independent physical routes');
 
@@ -76,4 +82,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, all with independent physical routes and canonical headers.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, physical routes protected, with local KM and guided field homologation enforced.`);
