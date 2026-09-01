@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PrototypeFormDialog, PrototypeFormValues } from '@/components/PrototypeFormDialog';
+import { useSessionActivity } from '@/components/SessionActivityProvider';
 
 type RouteRecord = {
   origin: string;
@@ -21,6 +22,7 @@ function text(values: PrototypeFormValues, key: string) {
 export function RouteSessionModule() {
   const [active, setActive] = useState<RouteRecord | null>(null);
   const [history, setHistory] = useState<RouteRecord[]>([]);
+  const { routes, addRoute } = useSessionActivity();
 
   function startRoute(values: PrototypeFormValues) {
     setActive({
@@ -35,9 +37,19 @@ export function RouteSessionModule() {
 
   function finishRoute(values: PrototypeFormValues) {
     if (!active) return;
-    const kmEnd = Number(text(values, 'kmFinal')) || active.kmStart;
-    const completed = { ...active, kmEnd: Math.max(kmEnd, active.kmStart), status: 'Concluída' as const };
+    const kmEnd = Math.max(Number(text(values, 'kmFinal')) || active.kmStart, active.kmStart);
+    const distance = Math.max(0, kmEnd - active.kmStart);
+    const completed = { ...active, kmEnd, status: 'Concluída' as const };
     setHistory((current) => [completed, ...current]);
+    addRoute({
+      origin: active.origin,
+      destination: active.destination,
+      vehicle: active.vehicle,
+      purpose: active.purpose,
+      kmStart: active.kmStart,
+      kmEnd,
+      distance
+    });
     setActive(null);
   }
 
@@ -65,52 +77,32 @@ export function RouteSessionModule() {
 
         <div className="route-session-actions">
           {!active ? (
-            <PrototypeFormDialog
-              trigger="Iniciar rota"
-              title="Iniciar rota"
-              description="Registre os dados essenciais de saída. O trajeto será mantido somente nesta tela enquanto a sessão estiver aberta."
-              onValidate={startRoute}
-              fields={[
-                { name: 'origem', label: 'Origem', required: true, placeholder: 'Itajaí, SC' },
-                { name: 'destino', label: 'Destino', required: true, placeholder: 'Balneário Camboriú, SC' },
-                { name: 'veiculo', label: 'Veículo', type: 'select', required: true, options: ['SUV Comercial', 'Hatch Vendas', 'Utilitário'] },
-                { name: 'finalidade', label: 'Finalidade', type: 'select', required: true, options: ['Visita comercial', 'Prospecção', 'Reunião externa', 'Entrega', 'Outro'] },
-                { name: 'kmInicial', label: 'KM inicial', type: 'number', required: true, placeholder: '12480' },
-                { name: 'observacao', label: 'Observação', type: 'textarea', placeholder: 'Informação relevante antes da saída' }
-              ]}
-            />
+            <PrototypeFormDialog trigger="Iniciar rota" title="Iniciar rota" description="Registre os dados essenciais de saída. Ao encerrar, a rota passa a ser compartilhada com Dashboard, Histórico e Relatórios durante esta sessão." onValidate={startRoute} fields={[
+              { name: 'origem', label: 'Origem', required: true, placeholder: 'Itajaí, SC' },
+              { name: 'destino', label: 'Destino', required: true, placeholder: 'Balneário Camboriú, SC' },
+              { name: 'veiculo', label: 'Veículo', type: 'select', required: true, options: ['SUV Comercial', 'Hatch Vendas', 'Utilitário'] },
+              { name: 'finalidade', label: 'Finalidade', type: 'select', required: true, options: ['Visita comercial', 'Prospecção', 'Reunião externa', 'Entrega', 'Outro'] },
+              { name: 'kmInicial', label: 'KM inicial', type: 'number', required: true, placeholder: '12480' },
+              { name: 'observacao', label: 'Observação', type: 'textarea', placeholder: 'Informação relevante antes da saída' }
+            ]} />
           ) : (
-            <PrototypeFormDialog
-              trigger="Encerrar rota"
-              title="Encerrar rota"
-              description="Informe o KM final para fechar o deslocamento e validar o cálculo de quilometragem."
-              onValidate={finishRoute}
-              fields={[
-                { name: 'kmFinal', label: 'KM final', type: 'number', required: true, placeholder: String(active.kmStart + 30) },
-                { name: 'retorno', label: 'Situação do retorno', type: 'select', required: true, options: ['Retornei à origem', 'Encerrei em outro local'] },
-                { name: 'observacao', label: 'Resumo do deslocamento', type: 'textarea', placeholder: 'Ocorrências, desvios ou observações' }
-              ]}
-            />
+            <PrototypeFormDialog trigger="Encerrar rota" title="Encerrar rota" description="Informe o KM final para fechar o deslocamento e refletir a distância em toda a homologação V2." onValidate={finishRoute} fields={[
+              { name: 'kmFinal', label: 'KM final', type: 'number', required: true, placeholder: String(active.kmStart + 30) },
+              { name: 'retorno', label: 'Situação do retorno', type: 'select', required: true, options: ['Retornei à origem', 'Encerrei em outro local'] },
+              { name: 'observacao', label: 'Resumo do deslocamento', type: 'textarea', placeholder: 'Ocorrências, desvios ou observações' }
+            ]} />
           )}
         </div>
       </article>
 
       <article className="panel map-panel">
         <div className="map-toolbar"><strong>Mapa da rota</strong><span>Mapa real será conectado depois</span></div>
-        <div className="mock-map" aria-label="Representação visual do mapa da rota em homologação">
-          <div className="road road-a" /><div className="road road-b" /><div className="road road-c" />
-          <div className="route-line outbound" /><div className="route-line return" />
-          <span className="map-pin start">A</span><span className="map-pin end">B</span>
-          <div className="map-legend"><span><i className="legend-blue" />Ida</span><span><i className="legend-orange" />Retorno</span></div>
-        </div>
+        <div className="mock-map" aria-label="Representação visual do mapa da rota em homologação"><div className="road road-a" /><div className="road road-b" /><div className="road road-c" /><div className="route-line outbound" /><div className="route-line return" /><span className="map-pin start">A</span><span className="map-pin end">B</span><div className="map-legend"><span><i className="legend-blue" />Ida</span><span><i className="legend-orange" />Retorno</span></div></div>
       </article>
 
       <article className="panel route-session-history">
-        <div className="panel-title-row"><h2>Rotas encerradas nesta sessão</h2><span className="session-chip">Não persistente</span></div>
-        {history.length ? history.map((route, index) => {
-          const distance = Math.max(0, (route.kmEnd || route.kmStart) - route.kmStart);
-          return <div className="route-history-row" key={`${route.origin}-${route.destination}-${index}`}><div><strong>{route.origin} → {route.destination}</strong><span>{route.vehicle} · {route.purpose}</span></div><div><strong>{distance.toLocaleString('pt-BR')} km</strong><span>{route.kmStart.toLocaleString('pt-BR')} → {route.kmEnd?.toLocaleString('pt-BR')}</span></div></div>;
-        }) : <div className="soft-box"><strong>Sem rotas encerradas</strong><span>Ao encerrar uma rota, o resumo aparece aqui somente durante esta sessão.</span></div>}
+        <div className="panel-title-row"><h2>Rotas encerradas nesta sessão</h2><span className="session-chip">{routes.length} compartilhada(s)</span></div>
+        {history.length ? history.map((route, index) => { const distance = Math.max(0, (route.kmEnd || route.kmStart) - route.kmStart); return <div className="route-history-row" key={`${route.origin}-${route.destination}-${index}`}><div><strong>{route.origin} → {route.destination}</strong><span>{route.vehicle} · {route.purpose}</span></div><div><strong>{distance.toLocaleString('pt-BR')} km</strong><span>{route.kmStart.toLocaleString('pt-BR')} → {route.kmEnd?.toLocaleString('pt-BR')}</span></div></div>; }) : <div className="soft-box"><strong>Sem rotas encerradas</strong><span>Ao encerrar uma rota, o resumo aparece aqui e nos demais módulos da sessão.</span></div>}
         {travelled != null ? <div className="session-banner compact"><strong>Última distância: {travelled.toLocaleString('pt-BR')} km</strong><span>Calculada pelo KM inicial e final</span></div> : null}
       </article>
     </section>
