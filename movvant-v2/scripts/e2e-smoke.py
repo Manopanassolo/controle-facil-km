@@ -86,7 +86,10 @@ def agenda_notification_count(page):
 
 
 def test_settings_filter_notifications(page):
-    page.goto(f'{BASE}/notificacoes', wait_until='networkidle')
+    page.goto(f'{BASE}/agenda', wait_until='networkidle')
+    create_agenda_item(page)
+    page.get_by_role('link', name='Notificações').first.click()
+    expect(page.locator('h1')).to_contain_text('Notificações')
     assert agenda_notification_count(page) > 0, 'Agenda deve existir antes de testar a preferência'
     page.get_by_role('link', name='Configurações').first.click()
     agenda_row=page.locator('.setting-row').filter(has_text='Agenda')
