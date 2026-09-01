@@ -12,9 +12,6 @@ on:
       - 'movvant-v2/**'
       - '.github/workflows/movvant-v2-ci.yml'
 
-permissions:
-  contents: write
-
 jobs:
   validate-v2:
     runs-on: ubuntu-latest
@@ -30,20 +27,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: movvant-v2/package-lock.json
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Persist lockfile on rebuild branch
-        if: github.event_name == 'push'
-        run: |
-          git add package-lock.json
-          if ! git diff --cached --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "Lock Movvant V2 dependencies"
-            git push origin HEAD:movvant-v2-rebuild
-          fi
+        run: npm ci
 
       - name: Architecture guard
         run: npm run guard
