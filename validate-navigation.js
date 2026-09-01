@@ -6,8 +6,9 @@ const required=[
   'mv_last_page_v164',
   "addEventListener('popstate'",
   'globalThis.mvNavigationV164',
-  "document.body.dataset.mvNavAuthority='164.1'",
+  "document.body.dataset.mvNavAuthority='164.2'",
   "if(typeof show==='function'){show(p);lifecycle=true}",
+  "function navigate(p){return showPage(p,{historyMode:p===current?'replace':'push'})}",
   "closest?.('[data-p]')",
   "closest?.('[data-page]')"
 ];
@@ -15,7 +16,9 @@ const forbidden=[
   'v162.82 performance hotfix: persistent navigation',
   'mv_nav_stack_v16282',
   'globalThis.mvNavigationV16282',
-  'v162.9 clean mobile menu built on top of the stable shell only'
+  'v162.9 clean mobile menu built on top of the stable shell only',
+  'mvWebLayoutV16325',
+  'mvShellV16327'
 ];
 const missing=required.filter(x=>!s.includes(x));
 if(missing.length){console.error('Navigation validation failed. Missing canonical markers:',missing);process.exit(1)}
@@ -28,4 +31,4 @@ const navButtons=[...s.matchAll(/data-(?:p|mvroute|page164)=["']([a-z0-9_-]+)["'
 const targets=[...new Set(navButtons)];
 const invalid=targets.filter(x=>!pages.includes(x));
 if(invalid.length){console.error('Navigation validation failed: buttons without pages',invalid);process.exit(1)}
-console.log('Navigation validation OK: canonical v164.1 lifecycle authority,',pages.length,'pages and',targets.length,'literal navigation targets');
+console.log('Navigation validation OK: canonical v164.2 direct lifecycle authority,',pages.length,'pages and',targets.length,'literal navigation targets');
