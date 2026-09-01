@@ -83,6 +83,21 @@ if (!fs.readFileSync(layoutPage, 'utf8').includes('SessionActivityProvider')) vi
 const dashboardComponent = path.join(src, 'components', 'DashboardByRole.tsx');
 if (!fs.readFileSync(dashboardComponent, 'utf8').includes('useSessionActivity')) violations.push('Dashboard must reflect shared session activity during homologation');
 
+const routeComponent = path.join(src, 'components', 'RouteSessionModule.tsx');
+const routeText = fs.readFileSync(routeComponent, 'utf8');
+if (!routeText.includes('useSessionActivity') || !routeText.includes('addRoute')) violations.push('Independent routes must feed the shared session activity state');
+
+const coreModules = path.join(src, 'components', 'CoreModules.tsx');
+const coreText = fs.readFileSync(coreModules, 'utf8');
+if (!coreText.includes('shareExpense') || !coreText.includes('totalExpenses')) violations.push('Costs must feed and report consolidated shared session expenses');
+if (!coreText.includes('session-report-summary') || !coreText.includes('activityCount')) violations.push('Reports must display consolidated shared session activity');
+
+const provider = path.join(src, 'components', 'SessionActivityProvider.tsx');
+const providerText = fs.readFileSync(provider, 'utf8');
+for (const required of ['journeys', 'routes', 'expenses', 'totalKm', 'totalExpenses', 'activityCount']) {
+  if (!providerText.includes(required)) violations.push(`Session activity provider must expose ${required}`);
+}
+
 const genericModulePage = path.join(src, 'app', '[module]', 'page.tsx');
 if (fs.existsSync(genericModulePage)) violations.push('Dynamic [module] page is forbidden: all canonical modules must remain independent physical routes');
 
@@ -91,4 +106,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, physical routes protected, with shared session activity reflected across Campo, Dashboard and Histórico.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, with consolidated session activity enforced across Campo, Rotas, Custos, Dashboard, Histórico and Relatórios.`);
