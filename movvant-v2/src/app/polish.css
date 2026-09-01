@@ -81,6 +81,8 @@
 .prototype-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-top: 18px; }
 .prototype-span-2 { grid-column: 1 / -1; }
 .prototype-textarea { min-height: 96px; resize: vertical; }
+.prototype-multiselect { min-height: 116px; padding-block: 6px; }
+.prototype-multiselect option { padding: 8px 10px; border-radius: 8px; }
 .prototype-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .prototype-success { display: grid; gap: 10px; margin-top: 18px; padding: 18px; border: 1px solid var(--mv-border); border-radius: 14px; background: #f6fbef; }
 .prototype-success strong { color: var(--mv-blue-950); }
