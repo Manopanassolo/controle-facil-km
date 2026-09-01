@@ -28,8 +28,7 @@ try {
   let preflight=null,liveHtml='',sameAsset=false;
   for(let i=1;i<=6;i++){
     preflight=await context.request.get(base+'/?qa_asset='+assetHash.slice(0,20)+'_'+i+'_'+Date.now(),{timeout:15000,failOnStatusCode:false,headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
-    liveHtml=await preflight.text();
-    sameAsset=sha(liveHtml)===assetHash;
+    liveHtml=await preflight.text();sameAsset=sha(liveHtml)===assetHash;
     if(preflight.ok()&&sameAsset)break;
     await new Promise(r=>setTimeout(r,1200));
   }
@@ -53,14 +52,19 @@ try {
     if(route){route.classList.remove('hide');route.style.setProperty('display','block','important');route.style.setProperty('visibility','visible','important')}
     return {app:!!app,trip:!!trip,form:!!form,route:!!route};
   });
-  result.shell=shell;
-  await mark('shell');
+  result.shell=shell;await mark('shell');
 
   const fields=await page.evaluate(()=>({
-    origin:!!document.getElementById('origem'),destination:!!document.getElementById('destino'),stops:!!document.getElementById('stopsV127'),addStop:!!document.getElementById('addStopV127'),calculate:!!document.getElementById('calcDirectRouteV127'),map:!!document.getElementById('mapV127')
+    origin:!!document.getElementById('origem'),
+    destination:!!document.getElementById('destino'),
+    stopInput:!!document.getElementById('preTripStopNameV127'),
+    stopList:!!document.getElementById('preTripStopsListV127'),
+    addStop:!!document.getElementById('preTripStopAddV127'),
+    calculate:!!document.getElementById('routePlanBtnV131'),
+    mapContract:document.documentElement.innerHTML.includes('routeEmbeddedMapV133')
   }));
   result.fields=fields;
-  if(!fields.origin||!fields.destination||!fields.stops||!fields.addStop||!fields.calculate||!fields.map)throw new Error('Route planner fields missing');
+  if(!fields.origin||!fields.destination||!fields.stopInput||!fields.stopList||!fields.addStop||!fields.calculate||!fields.mapContract)throw new Error('Canonical route planner controls missing');
   await mark('fields');
 
   const origin=page.locator('#origem');
@@ -73,11 +77,13 @@ try {
   result.destinationValue=await destination.inputValue();if(!result.destinationValue.includes('Congonhas'))throw new Error('Destination typing failed');
   await mark('destination');
 
-  const addStop=page.locator('#addStopV127');
-  await addStop.scrollIntoViewIfNeeded();await addStop.click();await page.waitForTimeout(150);
-  const stop=page.locator('#stopsV127 input').last();
-  if(await stop.count()){await stop.fill('Parque Ibirapuera, São Paulo');result.stopValue=await stop.inputValue()}
-  result.stopCount=await page.locator('#stopsV127 input').count();if(result.stopCount<1)throw new Error('Stop addition failed');
+  const toggle=page.locator('.mv-stop-toggle-v16262');
+  if(await toggle.count()){await toggle.scrollIntoViewIfNeeded();await toggle.click();await page.waitForTimeout(100)}
+  const stop=page.locator('#preTripStopNameV127');
+  await stop.scrollIntoViewIfNeeded();await stop.fill('Parque Ibirapuera, São Paulo');
+  await page.locator('#preTripStopAddV127').click();await page.waitForTimeout(120);
+  result.stopCount=await page.locator('#preTripStopsListV127 .pre-stop-row-v127').count();
+  if(result.stopCount<1)throw new Error('Stop addition failed');
   await mark('stop');
 
   await page.screenshot({path:'/tmp/movvant-android.png',fullPage:true,timeout:10000});
