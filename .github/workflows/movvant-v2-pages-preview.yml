@@ -1,4 +1,4 @@
-name: Movvant V2 Pages Preview
+name: Movvant V2 Static Preview Build
 
 on:
   push:
@@ -10,11 +10,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: movvant-v2-pages-preview
+  group: movvant-v2-static-preview
   cancel-in-progress: true
 
 jobs:
@@ -48,23 +46,10 @@ jobs:
           GITHUB_PAGES: 'true'
         run: npm run build
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Upload static preview artifact
+        uses: actions/upload-artifact@v4
         with:
-          enablement: true
-
-      - name: Upload preview artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
+          name: movvant-v2-static-preview
           path: movvant-v2/out
-
-  deploy-preview:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build-preview
-    steps:
-      - name: Deploy preview
-        id: deployment
-        uses: actions/deploy-pages@v4
+          if-no-files-found: error
+          retention-days: 7
