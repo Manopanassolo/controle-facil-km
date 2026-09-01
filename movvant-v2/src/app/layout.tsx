@@ -9,9 +9,10 @@ import { AppShell } from '@/components/AppShell';
 import { SessionActivityProvider } from '@/components/SessionActivityProvider';
 import { DriverSessionProvider } from '@/components/DriverSessionProvider';
 import { IncidentSessionProvider } from '@/components/IncidentSessionProvider';
+import { PreferencesSessionProvider } from '@/components/PreferencesSessionProvider';
 
 export const metadata: Metadata = { title: 'Movvant V2', description: 'Inteligência comercial em campo' };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body><SessionActivityProvider><DriverSessionProvider><IncidentSessionProvider><AppShell>{children}</AppShell></IncidentSessionProvider></DriverSessionProvider></SessionActivityProvider></body></html>;
+  return <html lang="pt-BR"><body><SessionActivityProvider><DriverSessionProvider><IncidentSessionProvider><PreferencesSessionProvider><AppShell>{children}</AppShell></PreferencesSessionProvider></IncidentSessionProvider></DriverSessionProvider></SessionActivityProvider></body></html>;
 }
