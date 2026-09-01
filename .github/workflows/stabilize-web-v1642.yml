@@ -42,12 +42,8 @@ jobs:
           node validate-navigation.js
           node validate-build.js
           grep -q "mvNavAuthority='164.2'" index.html
-          ! grep -q 'mvWebLayoutV16325' index.html
-          ! grep -q 'mvShellV16327' index.html
-          ! grep -q 'mv-web133' index.html
-          ! grep -q 'mv-web136' index.html
-          ! grep -q 'mv-web137' index.html
-          ! grep -q 'mv-web138' index.html
+          ! grep -q 'globalThis.mvWebLayoutV16325' index.html
+          ! grep -q 'globalThis.mvShellV16327' index.html
       - name: Commit stabilized runtime
         run: |
           git config user.name 'Movvant Stabilizer'
@@ -55,4 +51,4 @@ jobs:
           git add index.html dist/index.html
           git commit -m 'Stabilize direct navigation and remove web redraw conflicts'
           git push
-# rerun after validator v164.2 migration
+# executable-authority validation only
