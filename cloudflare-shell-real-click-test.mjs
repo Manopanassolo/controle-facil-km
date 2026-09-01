@@ -7,7 +7,7 @@ await new Promise(r=>server.listen(4175,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const result={};
 async function expose(page){
-  await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(1800);
+  await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(2850);
   await page.evaluate(()=>{
     globalThis.mvAuthAuthorityV16356?.showLoggedIn?.();
     document.getElementById('auth')?.classList.add('hide');document.getElementById('app')?.classList.remove('hide');
@@ -15,9 +15,9 @@ async function expose(page){
     globalThis.mvUiAuthorityV16354?.sync?.();
     globalThis.mvGoogleConnectV16360?.bind?.();
   });
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(180);
   await page.evaluate(()=>{globalThis.mvAuthAuthorityV16356?.showLoggedIn?.();globalThis.mvUiAuthorityV16354?.sync?.()});
-  await page.waitForTimeout(100)
+  await page.waitForTimeout(120)
 }
 try{
  const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});mobile.setDefaultTimeout(5000);await expose(mobile);

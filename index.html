@@ -395,7 +395,6 @@ body{background:var(--mv-bg)!important;color:var(--mv-text)!important;font-famil
 .mv-ref-home .hero{background:#fff!important}.mv-ref-manager{border-top:3px solid var(--mv-blue)!important}
 .mv-ref-page>.c:first-child{margin-top:6px!important}
 .mv-ref-page#p-viagem,.mv-ref-page#p-historico,.mv-ref-page#p-agenda,.mv-ref-page#p-veiculos,.mv-ref-page#p-custos,.mv-ref-page#p-backup{max-width:860px!important;margin:0 auto!important}
-#mvBottomV16249{display:none}
 @media(min-width:901px){
   body{padding-left:224px!important}
   .w{margin:0 auto!important}
@@ -415,9 +414,6 @@ body{background:var(--mv-bg)!important;color:var(--mv-text)!important;font-famil
   #app h2{font-size:18px!important;margin:3px 0 12px!important}
   .mv-ref-main>button[data-p-jump="viagem"]{float:none!important;margin:0 0 12px!important;width:100%!important}
   .mv-ref-home .stat{grid-template-columns:1fr 1fr!important}.mv-ref-home .stat>div{min-height:70px!important;padding:10px!important}.mv-ref-home .stat b{font-size:18px!important}
-  #mvBottomV16249{position:fixed!important;display:grid!important;grid-template-columns:repeat(5,1fr)!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483000!important;background:#fff!important;border-top:1px solid #dfe5ee!important;padding:5px 4px max(5px,env(safe-area-inset-bottom))!important;box-shadow:0 -3px 12px rgba(16,24,40,.06)!important}
-  #mvBottomV16249 button{border:0!important;background:#fff!important;color:#596579!important;min-height:51px!important;padding:3px 2px!important;font-size:9px!important;font-weight:600!important;border-radius:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:2px!important}
-  #mvBottomV16249 button span{font-size:18px!important;line-height:18px!important;color:#344054!important}#mvBottomV16249 button:first-child,#mvBottomV16249 button:first-child span{color:#0759e6!important}
   .classic-app-header.mv-ref-top{background:#fff!important;color:#101828!important;border-bottom:1px solid var(--mv-border)!important;border-radius:0!important;box-shadow:none!important}
   #p-viagem .r,#p-agenda .r,#p-agenda .r3{grid-template-columns:1fr!important}
 }
@@ -3931,13 +3927,6 @@ setTimeout(v162Brand,1200);
     const h=nav.querySelector('.side-menu-head-v136');if(h){h.classList.add('mv-ref-brand');h.innerHTML='<div class="mv-ref-logo">M</div><div><b>Movvant</b><small>Inteligência comercial em campo</small></div><button id="sideMenuCloseV136" type="button" aria-label="Fechar menu">×</button>';}
     const close=document.getElementById('sideMenuCloseV136');if(close)close.onclick=()=>{nav.classList.remove('open-v136');document.getElementById('sideMenuShadeV136')?.classList.remove('open-v136');document.body.classList.remove('menu-open-v136')};
   }
-  function bottomNav(){
-    if(document.getElementById('mvBottomV16249'))return;
-    const bar=document.createElement('nav');bar.id='mvBottomV16249';bar.setAttribute('aria-label','Navegação principal');
-    bar.innerHTML='<button data-page="inicio" type="button"><span>⌂</span>Início</button><button data-page="historico" type="button"><span>▣</span>Viagens</button><button data-page="agenda" type="button"><span>□</span>Agenda</button><button data-page="veiculos" type="button"><span>◇</span>Frota</button><button data-menu="1" type="button"><span>☰</span>Menu</button>';
-    document.body.appendChild(bar);
-    bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.page&&typeof show==='function'){show(b.dataset.page);window.scrollTo(0,0)}else if(b.dataset.menu){document.getElementById('topMenu')?.click()}});
-  }
   function homeLayout(){
     const p=document.getElementById('p-inicio');if(!p)return;p.classList.add('mv-ref-home');
     const main=p.querySelector('.home-main-card-v136')||p.querySelector('.c');if(main){main.classList.add('mv-ref-main');const title=main.querySelector('#empresa');if(title)title.textContent='Dashboard';}
@@ -3947,7 +3936,7 @@ setTimeout(v162Brand,1200);
     document.querySelectorAll('#app>section').forEach(sec=>sec.classList.add('mv-ref-page'));
     const top=document.querySelector('.classic-app-header');if(top)top.classList.add('mv-ref-top');
   }
-  function apply(){relabel();brandSidebar();bottomNav();homeLayout();pageChrome();}
+  function apply(){relabel();brandSidebar();homeLayout();pageChrome();}
   const base=render;render=function(){const r=base();setTimeout(apply,0);return r};
   setTimeout(apply,120);setTimeout(apply,900);
 })();
@@ -5226,17 +5215,6 @@ setTimeout(v162Brand,1200);
 (function(){
  const byId=id=>document.getElementById(id), api=()=>globalThis.mvNavigationV164;
  const go=p=>{if(!p)return;api()?.navigate?.(p)};
- function killLegacyDock(){document.querySelectorAll('[id^="mvBottomV16249"]').forEach(x=>{x.style.setProperty('display','none','important');x.style.setProperty('pointer-events','none','important');x.setAttribute('aria-hidden','true')})}
- function clickAuthority(e){
-   const t=e.target?.closest?.('#mvMenuToggleV16282,#mvBackV16282,#mvHomeV16282,#mvBottomDock85 [data-mv-dock],#app>.nav [data-p],[data-p-jump]');if(!t)return;
-   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
-   if(t.id==='mvMenuToggleV16282'){document.body.classList.contains('mv-menu-open-v16282')?api()?.closeMenu?.():api()?.openMenu?.();return}
-   if(t.id==='mvBackV16282'){api()?.back?.();return}
-   if(t.id==='mvHomeV16282'){api()?.home?.();return}
-   const dock=t.dataset.mvDock;if(dock){dock==='menu'?api()?.openMenu?.():go(dock);return}
-   const p=t.dataset.p||t.dataset.pJump;if(p)go(p);
- }
- document.addEventListener('click',clickAuthority,true);
  function text(id,fallback='0'){const el=byId(id);return (el?.textContent||fallback).trim()||fallback}
  function makeHome(){
    const p=byId('p-inicio');if(!p)return;
@@ -5251,44 +5229,10 @@ setTimeout(v162Brand,1200);
    home.querySelectorAll('[data-sync88]').forEach(x=>x.textContent=text(x.dataset.sync88,x.textContent));
  }
  document.addEventListener('click',e=>{const b=e.target?.closest?.('[data-mv88]');if(!b)return;e.preventDefault();e.stopPropagation();go(b.dataset.mv88)},true);
- function desktopState(){document.body.classList.toggle('mv-desktop88',innerWidth>=900);killLegacyDock();makeHome()}
+ function desktopState(){document.body.classList.toggle('mv-desktop88',innerWidth>=900);makeHome()}
  [0,120,400,900,1800,3200].forEach(ms=>setTimeout(desktopState,ms));
  addEventListener('resize',()=>requestAnimationFrame(desktopState));
  globalThis.mvUiV16288={sync:desktopState};
-})();
-
-
-// v163.07: window navigation authority; mobile bottom Menu always opens deterministically.
-(function(){
- const byId=id=>document.getElementById(id);
- const exists=p=>!!p&&!!byId('p-'+p);
- function activate(p){
-   if(!exists(p))return;
-   try{globalThis.mvNavigationV164?.navigate?.(p)}catch(_){}
-   const apply=()=>{
-     if(!exists(p))return;
-     document.querySelectorAll('#app [id^="p-"]').forEach(x=>x.classList.toggle('hide',x.id!=='p-'+p));
-     document.body.dataset.mvPage=p;
-     try{localStorage.setItem('mv_last_page_v16282',p)}catch(_){}
-     try{const u=new URL(location.href);u.hash='p='+encodeURIComponent(p);history.replaceState({...(history.state||{}),mvPage:p,mvVersion:'163.07'},'',u.pathname+u.search+u.hash)}catch(_){}
-     document.querySelectorAll('#app>.nav [data-p]').forEach(b=>{const on=b.dataset.p===p;b.classList.toggle('mv-current-v16282',on);b.classList.toggle('mv-navactive87',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
-     document.querySelectorAll('#mvBottomDock85 [data-mv-dock]').forEach(b=>b.classList.toggle('active',b.dataset.mvDock===p));
-     if(innerWidth<900)globalThis.mvNavigationV164?.closeMenu?.()
-   };
-   apply();setTimeout(apply,40);setTimeout(apply,160)
- }
- window.addEventListener('click',e=>{
-   const t=e.target?.closest?.('#mvMenuToggleV16282,#mvBackV16282,#mvHomeV16282,#mvBottomDock85 [data-mv-dock],#app>.nav [data-p],[data-p-jump]');if(!t)return;
-   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();
-   if(t.dataset.mvDock==='menu'){globalThis.mvNavigationV164?.openMenu?.();return}
-   if(t.id==='mvMenuToggleV16282'){
-     document.body.classList.contains('mv-menu-open-v16282')?globalThis.mvNavigationV164?.closeMenu?.():globalThis.mvNavigationV164?.openMenu?.();return
-   }
-   if(t.id==='mvBackV16282'){globalThis.mvNavigationV164?.back?.();return}
-   if(t.id==='mvHomeV16282'){activate('inicio');return}
-   activate(t.dataset.p||t.dataset.pJump||t.dataset.mvDock)
- },true);
- globalThis.mvWindowNavigationV16307={activate};
 })();
 
 
@@ -6517,7 +6461,6 @@ setTimeout(v162Brand,1200);
 
   function suppressLegacyOwners(){
     document.documentElement.dataset.mvUiAuthority='163.54';
-    document.querySelectorAll('#mvBottomV16249').forEach(x=>{x.hidden=true;x.setAttribute('aria-hidden','true');x.style.setProperty('display','none','important')});
     const nav=document.querySelector('#app>.nav');if(nav)nav.dataset.mvLegacyMenuSource='1';
   }
   function sync(){suppressLegacyOwners();ownDock();syncDock();dashboardHost();if((document.body.dataset.mvPage||'inicio')==='inicio')loadDashboard()}
