@@ -68,6 +68,9 @@ for (const slug of requiredPhysicalRoutes) {
 const dashboardPage = path.join(src, 'app', 'dashboard', 'page.tsx');
 if (fs.existsSync(dashboardPage) && !fs.readFileSync(dashboardPage, 'utf8').includes('DashboardByRole')) violations.push('Dashboard route must use the role-aware dashboard');
 
+const agendaPage = path.join(src, 'app', 'agenda', 'page.tsx');
+if (fs.existsSync(agendaPage) && !fs.readFileSync(agendaPage, 'utf8').includes('AgendaSessionModule')) violations.push('Agenda must use the shared session workflow');
+
 const routePage = path.join(src, 'app', 'roteiros', 'page.tsx');
 if (fs.existsSync(routePage) && !fs.readFileSync(routePage, 'utf8').includes('RouteSessionModule')) violations.push('Routes must use RouteSessionModule for local KM homologation');
 
@@ -83,6 +86,12 @@ if (!fs.readFileSync(layoutPage, 'utf8').includes('SessionActivityProvider')) vi
 const dashboardComponent = path.join(src, 'components', 'DashboardByRole.tsx');
 if (!fs.readFileSync(dashboardComponent, 'utf8').includes('useSessionActivity')) violations.push('Dashboard must reflect shared session activity during homologation');
 
+const agendaComponent = path.join(src, 'components', 'AgendaSessionModule.tsx');
+const agendaText = fs.readFileSync(agendaComponent, 'utf8');
+for (const required of ['addAppointment', 'startAppointment', 'completeAppointment']) {
+  if (!agendaText.includes(required)) violations.push(`Agenda session workflow must use ${required}`);
+}
+
 const routeComponent = path.join(src, 'components', 'RouteSessionModule.tsx');
 const routeText = fs.readFileSync(routeComponent, 'utf8');
 if (!routeText.includes('useSessionActivity') || !routeText.includes('addRoute')) violations.push('Independent routes must feed the shared session activity state');
@@ -94,7 +103,7 @@ if (!coreText.includes('session-report-summary') || !coreText.includes('activity
 
 const provider = path.join(src, 'components', 'SessionActivityProvider.tsx');
 const providerText = fs.readFileSync(provider, 'utf8');
-for (const required of ['journeys', 'routes', 'expenses', 'totalKm', 'totalExpenses', 'activityCount']) {
+for (const required of ['journeys', 'routes', 'expenses', 'appointments', 'totalKm', 'totalExpenses', 'completedAppointments', 'activityCount']) {
   if (!providerText.includes(required)) violations.push(`Session activity provider must expose ${required}`);
 }
 
@@ -106,4 +115,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, with consolidated session activity enforced across Campo, Rotas, Custos, Dashboard, Histórico and Relatórios.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, with shared session activity enforced across Agenda, Campo, Rotas, Custos, Dashboard, Histórico and Relatórios.`);
