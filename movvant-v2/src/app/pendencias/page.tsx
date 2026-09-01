@@ -1,6 +1,6 @@
 import { ModuleHeader } from '@/components/CoreModules';
-import { PendingModule } from '@/components/OperationsModules';
+import { PendingSessionModule } from '@/components/PendingSessionModule';
 
 export default function PendingPage() {
-  return <><ModuleHeader title="Pendências" description="Ações que exigem atenção, responsável e prazo." /><PendingModule /></>;
+  return <><ModuleHeader title="Pendências" description="Ações que exigem atenção, responsável e prazo." /><PendingSessionModule /></>;
 }
