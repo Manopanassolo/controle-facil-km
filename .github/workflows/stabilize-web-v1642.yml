@@ -1,0 +1,57 @@
+name: Stabilize Movvant web v164.2
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/stabilize-web-v1642.yml']
+permissions:
+  contents: write
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 24}
+      - name: Remove superseded redraw layers and make navigation direct
+        run: |
+          node - <<'EOF'
+          const fs=require('fs');
+          let s=fs.readFileSync('index.html','utf8');
+          const start=s.indexOf('// v163.30 base navigation authority: page visibility only; desktop shell left to latest web layout.');
+          const keep=s.indexOf("\n(function(){\n const primary=[['inicio','Dashboard']",start);
+          if(start<0||keep<0)throw new Error('web stabilization boundaries not found');
+          s=s.slice(0,start)+'// v164.2: superseded redraw/web shell layers removed; v164 owns visibility and latest web shell owns geometry.\n'+s.slice(keep+1);
+          const oldNav="function navigate(p){if(p===current){closeMenu();return true}return showPage(p)}";
+          const newNav="function navigate(p){return showPage(p,{historyMode:p===current?'replace':'push'})}";
+          if(!s.includes(oldNav))throw new Error('v164 navigate marker missing');
+          s=s.replace(oldNav,newNav);
+          const oldGo="function go(r){const old=[...document.querySelectorAll('#app>.nav [data-p]')].find(b=>b.dataset.p===r);if(old)old.click();else if(typeof globalThis.show==='function')globalThis.show(r);setTimeout(sync,40)}";
+          const newGo="function go(r){if(globalThis.mvNavigationV164?.navigate)globalThis.mvNavigationV164.navigate(r);else if(typeof show==='function')show(r);requestAnimationFrame(sync)}";
+          const count=s.split(oldGo).length-1;if(count<2)throw new Error('expected both latest web go bridges');
+          s=s.replaceAll(oldGo,newGo);
+          s=s.replace("if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();[0,120,400,900,1800].forEach(x=>setTimeout(boot,x));addEventListener('hashchange',()=>setTimeout(sync,20));addEventListener('pageshow',boot,true);addEventListener('resize',()=>setTimeout(sync,20));","if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();addEventListener('hashchange',()=>requestAnimationFrame(sync));addEventListener('pageshow',boot,true);addEventListener('resize',()=>requestAnimationFrame(sync));");
+          s=s.replace("function boot(){ensure();sync()} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();[80,300,900].forEach(x=>setTimeout(boot,x));addEventListener('hashchange',()=>setTimeout(sync,30));addEventListener('resize',boot);","function boot(){ensure();sync()} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();addEventListener('hashchange',()=>requestAnimationFrame(sync));addEventListener('resize',boot);");
+          s=s.replace("document.body.dataset.mvNavAuthority='164.1'","document.body.dataset.mvNavAuthority='164.2'");
+          s=s.replace("mvVersion:'164.1'","mvVersion:'164.2'");
+          s=s.replace("v164.0: single canonical navigation authority.","v164.2: single canonical navigation authority with direct module lifecycle.");
+          fs.writeFileSync('index.html',s);
+          EOF
+          node build.js
+          node validate-clean-architecture.js
+          node validate-core-flow.js
+          node validate-navigation.js
+          node validate-build.js
+          grep -q "mvNavAuthority='164.2'" index.html
+          ! grep -q 'mvWebLayoutV16325' index.html
+          ! grep -q 'mvShellV16327' index.html
+          ! grep -q 'mv-web133' index.html
+          ! grep -q 'mv-web136' index.html
+          ! grep -q 'mv-web137' index.html
+          ! grep -q 'mv-web138' index.html
+      - name: Commit stabilized runtime
+        run: |
+          git config user.name 'Movvant Stabilizer'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html dist/index.html
+          git commit -m 'Stabilize direct navigation and remove web redraw conflicts'
+          git push
