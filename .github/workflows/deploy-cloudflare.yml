@@ -33,7 +33,7 @@ jobs:
           matched=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$MOVVANT_URL/?qa_build=${{ github.event.workflow_run.head_sha }}_$i" -o /tmp/movvant.html; then
-              if grep -q 'v162.88' /tmp/movvant.html && grep -q 'mvHome88' /tmp/movvant.html && grep -q 'mvTopNavV16282' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
+              if grep -q 'v164.0: single canonical navigation authority' /tmp/movvant.html && grep -q 'mvHome88' /tmp/movvant.html && grep -q 'globalThis.mvNavigationV164' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html && cmp -s /tmp/movvant.html dist/index.html; then
                 matched=1
                 break
               fi
