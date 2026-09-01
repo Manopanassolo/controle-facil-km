@@ -2,6 +2,12 @@
 
 Esta aplicação nasce isolada do frontend legado do Movvant.
 
+## Estado atual
+
+A V2 está na candidata **2.0.0-rc.1**, destinada à homologação visual e funcional final. O frontend, a navegação e os fluxos de sessão estão isolados e protegidos por CI e E2E. A candidata ainda não grava dados reais e não está autorizada a substituir produção.
+
+Consulte `FINAL_HOMOLOGATION.md` para o gate de saída da RC.
+
 ## Regras arquiteturais obrigatórias
 
 1. Não importar nenhum arquivo JavaScript/CSS da aplicação antiga.
@@ -13,9 +19,9 @@ Esta aplicação nasce isolada do frontend legado do Movvant.
 7. Supabase, Maps, Google Agenda e demais integrações serão conectados somente depois da homologação visual/navegacional.
 8. Nenhum serviço externo pode modificar DOM ou navegação global da aplicação.
 
-## Primeira fase
+## Homologação atual
 
-A versão 0.1 contém a identidade visual inicial, menu, dashboard e rotas independentes para os módulos. Dados exibidos são demonstrativos e não há backend conectado.
+Os 15 módulos possuem rotas independentes. Dados e operações desta etapa são demonstrativos ou mantidos apenas na sessão React. Recarregar a aplicação limpa os dados temporários de homologação.
 
 ## Execução local
 
