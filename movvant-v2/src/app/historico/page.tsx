@@ -1,6 +1,6 @@
 import { ModuleHeader } from '@/components/CoreModules';
-import { HistoryModule } from '@/components/RemainingModules';
+import { HistorySessionModule } from '@/components/HistorySessionModule';
 
 export default function HistoryPage() {
-  return <><ModuleHeader title="Histórico" description="Registro cronológico de visitas, rotas e atividades." /><HistoryModule /></>;
+  return <><ModuleHeader title="Histórico" description="Registro cronológico de visitas, rotas e atividades." /><HistorySessionModule /></>;
 }
