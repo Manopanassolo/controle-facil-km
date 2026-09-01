@@ -4,6 +4,7 @@ import './modules.css';
 import './module-extra.css';
 import './operations.css';
 import './polish.css';
+import './session-activity.css';
 import { AppShell } from '@/components/AppShell';
 import { SessionActivityProvider } from '@/components/SessionActivityProvider';
 
