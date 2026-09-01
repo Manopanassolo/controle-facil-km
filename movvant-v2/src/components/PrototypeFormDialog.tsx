@@ -14,7 +14,7 @@ export function PrototypeFormDialog({trigger,title,description,fields,className=
   useEffect(()=>{
     if(!open)return;
     const dialog=dialogRef.current;const focusables=()=>Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]')||[]);
-    requestAnimationFrame(()=>focusables()[0]?.focus()||dialog?.focus());
+    requestAnimationFrame(()=>{const first=focusables()[0];if(first)first.focus();else dialog?.focus();});
     function keydown(event:KeyboardEvent){
       if(event.key==='Escape'){event.preventDefault();close();return;}
       if(event.key!=='Tab')return;const items=focusables();if(!items.length)return;const first=items[0],last=items[items.length-1];
