@@ -3,6 +3,7 @@ import './globals.css';
 import './modules.css';
 import './module-extra.css';
 import './operations.css';
+import './polish.css';
 import { AppShell } from '@/components/AppShell';
 
 export const metadata: Metadata = {
