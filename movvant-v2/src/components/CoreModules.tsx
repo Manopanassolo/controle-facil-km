@@ -1,6 +1,8 @@
-import Link from 'next/link';
+'use client';
+
+import { useState } from 'react';
 import { PrototypeActionButton } from '@/components/PrototypeActionButton';
-import { PrototypeFormDialog } from '@/components/PrototypeFormDialog';
+import { PrototypeFormDialog, PrototypeFormValues } from '@/components/PrototypeFormDialog';
 
 const agendaItems = [
   ['08:30', 'Visita comercial', 'Casa do MDF · Itajaí', 'Confirmada'],
@@ -8,6 +10,11 @@ const agendaItems = [
   ['14:00', 'Reunião de equipe', 'Comercial · Online', 'Confirmada'],
   ['16:30', 'Prospecção', 'Nova conta · Camboriú', 'Planejada']
 ];
+
+function value(values: PrototypeFormValues, key: string) {
+  const current = values[key];
+  return Array.isArray(current) ? current.join(' · ') : current || '';
+}
 
 export function AgendaModule() {
   return <section className="agenda-layout"><article className="panel agenda-main"><div className="panel-title-row"><div><span className="eyebrow">Setembro 2026</span><h2>Terça-feira, 1 de setembro</h2></div><PrototypeActionButton title="Novo compromisso" description="Aqui será aberto o formulário para título, cliente, data, horário, endereço, responsável e integração opcional com Google Agenda.">+ Novo compromisso</PrototypeActionButton></div><div className="agenda-list">{agendaItems.map(([time,title,place,status]) => <div className="agenda-item" key={`${time}-${title}`}><time>{time}</time><div className="agenda-line" /><div className="agenda-card"><div><strong>{title}</strong><span>{place}</span></div><span className={`tag ${status === 'Confirmada' ? 'success' : ''}`}>{status}</span></div></div>)}</div></article><aside className="panel agenda-side"><h2>Próximos dias</h2><div className="mini-calendar">{['31','1','2','3','4','5','6','7','8','9','10','11','12','13'].map((day) => <span key={day} className={day === '1' ? 'selected' : ''}>{day}</span>)}</div><div className="soft-box"><strong>Google Agenda</strong><span>Integração será reconectada somente depois da homologação visual.</span></div></aside></section>;
@@ -18,13 +25,32 @@ export function RoutesModule() {
 }
 
 export function CostsModule() {
-  const rows = [['01/09','Combustível','Posto Central','R$ 286,40'],['29/08','Pedágio','BR-101','R$ 18,60'],['28/08','Estacionamento','Centro Itajaí','R$ 24,00'],['27/08','Combustível','Posto Norte','R$ 241,70']];
-  return <><section className="dashboard-grid"><article className="metric-card"><span className="metric-label">Total no mês</span><strong className="metric-value">R$ 1.024</strong><div className="metric-note">despesas registradas</div></article><article className="metric-card"><span className="metric-label">Combustível</span><strong className="metric-value">R$ 782</strong><div className="metric-note">76% do total</div></article><article className="metric-card"><span className="metric-label">Custo por KM</span><strong className="metric-value">R$ 0,82</strong><div className="metric-note">média mensal</div></article><article className="metric-card"><span className="metric-label">Pendentes</span><strong className="metric-value">2</strong><div className="metric-note">lançamentos para revisar</div></article></section><section className="panel data-panel"><div className="panel-title-row"><h2>Lançamentos recentes</h2><PrototypeFormDialog trigger="+ Nova despesa" title="Nova despesa" description="Valide a estrutura completa do lançamento antes de conectarmos o financeiro real." fields={[{name:'categoria',label:'Categoria',type:'select',required:true,options:['Combustível','Pedágio','Estacionamento','Alimentação','Hospedagem','Outro']},{name:'valor',label:'Valor (R$)',type:'number',required:true,placeholder:'0,00'},{name:'data',label:'Data',type:'date',required:true},{name:'veiculo',label:'Veículo',type:'select',required:true,options:['SUV Comercial','Hatch Vendas','Utilitário']},{name:'km',label:'KM no lançamento',type:'number',placeholder:'12480'},{name:'local',label:'Local',placeholder:'Estabelecimento ou cidade'},{name:'observacao',label:'Observação',type:'textarea',placeholder:'Detalhes relevantes da despesa'}]} /></div><div className="data-table">{rows.map(([date,type,place,value]) => <div className="data-row" key={`${date}-${type}`}><span>{date}</span><strong>{type}</strong><span>{place}</span><b>{value}</b></div>)}</div></section></>;
+  const initialRows = [['01/09','Combustível','Posto Central','R$ 286,40'],['29/08','Pedágio','BR-101','R$ 18,60'],['28/08','Estacionamento','Centro Itajaí','R$ 24,00'],['27/08','Combustível','Posto Norte','R$ 241,70']];
+  const [sessionRows, setSessionRows] = useState<string[][]>([]);
+  const rows = [...sessionRows, ...initialRows];
+
+  function addExpense(values: PrototypeFormValues) {
+    const rawDate = value(values, 'data');
+    const date = rawDate ? rawDate.split('-').reverse().slice(0, 2).join('/') : 'Hoje';
+    const rawAmount = Number(value(values, 'valor').replace(',', '.')) || 0;
+    const amount = `R$ ${rawAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    setSessionRows((current) => [[date, value(values, 'categoria'), value(values, 'local') || value(values, 'veiculo'), amount, 'session'], ...current]);
+  }
+
+  return <><section className="dashboard-grid"><article className="metric-card"><span className="metric-label">Total no mês</span><strong className="metric-value">R$ 1.024</strong><div className="metric-note">despesas registradas</div></article><article className="metric-card"><span className="metric-label">Combustível</span><strong className="metric-value">R$ 782</strong><div className="metric-note">76% do total</div></article><article className="metric-card"><span className="metric-label">Custo por KM</span><strong className="metric-value">R$ 0,82</strong><div className="metric-note">média mensal</div></article><article className="metric-card"><span className="metric-label">Pendentes</span><strong className="metric-value">2</strong><div className="metric-note">lançamentos para revisar</div></article></section><section className="panel data-panel"><div className="panel-title-row"><h2>Lançamentos recentes</h2><PrototypeFormDialog trigger="+ Nova despesa" title="Nova despesa" description="Valide a estrutura completa do lançamento antes de conectarmos o financeiro real." onValidate={addExpense} fields={[{name:'categoria',label:'Categoria',type:'select',required:true,options:['Combustível','Pedágio','Estacionamento','Alimentação','Hospedagem','Outro']},{name:'valor',label:'Valor (R$)',type:'number',required:true,placeholder:'0,00'},{name:'data',label:'Data',type:'date',required:true},{name:'veiculo',label:'Veículo',type:'select',required:true,options:['SUV Comercial','Hatch Vendas','Utilitário']},{name:'km',label:'KM no lançamento',type:'number',placeholder:'12480'},{name:'local',label:'Local',placeholder:'Estabelecimento ou cidade'},{name:'observacao',label:'Observação',type:'textarea',placeholder:'Detalhes relevantes da despesa'}]} /></div>{sessionRows.length ? <div className="session-banner" role="status"><strong>{sessionRows.length} lançamento(s) local(is)</strong><span>Somente nesta sessão · recarregar a página remove estes registros.</span></div> : null}<div className="data-table">{rows.map(([date,type,place,amount,session], index) => <div className={`data-row ${session ? 'session-row' : ''}`} key={`${date}-${type}-${index}`}><span>{date}</span><strong>{type}</strong><span>{place}</span><b>{amount}</b>{session ? <em className="session-chip">Sessão</em> : null}</div>)}</div></section></>;
 }
 
 export function VehiclesModule() {
-  const vehicles = [['SUV Comercial','ABC1D23','12.480 km','Ativo'],['Hatch Vendas','DEF4G56','38.210 km','Ativo'],['Utilitário','GHI7J89','64.990 km','Revisão']];
-  return <><div className="panel-title-row module-actions"><span/><PrototypeFormDialog trigger="+ Novo veículo" title="Novo veículo" description="Valide os campos essenciais do cadastro da frota antes da persistência real." fields={[{name:'nome',label:'Identificação do veículo',required:true,placeholder:'Ex.: SUV Comercial'},{name:'placa',label:'Placa',required:true,placeholder:'ABC1D23'},{name:'modelo',label:'Modelo',required:true,placeholder:'Ex.: T-Cross Comfortline'},{name:'ano',label:'Ano',type:'number',required:true,placeholder:'2026'},{name:'kmInicial',label:'KM inicial',type:'number',required:true,placeholder:'0'},{name:'responsavel',label:'Responsável',placeholder:'Condutor principal'},{name:'status',label:'Status',type:'select',required:true,options:['Ativo','Reserva','Manutenção']},{name:'observacao',label:'Observações',type:'textarea',placeholder:'Documentos, manutenção ou regras específicas'}]} /></div><section className="cards-list">{vehicles.map(([name,plate,km,status]) => <article className="panel vehicle-card" key={plate}><div className="vehicle-icon">V</div><div className="vehicle-copy"><span className="eyebrow">{plate}</span><h2>{name}</h2><p>{km} registrados</p></div><div className="vehicle-actions"><span className={`tag ${status === 'Ativo' ? 'success' : 'warning'}`}>{status}</span><PrototypeActionButton className="secondary-button" title={name} description="Abrirá dados do veículo, KM, documentos, revisões, despesas e histórico de utilização.">Gerenciar</PrototypeActionButton></div></article>)}</section></>;
+  const initialVehicles = [['SUV Comercial','ABC1D23','12.480 km','Ativo'],['Hatch Vendas','DEF4G56','38.210 km','Ativo'],['Utilitário','GHI7J89','64.990 km','Revisão']];
+  const [sessionVehicles, setSessionVehicles] = useState<string[][]>([]);
+  const vehicles = [...sessionVehicles, ...initialVehicles];
+
+  function addVehicle(values: PrototypeFormValues) {
+    const km = Number(value(values, 'kmInicial')) || 0;
+    setSessionVehicles((current) => [[value(values, 'nome'), value(values, 'placa').toUpperCase(), `${km.toLocaleString('pt-BR')} km`, value(values, 'status'), 'session'], ...current]);
+  }
+
+  return <><div className="panel-title-row module-actions"><span>{sessionVehicles.length ? <span className="session-banner compact"><strong>{sessionVehicles.length} veículo(s) local(is)</strong><span>Somente nesta sessão</span></span> : null}</span><PrototypeFormDialog trigger="+ Novo veículo" title="Novo veículo" description="Valide os campos essenciais do cadastro da frota antes da persistência real." onValidate={addVehicle} fields={[{name:'nome',label:'Identificação do veículo',required:true,placeholder:'Ex.: SUV Comercial'},{name:'placa',label:'Placa',required:true,placeholder:'ABC1D23'},{name:'modelo',label:'Modelo',required:true,placeholder:'Ex.: T-Cross Comfortline'},{name:'ano',label:'Ano',type:'number',required:true,placeholder:'2026'},{name:'kmInicial',label:'KM inicial',type:'number',required:true,placeholder:'0'},{name:'responsavel',label:'Responsável',placeholder:'Condutor principal'},{name:'status',label:'Status',type:'select',required:true,options:['Ativo','Reserva','Manutenção']},{name:'observacao',label:'Observações',type:'textarea',placeholder:'Documentos, manutenção ou regras específicas'}]} /></div><section className="cards-list">{vehicles.map(([name,plate,km,status,session]) => <article className={`panel vehicle-card ${session ? 'session-row' : ''}`} key={`${plate}-${name}`}><div className="vehicle-icon">V</div><div className="vehicle-copy"><span className="eyebrow">{plate}</span><h2>{name}</h2><p>{km} registrados</p>{session ? <em className="session-chip">Somente nesta sessão</em> : null}</div><div className="vehicle-actions"><span className={`tag ${status === 'Ativo' ? 'success' : 'warning'}`}>{status}</span><PrototypeActionButton className="secondary-button" title={name} description="Abrirá dados do veículo, KM, documentos, revisões, despesas e histórico de utilização.">Gerenciar</PrototypeActionButton></div></article>)}</section></>;
 }
 
 export function ReportsModule() {
@@ -33,8 +59,4 @@ export function ReportsModule() {
 
 export function ModuleHeader({ title, description }: { title: string; description: string }) {
   return <div className="page-head"><div><span className="eyebrow">Movvant V2</span><h1>{title}</h1><p>{description}</p></div><span className="status-badge">Base visual isolada · sem backend</span></div>;
-}
-
-export function VisualOnlyLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return <Link href={href} className="text-link">{children}</Link>;
 }
