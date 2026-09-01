@@ -27,6 +27,12 @@ jobs:
           grep -q 'mvGoogleCalendar16355' dist/index.html
       - name: Inspect rendered shell
         run: node inspect-shell.js
+      - name: Export canonical production HTML snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: movvant-canonical-html
+          path: dist/index.html
+          retention-days: 3
       - name: Capture desktop visual preview
         if: github.event_name == 'pull_request'
         run: |
