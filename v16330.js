@@ -1,61 +1,55 @@
 const fs=require('fs');
 let s=fs.readFileSync('dist/index.html','utf8');
 const js=`
-// v163.58: bind Google Agenda integration to the actually visible Agenda workspace.
+// v163.60: final Google Agenda connect authority. Bind the visible button in capture phase
+// and fail visibly instead of silently returning when session/org/API routing is unavailable.
 (function(){
   const byId=id=>document.getElementById(id);
-  const visible=el=>{if(!el)return false;const r=el.getBoundingClientRect();const cs=getComputedStyle(el);return r.width>0&&r.height>0&&cs.display!=='none'&&cs.visibility!=='hidden'&&cs.opacity!=='0'};
-  function visibleAgendaTitle(){
-    return [...document.querySelectorAll('h1,h2,h3')].find(h=>visible(h)&&h.textContent.trim()==='Agenda')||null;
+  let busy=false;
+  function orgId(){
+    try{if(globalThis.org?.id)return globalThis.org.id}catch(_){ }
+    try{if(typeof org!=='undefined'&&org?.id)return org.id}catch(_){ }
+    try{if(globalThis.ses?.user?.user_metadata?.organization_id)return globalThis.ses.user.user_metadata.organization_id}catch(_){ }
+    return '';
   }
-  function visibleAgendaHost(){
-    const title=visibleAgendaTitle();if(!title)return null;
-    let n=title.parentElement;
-    for(let i=0;i<6&&n;i++,n=n.parentElement){
-      if(!visible(n))continue;
-      const txt=n.textContent||'';
-      if(txt.includes('Novo compromisso')||txt.includes('Adicionar compromisso')||txt.includes('Próximos compromissos'))return n;
-    }
-    return title.parentElement||null;
+  async function accessToken(){
+    try{return (await globalThis.sb?.auth?.getSession?.())?.data?.session?.access_token||''}catch(_){return''}
   }
-  function buildCard(){
-    const x=document.createElement('section');x.id='mvGoogleCalendar16355';x.className='mv-google-cal16355';
-    x.innerHTML='<div class="mv-google-cal-head16355"><div><small>INTEGRAÇÃO</small><h3>Google Agenda</h3><p id="mvGoogleCalendarText16355">Verificando conexão...</p></div><span id="mvGoogleCalendarBadge16355">...</span></div><div class="mv-google-cal-actions16355"><button type="button" id="mvGoogleCalendarConnect16355">Conectar Google Agenda</button><button type="button" id="mvGoogleCalendarSync16355" class="sec">Sincronizar pendentes</button><button type="button" id="mvGoogleCalendarDisconnect16355" class="sec">Desconectar</button></div>';
-    return x;
+  function notice(text,isError=true){
+    try{if(typeof msg==='function'){msg(text,isError);return}}catch(_){ }
+    console[isError?'error':'log']('[Movvant Google Agenda]',text);
+    const old=byId('mvGoogleCalendarDiag16360');if(old)old.remove();
+    const card=byId('mvGoogleCalendar16355');if(!card)return;
+    const x=document.createElement('div');x.id='mvGoogleCalendarDiag16360';x.textContent=text;x.style.cssText='margin-top:8px;padding:8px 10px;border-radius:7px;font-size:10px;font-weight:700;background:'+(isError?'#fff0f0':'#eef8ee')+';color:'+(isError?'#a62929':'#216b35');card.appendChild(x);
   }
-  async function directConnect(){
+  async function connect(e){
+    const b=e?.target?.closest?.('#mvGoogleCalendarConnect16355')||byId('mvGoogleCalendarConnect16355');
+    if(!b||busy)return;
+    busy=true;b.disabled=true;const old=b.textContent;b.textContent='Abrindo Google...';
     try{
-      const st=await globalThis.mvGoogleCalendarV16355?.refreshStatus?.();if(st?.connected)return;
-      const sess=(await sb.auth.getSession()).data.session;const t=sess?.access_token||'';const orgId=globalThis.org?.id||org?.id;if(!t||!orgId)return;
-      const r=await fetch('/api/google-calendar/auth-url?organization_id='+encodeURIComponent(orgId),{headers:{Authorization:'Bearer '+t}});const j=await r.json().catch(()=>({}));
-      if(j.url)location.href=j.url;else if(typeof msg==='function')msg('Não foi possível iniciar a conexão com o Google.',true);
-    }catch(e){console.warn('v163.58 google connect',e);if(typeof msg==='function')msg('Falha ao abrir autorização do Google.',true)}
+      const token=await accessToken();if(!token){notice('Sua sessão expirou. Entre novamente no Movvant e tente conectar o Google Agenda.');return}
+      const oid=orgId();if(!oid){notice('Não foi possível identificar a empresa desta sessão. Atualize a página e tente novamente.');return}
+      const url='/api/google-calendar/auth-url?organization_id='+encodeURIComponent(oid)+'&_='+Date.now();
+      const r=await fetch(url,{method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'},cache:'no-store',credentials:'same-origin'});
+      const ct=String(r.headers.get('content-type')||'');let data={};
+      if(ct.includes('application/json'))data=await r.json().catch(()=>({}));
+      else{const text=await r.text().catch(()=>'');console.error('Google auth-url non-JSON',r.status,ct,text.slice(0,160));notice('A rota de conexão do Google não respondeu corretamente. Código '+r.status+'.');return}
+      if(!r.ok){console.error('Google auth-url error',r.status,data);notice(data?.error==='google_calendar_backend_not_configured'?'A integração Google ainda não está configurada no servidor.':'Falha ao iniciar Google Agenda. Código '+r.status+'.');return}
+      if(!data?.url){notice('O servidor não retornou a autorização do Google.');return}
+      window.location.assign(data.url);
+    }catch(err){console.error('v163.60 connect',err);notice('Falha ao abrir a autorização do Google. Verifique a conexão e tente novamente.')}finally{busy=false;if(b&&document.contains(b)){b.disabled=false;b.textContent=old||'Conectar Google Agenda'}}
   }
-  function bindButtons(){
-    const c=byId('mvGoogleCalendarConnect16355'),s=byId('mvGoogleCalendarSync16355'),d=byId('mvGoogleCalendarDisconnect16355');
-    if(c)c.onclick=directConnect;
-    if(s)s.onclick=()=>globalThis.mvGoogleCalendarV16355?.syncPending?.();
-    if(d)d.onclick=async()=>{try{const sess=(await sb.auth.getSession()).data.session;const t=sess?.access_token||'';const orgId=globalThis.org?.id||org?.id;if(!t||!orgId)return;await fetch('/api/google-calendar/disconnect',{method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:JSON.stringify({organization_id:orgId})});await globalThis.mvGoogleCalendarV16355?.refreshStatus?.()}catch(e){console.warn(e)}};
-  }
-  function place(){
-    const host=visibleAgendaHost();if(!host)return false;
-    let card=byId('mvGoogleCalendar16355');
-    if(!card)card=buildCard();
-    if(!visible(card)||!host.contains(card)){
-      const title=visibleAgendaTitle();
-      const anchor=title?.parentElement||host.firstElementChild;
-      if(anchor&&anchor.parentElement===host)anchor.insertAdjacentElement('afterend',card);else host.insertBefore(card,host.firstChild);
-    }
-    card.hidden=false;card.style.display='block';card.setAttribute('data-mv-visible-agenda','163.58');
-    bindButtons();setTimeout(()=>globalThis.mvGoogleCalendarV16355?.refreshStatus?.(),50);return true;
-  }
-  const run=()=>place();
-  [0,100,300,700,1400,2500,4000].forEach(ms=>setTimeout(run,ms));
-  document.addEventListener('click',e=>{const t=e.target;if(t.closest?.('[data-p="agenda"],[data-p-jump="agenda"],[data-mv-dock="agenda"]')||(t.textContent||'').trim()==='Agenda')setTimeout(run,80)},true);
-  new MutationObserver(()=>{const card=byId('mvGoogleCalendar16355');if(!card||!visible(card))run()}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden']});
-  globalThis.mvGoogleAgendaVisibleV16358={place:run};
+  document.addEventListener('click',function(e){
+    if(!e.target?.closest?.('#mvGoogleCalendarConnect16355'))return;
+    e.preventDefault();e.stopImmediatePropagation();connect(e);
+  },true);
+  function bind(){const b=byId('mvGoogleCalendarConnect16355');if(!b)return;b.disabled=false;b.removeAttribute('aria-disabled');b.style.pointerEvents='auto';b.dataset.mvConnectAuthority='163.60'}
+  [0,100,300,800,1600,3000].forEach(ms=>setTimeout(bind,ms));
+  new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
+  globalThis.mvGoogleConnectV16360={connect,bind,orgId};
 })();
 `;
-if(!s.includes('carga();'))throw new Error('v163.58 startup anchor not found');
+if(!s.includes('carga();'))throw new Error('v163.60 startup anchor not found');
 s=s.replace('carga();',js+'\ncarga();');
-fs.writeFileSync('dist/index.html',s);console.log('Movvant v163.58 visible Google Agenda binding installed');
+fs.writeFileSync('dist/index.html',s);
+console.log('Movvant v163.60 Google Agenda connect authority installed');
