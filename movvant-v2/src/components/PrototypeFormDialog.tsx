@@ -10,7 +10,7 @@ function optionLabel(option:FieldOption){return typeof option==='string'?option:
 
 export function PrototypeFormDialog({trigger,title,description,fields,className='primary-button',onValidate}:{trigger:ReactNode;title:string;description:string;fields:Field[];className?:string;onValidate?:(values:PrototypeFormValues)=>void;}) {
   const [open,setOpen]=useState(false);const[submitted,setSubmitted]=useState(false);const titleId=useId();const descriptionId=useId();const triggerRef=useRef<HTMLButtonElement>(null);const dialogRef=useRef<HTMLElement>(null);
-  function close(){setOpen(false);setSubmitted(false);requestAnimationFrame(()=>triggerRef.current?.focus());}
+  function close(){setOpen(false);setSubmitted(false);triggerRef.current?.focus();}
   useEffect(()=>{
     if(!open)return;
     const dialog=dialogRef.current;const focusables=()=>Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]')||[]);
