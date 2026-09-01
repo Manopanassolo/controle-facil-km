@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PrototypeFormDialog, PrototypeFormValues } from '@/components/PrototypeFormDialog';
+import { useSessionActivity } from '@/components/SessionActivityProvider';
 
 type Step = 'idle' | 'route' | 'arrived' | 'visited' | 'expense' | 'done';
 
@@ -31,7 +32,7 @@ const steps = [
 export function FieldJourneyModule() {
   const [step, setStep] = useState<Step>('idle');
   const [journey, setJourney] = useState<Journey>({});
-  const [completed, setCompleted] = useState<Journey[]>([]);
+  const { journeys, addJourney } = useSessionActivity();
 
   const index = step === 'idle' ? 0 : step === 'route' ? 1 : step === 'arrived' ? 2 : step === 'visited' ? 3 : step === 'expense' ? 4 : 5;
 
@@ -57,8 +58,19 @@ export function FieldJourneyModule() {
   }
 
   function finish(values: PrototypeFormValues) {
-    const finished = { ...journey, kmEnd: Number(text(values, 'kmFinal')) || journey.kmStart || 0 };
-    setCompleted((current) => [finished, ...current]);
+    const kmStart = journey.kmStart || 0;
+    const kmEnd = Number(text(values, 'kmFinal')) || kmStart;
+    const distance = Math.max(0, kmEnd - kmStart);
+    const finished = { ...journey, kmEnd };
+    addJourney({
+      vehicle: journey.vehicle || 'Veículo não informado',
+      kmStart,
+      client: journey.client || 'Atendimento externo',
+      visitResult: journey.visitResult || 'Sem resultado registrado',
+      expense: journey.expense || 'Sem despesa',
+      kmEnd,
+      distance
+    });
     setJourney(finished);
     setStep('done');
   }
@@ -92,7 +104,7 @@ export function FieldJourneyModule() {
         {step !== 'idle' ? <div className="journey-summary"><div><span>Veículo</span><strong>{journey.vehicle || '—'}</strong></div><div><span>KM inicial</span><strong>{journey.kmStart?.toLocaleString('pt-BR') || '—'}</strong></div><div><span>Cliente</span><strong>{journey.client || '—'}</strong></div><div><span>Resultado</span><strong>{journey.visitResult || '—'}</strong></div><div><span>Despesa</span><strong>{journey.expense || '—'}</strong></div><div><span>KM final</span><strong>{journey.kmEnd?.toLocaleString('pt-BR') || '—'}</strong></div></div> : null}
       </article>
 
-      {completed.length ? <article className="panel"><div className="panel-title-row"><h2>Jornadas concluídas nesta sessão</h2><span className="session-chip">Não persistente</span></div>{completed.map((item, itemIndex) => { const distance = Math.max(0, (item.kmEnd || 0) - (item.kmStart || 0)); return <div className="route-history-row" key={itemIndex}><div><strong>{item.client || 'Atendimento externo'}</strong><span>{item.vehicle} · {item.visitResult || 'Sem resultado'}</span></div><div><strong>{distance.toLocaleString('pt-BR')} km</strong><span>{item.expense || 'Sem despesa'}</span></div></div>; })}</article> : null}
+      {journeys.length ? <article className="panel"><div className="panel-title-row"><h2>Jornadas concluídas nesta sessão</h2><span className="session-chip">Compartilhadas na V2</span></div>{journeys.map((item) => <div className="route-history-row" key={item.id}><div><strong>{item.client}</strong><span>{item.vehicle} · {item.visitResult}</span></div><div><strong>{item.distance.toLocaleString('pt-BR')} km</strong><span>{item.expense}</span></div></div>)}</article> : null}
 
       <article className="panel offline-card"><div><span className="eyebrow">Preparação futura</span><h2>Modo offline</h2><p>Depois da homologação, esta mesma sequência poderá usar armazenamento local e fila de sincronização sem duplicar registros.</p></div><span className="tag warning">Ainda não conectado</span></article>
     </section>
