@@ -5703,122 +5703,13 @@ setTimeout(v162Brand,1200);
 })();
 
 
-// v163.30 base navigation authority: page visibility only; desktop shell left to latest web layout.
-(function(){
- const byId=id=>document.getElementById(id);
- function currentPage(){return globalThis.mvNavigationV164?.page||document.body.dataset.mvPage||'inicio'}
- function syncPages(){
-   const current=currentPage();
-   document.querySelectorAll('#app [id^="p-"]').forEach(page=>{
-     const name=page.id.slice(2),on=name===current;
-     if(on){page.style.removeProperty('display');page.style.removeProperty('visibility');page.style.removeProperty('position');page.removeAttribute('aria-hidden');page.classList.remove('hide')}
-     else{page.style.setProperty('display','none','important');page.style.setProperty('visibility','hidden','important');page.setAttribute('aria-hidden','true')}
-   });
-   document.body.dataset.mvSinglePage125=current;
- }
- function wrapNav(){
-   const api=globalThis.mvNavigationV164;if(!api||api.__mv125)return false;
-   ['navigate','home','back'].forEach(k=>{const orig=api[k];if(typeof orig!=='function')return;api[k]=function(...args){const r=orig.apply(api,args);requestAnimationFrame(syncPages);setTimeout(syncPages,40);return r}});
-   api.__mv125=true;return true;
- }
- function ensureMobileHeader(){
-   if(innerWidth>=900)return;
-   const bar=byId('mvTopNavV16282');if(!bar)return;
-   bar.removeAttribute('aria-hidden');bar.classList.remove('hide');bar.classList.add('mv-globalhead125');
-   let notify=byId('mvNotifyV16321');
-   if(!notify){notify=document.createElement('button');notify.type='button';notify.id='mvNotifyV16321';notify.className='mv-notify125';notify.setAttribute('aria-label','Notificações');notify.innerHTML='🔔';notify.onclick=()=>globalThis.mvNavigationV164?.navigate?.('notificacoes');bar.appendChild(notify)}
-   const title=byId('mvPageTitleV16282');if(title)title.classList.add('mv-headtitle125');
- }
- function sync(){wrapNav();syncPages();ensureMobileHeader()}
- document.addEventListener('click',e=>{if(e.target?.closest?.('[data-p],[data-p-jump],[data-mv-dock],[data-mv88],#mvBackV16282,#mvHomeV16282,#mvNotifyV16321'))setTimeout(syncPages,0)},true);
- addEventListener('hashchange',()=>setTimeout(syncPages,0));addEventListener('popstate',()=>setTimeout(syncPages,0));addEventListener('pageshow',sync,true);addEventListener('resize',()=>requestAnimationFrame(sync));
- [0,80,220,600,1200].forEach(ms=>setTimeout(sync,ms));
- globalThis.mvWebLayoutV16325={sync,syncPages};
-})();
-
-
-// v163.30 brand helper only; desktop geometry handled exclusively by v16303.
-(function(){
- const byId=id=>document.getElementById(id);
- function installBrand(){
-   const bar=byId('mvTopNavV16282');if(!bar)return;
-   let brand=byId('mvHeaderBrand127');
-   if(!brand){brand=document.createElement('div');brand.id='mvHeaderBrand127';brand.className='mv-headerbrand127';brand.innerHTML='<span class="mv-brandmark127">M</span><span><strong>Movvant</strong><small>Inteligência comercial em campo</small></span>';const title=byId('mvPageTitleV16282');bar.insertBefore(brand,title||bar.children[1]||null)}
-   const side=document.querySelector('#app>.nav .mv-sidebrand89');if(side){side.setAttribute('aria-hidden','true')}
- }
- function sync(){installBrand()}
- [0,80,220,600,1200].forEach(ms=>setTimeout(sync,ms));addEventListener('pageshow',sync,true);addEventListener('resize',()=>requestAnimationFrame(sync));
- globalThis.mvShellV16327={sync};
-})();
-
-
-// v163.29: CSS-authoritative desktop shell. No runtime class toggling = no header flash.
-(function(){
- const byId=id=>document.getElementById(id);
- function prepare(){
-   const n=document.querySelector('#app>.nav');if(n){n.classList.add('mv-topmenu129');const brand=n.querySelector('.mv-sidebrand89');if(brand){brand.setAttribute('aria-hidden','true')}}
-   const bar=byId('mvTopNavV16282');if(bar)bar.classList.add('mv-webhead129');
-   document.querySelectorAll('#app [id^="p-"]').forEach(p=>p.classList.add('mv-canvas129'));
-   document.body.classList.add('mv-shell-ready129');
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',prepare,{once:true});else prepare();
- [0,80,250,700].forEach(ms=>setTimeout(prepare,ms));addEventListener('pageshow',prepare,true);
-})();
-
-
-(function(){
- const items=[['inicio','Dashboard'],['painel','Painel ADM'],['viagem','Novo percurso'],['historico','Viagens'],['agenda','Agenda'],['rotas','Rotas'],['veiculos','Frota'],['custos','Despesas']];
- const more=[['equipe','Equipe'],['relatorios','Relatórios'],['notificacoes','Avisos'],['auditoria','Auditoria'],['backup','Backup'],['config','Configurações'],['perfil','Meu perfil'],['ajuda','Ajuda']];
- function go(route){const old=[...document.querySelectorAll('#app>.nav [data-p]')].find(b=>b.dataset.p===route);if(old)old.click();else if(typeof globalThis.show==='function')globalThis.show(route);setTimeout(sync,40)}
- function button(r,l){return '<button type="button" data-mvroute="'+r+'">'+l+'</button>'}
- function build(){
-  document.body.classList.add('mv-web132');
-  if(!document.getElementById('mvDesktopHeader132')){
-   const h=document.createElement('div');h.id='mvDesktopHeader132';h.innerHTML='<div class="mv-dbrand132"><span class="mv-dmark132">M</span><span><strong>Movvant</strong><small>INTELIGÊNCIA COMERCIAL EM CAMPO</small></span></div><div id="mvDesktopTitle132">Dashboard</div><button class="mv-dbell132" type="button" aria-label="Notificações">●</button>';document.body.appendChild(h);
-   const n=document.createElement('nav');n.id='mvDesktopNav132';n.innerHTML='<div class="mv-dprimary132">'+items.map(x=>button(x[0],x[1])).join('')+'</div><div class="mv-dmore132"><button id="mvMore132" type="button">Mais ▾</button><div id="mvMoreMenu132">'+more.map(x=>button(x[0],x[1])).join('')+'</div></div>';document.body.appendChild(n);
-   n.addEventListener('click',e=>{const b=e.target.closest('[data-mvroute]');if(b){go(b.dataset.mvroute);document.getElementById('mvMoreMenu132')?.classList.remove('open')}});
-   document.getElementById('mvMore132')?.addEventListener('click',e=>{e.stopPropagation();document.getElementById('mvMoreMenu132')?.classList.toggle('open')});document.addEventListener('click',()=>document.getElementById('mvMoreMenu132')?.classList.remove('open'));
-  }
-  sync();
- }
- function current(){const visible=[...document.querySelectorAll('#app [id^="p-"]')].find(p=>{const c=getComputedStyle(p);return c.display!=='none'&&c.visibility!=='hidden'&&p.getBoundingClientRect().height>20});return visible?.id?.replace(/^p-/,'')||location.hash.match(/p=([^&]+)/)?.[1]||'inicio'}
- function sync(){const r=current();const all=[...items,...more];const label=all.find(x=>x[0]===r)?.[1]||'Movvant';const t=document.getElementById('mvDesktopTitle132');if(t)t.textContent=label;document.querySelectorAll('#mvDesktopNav132 [data-mvroute]').forEach(b=>b.classList.toggle('active',b.dataset.mvroute===r))}
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',build,{once:true});else build();[0,100,350,900].forEach(x=>setTimeout(build,x));addEventListener('hashchange',()=>setTimeout(sync,20));addEventListener('pageshow',build,true);
-})();
-
-(function(){
- function fix(){
-  if(innerWidth<900)return;
-  document.body.classList.add('mv-web133');
-  document.querySelectorAll('#app [id^="p-"]').forEach(p=>{if(!p.classList.contains('hide')&&!p.hidden){p.style.setProperty('display','block','important');p.style.setProperty('visibility','visible','important');p.style.setProperty('opacity','1','important')}});
- }
- [0,60,180,500,1000].forEach(ms=>setTimeout(fix,ms));addEventListener('hashchange',()=>setTimeout(fix,20));addEventListener('pageshow',fix,true);
-})();
-
-(function(){
- function arrange(){
-  if(innerWidth<900)return;
-  const p=document.getElementById('p-agenda');if(!p)return;
-  const shell=document.getElementById('mvAgenda91');
-  const layout=p.querySelector('.mv-agenda-layout91');
-  const month=document.getElementById('mvAgendaMonthList93');
-  if(layout){layout.classList.add('mv-agenda-workspace135')}
-  if(month){month.classList.add('mv-agenda-month135')}
-  const cal=document.getElementById('mvAgendaCal91')||p.querySelector('.agenda-calendar');if(cal)cal.classList.add('mv-calendar-compact135');
-  const dash=document.getElementById('mvDashAgenda91');if(dash)dash.classList.add('mv-dashagenda135');
- }
- [0,100,300,800,1600].forEach(ms=>setTimeout(arrange,ms));document.addEventListener('click',()=>setTimeout(arrange,60),true);addEventListener('pageshow',arrange,true);
-})();
-(function(){function fix(){if(innerWidth<900)return;document.body.classList.add('mv-web136');const h=document.getElementById('mvDesktopHeader132');if(h){h.style.display='grid';h.style.background='#082b50'}const nav=document.getElementById('mvDesktopNav132');if(nav)nav.querySelectorAll('button').forEach(b=>{b.style.width='auto';b.style.maxWidth='none';b.style.overflow='visible';b.style.textOverflow='clip'});const home=document.getElementById('mvHome88'),right=home?.querySelector('.mv-summary88');if(right&&!document.getElementById('mvDashAgenda136')){right.innerHTML='<section id="mvDashAgenda136"><div class="da136"><div><b>Agenda</b><small>Próximos compromissos</small></div><button data-a136>Ver agenda</button></div><div class="today136"><b>Hoje</b><span>Atividades programadas</span></div><div class="empty136"><b>Nenhum compromisso próximo</b><span>Os próximos compromissos aparecerão aqui.</span></div><button class="new136" data-a136>+ Novo compromisso</button></section>';right.querySelectorAll('[data-a136]').forEach(b=>b.onclick=()=>{const x=[...document.querySelectorAll('#app>.nav [data-p]')].find(q=>q.dataset.p==='agenda');x?.click()})}const p=document.getElementById('p-agenda'),old=document.getElementById('mvAgenda91');if(p&&old&&!document.getElementById('mvAgenda136')){old.style.setProperty('display','none','important');const n=document.createElement('div');n.id='mvAgenda136';n.innerHTML='<div class="ah136"><div><h2>Agenda</h2><p>Organize compromissos e atividades de campo.</p></div><button>+ Novo compromisso</button></div><div class="ag136"><section class="calcard136"><div class="month136"><button id="prev136">‹</button><b id="month136"></b><button id="next136">›</button></div><div class="dow136">Dom|Seg|Ter|Qua|Qui|Sex|Sáb</div><div id="cal136" class="cal136"></div></section><aside class="side136"><h3>Dia selecionado</h3><b id="sel136">Hoje</b><p>Selecione um dia para visualizar seus compromissos.</p><div>Nenhum compromisso para este dia.</div><button>+ Adicionar compromisso</button></aside></div><section class="list136"><div><h3>Próximos compromissos</h3><p>Atividades agendadas em sequência.</p></div><span>Nenhum compromisso agendado.</span></section>';old.after(n);const d=n.querySelector('.dow136');d.innerHTML=d.textContent.split('|').map(x=>'<span>'+x+'</span>').join('');let cur=new Date();cur.setDate(1);function draw(){let y=cur.getFullYear(),m=cur.getMonth(),c=document.getElementById('cal136');document.getElementById('month136').textContent=cur.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});c.innerHTML='';for(let i=0;i<new Date(y,m,1).getDay();i++)c.appendChild(document.createElement('span'));for(let i=1;i<=new Date(y,m+1,0).getDate();i++){let b=document.createElement('button');b.textContent=i;b.type='button';let now=new Date();if(i===now.getDate()&&m===now.getMonth()&&y===now.getFullYear())b.className='today';b.onclick=()=>{c.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');document.getElementById('sel136').textContent=String(i).padStart(2,'0')+'/'+String(m+1).padStart(2,'0')+'/'+y};c.appendChild(b)}}draw();document.getElementById('prev136').onclick=()=>{cur.setMonth(cur.getMonth()-1);draw()};document.getElementById('next136').onclick=()=>{cur.setMonth(cur.getMonth()+1);draw()}}} [0,100,350,900].forEach(x=>setTimeout(fix,x));addEventListener('hashchange',()=>setTimeout(fix,30));})();
-(function(){function ensureHeader(){if(innerWidth<900)return;let h=document.getElementById('mvDesktopHeader132');if(!h){h=document.createElement('div');h.id='mvDesktopHeader132';h.innerHTML='<div class="mv-dbrand132"><span class="mv-dmark132">M</span><span><strong>Movvant</strong><small>INTELIGÊNCIA COMERCIAL EM CAMPO</small></span></div><div id="mvDesktopTitle132">Dashboard</div><button class="mv-dbell132" type="button" aria-label="Notificações">●</button>';document.body.appendChild(h)}h.style.display='grid';h.style.visibility='visible';h.style.opacity='1';h.style.background='#082b50'}function clean(){if(innerWidth<900)return;document.body.classList.add('mv-web137');ensureHeader();const home=document.getElementById('mvHome88');home?.querySelector('#mvDashAgenda91')?.style.setProperty('display','none','important');home?.querySelector('.mv-dashfoot116')?.style.setProperty('display','none','important');const p=document.getElementById('p-agenda'),n=document.getElementById('mvAgenda136');if(p&&n){[...p.children].forEach(x=>{if(x!==n&&!x.classList.contains('mv-agendaform90'))x.classList.add('mv-agenda-legacy137')});const buttons=n.querySelectorAll('.ah136>button,.side136>button');buttons.forEach(b=>{if(b.dataset.mv137)return;b.dataset.mv137='1';b.onclick=()=>{p.classList.add('mv-agenda-edit91');const f=p.querySelector('.mv-agendaform90');if(f){f.style.setProperty('display','block','important');f.scrollIntoView({behavior:'smooth',block:'start'})}}})}}[0,120,400,900,1800,2800].forEach(x=>setTimeout(clean,x));addEventListener('hashchange',()=>setTimeout(clean,40));addEventListener('pageshow',clean,true);})();
-(function(){function fix(){if(innerWidth<900)return;document.body.classList.add('mv-web138');const card=document.getElementById('mvDashAgenda136');if(!card)return;card.classList.add('mv-dash-agenda-final138');const head=card.querySelector('.da136');const today=card.querySelector('.today136');const empty=card.querySelector('.empty136');const add=card.querySelector('.new136');if(head&&!head.querySelector('.mv-agenda-icon138')){const i=document.createElement('span');i.className='mv-agenda-icon138';i.textContent='▣';head.insertBefore(i,head.firstChild)}if(today){today.innerHTML='<div><b>Hoje</b><span>Agenda do dia</span></div><strong>Nenhum compromisso</strong>'}if(empty){empty.innerHTML='<span>Quando houver visitas, reuniões ou percursos agendados, eles aparecerão aqui.</span>'}if(add)add.textContent='+ Adicionar';} [0,120,350,800,1600].forEach(x=>setTimeout(fix,x));addEventListener('hashchange',()=>setTimeout(fix,40));})();
-
+// v164.2: superseded redraw/web shell layers removed; v164 owns visibility and latest web shell owns geometry.
 (function(){
  const primary=[['inicio','Dashboard'],['painel','Painel ADM'],['viagem','Novo percurso'],['historico','Viagens'],['agenda','Agenda'],['rotas','Rotas'],['veiculos','Frota'],['custos','Despesas']];
  const more=[['equipe','Equipe'],['relatorios','Relatórios'],['notificacoes','Avisos'],['auditoria','Auditoria'],['backup','Backup'],['config','Configurações'],['perfil','Meu perfil'],['ajuda','Ajuda']];
  const headerHtml='<div class="mv-dbrand132"><span class="mv-dmark132">M</span><span><strong>Movvant</strong><small>INTELIGÊNCIA COMERCIAL EM CAMPO</small></span></div><div id="mvDesktopTitle132">Dashboard</div><button class="mv-dbell132" type="button" aria-label="Notificações">●</button>';
  function btn(r,l){return '<button type="button" data-mvroute="'+r+'">'+l+'</button>'}
- function go(r){const old=[...document.querySelectorAll('#app>.nav [data-p]')].find(b=>b.dataset.p===r);if(old)old.click();else if(typeof globalThis.show==='function')globalThis.show(r);setTimeout(sync,40)}
+ function go(r){if(globalThis.mvNavigationV164?.navigate)globalThis.mvNavigationV164.navigate(r);else if(typeof show==='function')show(r);requestAnimationFrame(sync)}
  function ensureHeader(){if(innerWidth<900)return;let h=document.getElementById('mvDesktopHeader132');if(!h){h=document.createElement('div');h.id='mvDesktopHeader132';document.body.appendChild(h)}if(!h.querySelector('.mv-dbrand132')||!h.querySelector('#mvDesktopTitle132'))h.innerHTML=headerHtml;h.style.display='grid';h.style.visibility='visible';h.style.opacity='1';h.style.background='#082b50'}
  function ensureNav(){if(innerWidth<900)return;let n=document.getElementById('mvDesktopNav132');if(!n){n=document.createElement('nav');n.id='mvDesktopNav132';document.body.appendChild(n)}if(!n.querySelector('[data-mvroute="inicio"]')||n.querySelectorAll('[data-mvroute]').length<16)n.innerHTML='<div class="mv-dprimary132">'+primary.map(x=>btn(x[0],x[1])).join('')+'</div><div class="mv-dmore132"><button id="mvMore132" type="button">Mais ▾</button><div id="mvMoreMenu132">'+more.map(x=>btn(x[0],x[1])).join('')+'</div></div>';
   if(!n.dataset.mv16339){n.dataset.mv16339='1';n.addEventListener('click',e=>{const r=e.target.closest('[data-mvroute]');if(r){go(r.dataset.mvroute);document.getElementById('mvMoreMenu132')?.classList.remove('open');return}if(e.target.closest('#mvMore132')){e.stopPropagation();document.getElementById('mvMoreMenu132')?.classList.toggle('open')}});document.addEventListener('click',e=>{if(!e.target.closest('#mvDesktopNav132'))document.getElementById('mvMoreMenu132')?.classList.remove('open')})}}
@@ -5827,7 +5718,7 @@ setTimeout(v162Brand,1200);
  function current(){const explicit=routeFromUrl();if(explicit)return explicit;const v=[...document.querySelectorAll('#app [id^="p-"]')].find(p=>{const c=getComputedStyle(p),r=p.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&r.height>20&&r.width>20});return v?.id?.replace(/^p-/,'')||'inicio'}
  function sync(){if(innerWidth<900)return;ensureHeader();ensureNav();const r=current(),all=[...primary,...more],label=all.find(x=>x[0]===r)?.[1]||'Dashboard';const t=document.getElementById('mvDesktopTitle132');if(t)t.textContent=label;document.querySelectorAll('#mvDesktopNav132 [data-mvroute]').forEach(b=>b.classList.toggle('active',b.dataset.mvroute===r))}
  function boot(){if(innerWidth<900)return;document.body.classList.add('mv-web139');ensureHeader();ensureNav();sync();normalizeLanding();setTimeout(sync,80)}
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();[0,120,400,900,1800].forEach(x=>setTimeout(boot,x));addEventListener('hashchange',()=>setTimeout(sync,20));addEventListener('pageshow',boot,true);addEventListener('resize',()=>setTimeout(sync,20));
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();addEventListener('hashchange',()=>requestAnimationFrame(sync));addEventListener('pageshow',boot,true);addEventListener('resize',()=>requestAnimationFrame(sync));
 })();
 
 (function(){
@@ -5837,12 +5728,12 @@ setTimeout(v162Brand,1200);
   {label:'Gestão',route:'veiculos',items:[['veiculos','Frota'],['equipe','Equipe'],['custos','Despesas']]},
   {label:'Sistema',route:'config',items:[['notificacoes','Avisos'],['auditoria','Auditoria'],['backup','Backup'],['config','Configurações'],['perfil','Meu perfil'],['ajuda','Ajuda']]}
  ];
- function go(r){const old=[...document.querySelectorAll('#app>.nav [data-p]')].find(b=>b.dataset.p===r);if(old)old.click();else if(typeof globalThis.show==='function')globalThis.show(r);setTimeout(sync,40)}
+ function go(r){if(globalThis.mvNavigationV164?.navigate)globalThis.mvNavigationV164.navigate(r);else if(typeof show==='function')show(r);requestAnimationFrame(sync)}
  function markup(){return groups.map((g,i)=>'<div class="mv-menugroup140"><button class="mv-menutrigger140" type="button" data-mvgroup="'+i+'" data-mvroute-main="'+g.route+'">'+g.label+' <span>▾</span></button><div class="mv-submenu140">'+g.items.map(x=>'<button type="button" data-mvroute="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>').join('')}
  function ensure(){if(innerWidth<900)return;const n=document.getElementById('mvDesktopNav132');if(!n)return;if(!n.classList.contains('mv-grouped140')){n.classList.add('mv-grouped140');n.innerHTML='<div class="mv-navgroups140">'+markup()+'</div>';n.addEventListener('click',e=>{const b=e.target.closest('[data-mvroute]');if(b){go(b.dataset.mvroute);return}const t=e.target.closest('[data-mvroute-main]');if(t&&e.detail===0)go(t.dataset.mvrouteMain)})}}
  function current(){const h=location.hash.match(/(?:^#|[&#])p=([^&]+)/)?.[1];if(h)return h;const v=[...document.querySelectorAll('#app [id^="p-"]')].find(p=>{const c=getComputedStyle(p),r=p.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&r.height>20&&r.width>20});return v?.id?.replace(/^p-/,'')||'inicio'}
  function sync(){if(innerWidth<900)return;ensure();const r=current();document.querySelectorAll('.mv-menugroup140').forEach((g,i)=>{const hit=groups[i].items.some(x=>x[0]===r);g.classList.toggle('active',hit);g.querySelectorAll('[data-mvroute]').forEach(b=>b.classList.toggle('active',b.dataset.mvroute===r))})}
- function boot(){ensure();sync()} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();[80,300,900].forEach(x=>setTimeout(boot,x));addEventListener('hashchange',()=>setTimeout(sync,30));addEventListener('resize',boot);
+ function boot(){ensure();sync()} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();addEventListener('hashchange',()=>requestAnimationFrame(sync));addEventListener('resize',boot);
 })();
 
 (function(){
@@ -6364,17 +6255,18 @@ setTimeout(v162Brand,1200);
 
 
 // v164.0: single canonical navigation authority.
+// v164.2: direct module lifecycle and stable web shell.
 (function(){
  const byId=id=>document.getElementById(id);
  const labels={inicio:'Início',viagem:'Novo percurso',historico:'Histórico',agenda:'Agenda',rotas:'Rotas',veiculos:'Veículos',custos:'Custos',equipe:'Equipe',relatorios:'Relatórios',ajuda:'Ajuda',perfil:'Meu perfil',painel:'Painel ADM',notificacoes:'Avisos',auditoria:'Auditoria',backup:'Backup',config:'Configurações'};
- const order=Object.keys(labels);let current='inicio';const valid=p=>order.includes(p)&&!!byId('p-'+p);
+ const order=Object.keys(labels);let current='inicio';const valid=p=>!!p&&!!byId('p-'+p);
  function renderActive(p){document.querySelectorAll('[data-mvroute],[data-mv-dock],[data-page164]').forEach(b=>{const x=b.dataset.mvroute||b.dataset.mvDock||b.dataset.page164;b.classList.toggle('active',x===p);if(x===p)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')})}
- function showPage(p,{historyMode='push'}={}){if(!valid(p))p='inicio';document.querySelectorAll('#app [id^="p-"]').forEach(el=>{el.classList.add('hide');el.setAttribute('aria-hidden','true');el.style.removeProperty('display')});const t=byId('p-'+p);t.classList.remove('hide');t.setAttribute('aria-hidden','false');current=p;document.body.dataset.mvPage=p;document.body.dataset.mvNavAuthority='164.0';try{localStorage.setItem('mv_last_page_v164',p)}catch(_){};try{const u=new URL(location.href);u.hash='p='+encodeURIComponent(p);history[historyMode==='replace'?'replaceState':'pushState']({...(history.state||{}),mvPage:p,mvVersion:'164.0'},'',u.pathname+u.search+u.hash)}catch(_){};renderActive(p);closeMenu();window.scrollTo(0,0);return true}
- function navigate(p){if(p===current){closeMenu();return true}return showPage(p)}
+ function showPage(p,{historyMode='push'}={}){if(!valid(p))p='inicio';let lifecycle=false;try{if(typeof show==='function'){show(p);lifecycle=true}}catch(e){console.warn('v164 module lifecycle',p,e)}if(!lifecycle){document.querySelectorAll('#app [id^="p-"]').forEach(el=>{el.classList.add('hide');el.setAttribute('aria-hidden','true');el.style.removeProperty('display')});const x=byId('p-'+p);x?.classList.remove('hide')}const t=byId('p-'+p);if(!t)return false;t.classList.remove('hide');t.setAttribute('aria-hidden','false');document.querySelectorAll('#app [id^="p-"]').forEach(el=>{if(el!==t)el.setAttribute('aria-hidden','true')});current=p;document.body.dataset.mvPage=p;document.body.dataset.mvNavAuthority='164.2';try{localStorage.setItem('mv_last_page_v164',p)}catch(_){};try{const u=new URL(location.href);u.hash='p='+encodeURIComponent(p);history[historyMode==='replace'?'replaceState':'pushState']({...(history.state||{}),mvPage:p,mvVersion:'164.2'},'',u.pathname+u.search+u.hash)}catch(_){};renderActive(p);closeMenu();window.scrollTo(0,0);return true}
+ function navigate(p){return showPage(p,{historyMode:p===current?'replace':'push'})}
  function menu(){let ov=byId('mvMenu164');if(ov)return ov;ov=document.createElement('div');ov.id='mvMenu164';ov.innerHTML='<div class="mv-menu164-shade" data-close164></div><aside class="mv-menu164-panel" aria-label="Menu principal"><div class="mv-menu164-head"><div><b>Movvant</b><small>Inteligência comercial em campo</small></div><button type="button" data-close164 aria-label="Fechar">×</button></div><div class="mv-menu164-items">'+order.map(p=>'<button type="button" data-page164="'+p+'">'+labels[p]+'</button>').join('')+'<button type="button" data-logout164>Sair</button></div></aside>';document.body.appendChild(ov);ov.addEventListener('click',e=>{const p=e.target.closest?.('[data-page164]')?.dataset.page164;if(p){e.preventDefault();e.stopImmediatePropagation();navigate(p);return}if(e.target.closest?.('[data-close164]')){e.preventDefault();closeMenu();return}if(e.target.closest?.('[data-logout164]')){e.preventDefault();closeMenu();byId('sair')?.click()}},true);return ov}
  function openMenu(){const ov=menu();ov.classList.add('open');document.body.classList.add('mv-menu164-open')}function closeMenu(){byId('mvMenu164')?.classList.remove('open');document.body.classList.remove('mv-menu164-open')}
  function initial(){let p='';try{p=new URL(location.href).hash.match(/(?:^#|[&#])p=([^&]+)/)?.[1]||'';p=decodeURIComponent(p)}catch(_){};if(!valid(p))try{p=localStorage.getItem('mv_last_page_v164')||''}catch(_){};return valid(p)?p:'inicio'}
- document.addEventListener('click',e=>{const r=e.target.closest?.('[data-mvroute]');if(r&&valid(r.dataset.mvroute)){e.preventDefault();e.stopImmediatePropagation();navigate(r.dataset.mvroute);return}const j=e.target.closest?.('[data-p-jump]');if(j&&valid(j.dataset.pJump)){e.preventDefault();e.stopImmediatePropagation();navigate(j.dataset.pJump)}},true);
+ document.addEventListener('click',e=>{const r=e.target.closest?.('[data-mvroute]');if(r&&valid(r.dataset.mvroute)){e.preventDefault();e.stopImmediatePropagation();navigate(r.dataset.mvroute);return}const j=e.target.closest?.('[data-p-jump]');if(j&&valid(j.dataset.pJump)){e.preventDefault();e.stopImmediatePropagation();navigate(j.dataset.pJump);return}const p=e.target.closest?.('[data-p]');if(p&&valid(p.dataset.p)){e.preventDefault();e.stopImmediatePropagation();navigate(p.dataset.p);return}const q=e.target.closest?.('[data-page]');if(q&&valid(q.dataset.page)){e.preventDefault();e.stopImmediatePropagation();navigate(q.dataset.page)}},true);
  addEventListener('popstate',e=>{const p=e.state?.mvPage;if(valid(p))showPage(p,{historyMode:'replace'})});addEventListener('hashchange',()=>{try{const m=location.hash.match(/(?:^#|[&#])p=([^&]+)/),p=m?decodeURIComponent(m[1]):'';if(valid(p)&&p!==current)showPage(p,{historyMode:'replace'})}catch(_){}});
  function boot(){menu();const old=document.querySelector('#app>.nav');if(old){old.hidden=true;old.setAttribute('aria-hidden','true');old.style.setProperty('display','none','important')}if(byId('app')&&!byId('app').classList.contains('hide'))showPage(initial(),{historyMode:'replace'})}
  [0,120,450,1000].forEach(ms=>setTimeout(boot,ms));globalThis.mvNavigationV164={navigate,openMenu,closeMenu,showPage,get page(){return current}};
