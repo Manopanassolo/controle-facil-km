@@ -2,6 +2,8 @@
 
 import { FormEvent, ReactNode, useId, useRef, useState } from 'react';
 
+export type PrototypeFormValues = Record<string, string | string[]>;
+
 type Field = {
   name: string;
   label: string;
@@ -16,13 +18,15 @@ export function PrototypeFormDialog({
   title,
   description,
   fields,
-  className = 'primary-button'
+  className = 'primary-button',
+  onValidate
 }: {
   trigger: ReactNode;
   title: string;
   description: string;
   fields: Field[];
   className?: string;
+  onValidate?: (values: PrototypeFormValues) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -38,6 +42,15 @@ export function PrototypeFormDialog({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
+
+    const data = new FormData(event.currentTarget);
+    const values: PrototypeFormValues = {};
+    for (const field of fields) {
+      const entries = data.getAll(field.name).map(String);
+      values[field.name] = field.type === 'multiselect' ? entries : (entries[0] || '');
+    }
+
+    onValidate?.(values);
     setSubmitted(true);
   }
 
@@ -55,7 +68,7 @@ export function PrototypeFormDialog({
             <h2 id={titleId}>{title}</h2>
             <p>{description}</p>
             {submitted ? (
-              <div className="prototype-success" role="status"><strong>Fluxo validado.</strong><span>Os campos foram aceitos, mas nenhum dado foi gravado.</span><button type="button" className="primary-button" onClick={close}>Concluir</button></div>
+              <div className="prototype-success" role="status"><strong>Fluxo validado.</strong><span>O registro foi incluído somente nesta sessão. Recarregar a página apaga esta simulação.</span><button type="button" className="primary-button" onClick={close}>Concluir</button></div>
             ) : (
               <form className="prototype-form" onSubmit={submit}>
                 <div className="prototype-form-grid">
@@ -79,8 +92,8 @@ export function PrototypeFormDialog({
                     </label>
                   ))}
                 </div>
-                <div className="prototype-notice"><strong>Homologação sem backend.</strong><span>Ao continuar, apenas validamos preenchimento, hierarquia e usabilidade do formulário.</span></div>
-                <div className="prototype-dialog-actions"><button type="button" className="secondary-button" onClick={close}>Cancelar</button><button type="submit" className="primary-button">Validar formulário</button></div>
+                <div className="prototype-notice"><strong>Homologação sem backend.</strong><span>Ao continuar, o registro aparece apenas na memória desta tela para validar o fluxo completo.</span></div>
+                <div className="prototype-dialog-actions"><button type="button" className="secondary-button" onClick={close}>Cancelar</button><button type="submit" className="primary-button">Adicionar nesta sessão</button></div>
               </form>
             )}
           </section>
