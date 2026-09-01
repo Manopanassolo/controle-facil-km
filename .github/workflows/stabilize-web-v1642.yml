@@ -55,3 +55,4 @@ jobs:
           git add index.html dist/index.html
           git commit -m 'Stabilize direct navigation and remove web redraw conflicts'
           git push
+# rerun after validator v164.2 migration
