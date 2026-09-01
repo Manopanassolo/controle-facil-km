@@ -6,7 +6,10 @@ const required=[
   'mv_last_page_v164',
   "addEventListener('popstate'",
   'globalThis.mvNavigationV164',
-  "document.body.dataset.mvNavAuthority='164.0'"
+  "document.body.dataset.mvNavAuthority='164.1'",
+  "if(typeof show==='function'){show(p);lifecycle=true}",
+  "closest?.('[data-p]')",
+  "closest?.('[data-page]')"
 ];
 const forbidden=[
   'v162.82 performance hotfix: persistent navigation',
@@ -18,15 +21,11 @@ const missing=required.filter(x=>!s.includes(x));
 if(missing.length){console.error('Navigation validation failed. Missing canonical markers:',missing);process.exit(1)}
 const legacy=forbidden.filter(x=>s.includes(x));
 if(legacy.length){console.error('Navigation validation failed. Legacy navigation still present:',legacy);process.exit(1)}
-
 const pageIds=[...s.matchAll(/id=["']p-([a-z0-9_-]+)["']/gi)].map(m=>m[1]);
 const pages=[...new Set(pageIds)];
-if(!pages.includes('inicio')||!pages.includes('viagem')||!pages.includes('historico')||!pages.includes('agenda')){
-  console.error('Navigation validation failed: core pages missing',pages);process.exit(1)
-}
-
+if(!pages.includes('inicio')||!pages.includes('viagem')||!pages.includes('historico')||!pages.includes('agenda')){console.error('Navigation validation failed: core pages missing',pages);process.exit(1)}
 const navButtons=[...s.matchAll(/data-(?:p|mvroute|page164)=["']([a-z0-9_-]+)["']/gi)].map(m=>m[1]);
 const targets=[...new Set(navButtons)];
 const invalid=targets.filter(x=>!pages.includes(x));
 if(invalid.length){console.error('Navigation validation failed: buttons without pages',invalid);process.exit(1)}
-console.log('Navigation validation OK: canonical v164 authority,',pages.length,'pages and',targets.length,'literal navigation targets');
+console.log('Navigation validation OK: canonical v164.1 lifecycle authority,',pages.length,'pages and',targets.length,'literal navigation targets');
