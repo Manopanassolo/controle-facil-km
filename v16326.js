@@ -17,6 +17,12 @@ const js=`
   function ownDock(){
     const dock=byId('mvBottomDock85');if(!dock)return;
     dock.dataset.mvAuthority='163.54';
+    if(innerWidth<=820){
+      dock.hidden=false;dock.removeAttribute('hidden');dock.setAttribute('aria-hidden','false');
+      dock.style.setProperty('display','grid','important');dock.style.setProperty('visibility','visible','important');dock.style.setProperty('opacity','1','important');dock.style.setProperty('pointer-events','auto','important');
+    }else{
+      dock.style.removeProperty('display');dock.style.removeProperty('visibility');dock.style.removeProperty('opacity');
+    }
     dock.querySelectorAll('button[data-mv-dock]').forEach(old=>{
       if(old.dataset.mvOwned16354==='1')return;
       const b=old.cloneNode(true);b.dataset.mvOwned16354='1';old.replaceWith(b);
@@ -77,23 +83,24 @@ const js=`
 
   function suppressLegacyOwners(){
     document.documentElement.dataset.mvUiAuthority='163.54';
-    document.querySelectorAll('#mvBottomV16249').forEach(x=>{x.hidden=true;x.setAttribute('aria-hidden','true')});
-    // The original mobile .nav remains only as the slide/menu source; it must never occupy the bottom edge.
+    document.querySelectorAll('#mvBottomV16249').forEach(x=>{x.hidden=true;x.setAttribute('aria-hidden','true');x.style.setProperty('display','none','important')});
     const nav=document.querySelector('#app>.nav');if(nav)nav.dataset.mvLegacyMenuSource='1';
   }
   function sync(){suppressLegacyOwners();ownDock();syncDock();dashboardHost();if((document.body.dataset.mvPage||'inicio')==='inicio')loadDashboard()}
   [0,120,400,900,1800].forEach(ms=>setTimeout(sync,ms));
   document.addEventListener('click',e=>{const p=e.target.closest?.('[data-p],[data-p-jump]')?.dataset?.p||e.target.closest?.('[data-p-jump]')?.dataset?.pJump;if(p==='inicio')setTimeout(loadDashboard,100)},true);
   addEventListener('pageshow',()=>setTimeout(sync,80),true);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&document.body.dataset.mvPage==='inicio')loadDashboard()});
-  globalThis.mvUiAuthorityV16354={sync,loadDashboard,navigate};
+  addEventListener('resize',()=>requestAnimationFrame(()=>{ownDock();syncDock()}),{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){ownDock();if(document.body.dataset.mvPage==='inicio')loadDashboard()}});
+  globalThis.mvUiAuthorityV16354={sync,loadDashboard,navigate,ownDock};
 })();
 `;
 if(!s.includes('carga();'))throw new Error('v163.54 startup anchor not found');s=s.replace('carga();',js+'\ncarga();');
 const css=`
 /* v163.54 single-authority navigation + dashboard */
 #mvDashTrips16354{grid-column:1/-1!important;background:#fff;border:1px solid #e1e7ee;border-radius:9px;overflow:hidden;margin:0 0 12px}.mv-dash-tabs16354{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #e4e9ef;background:#f8fafc}.mv-dash-tabs16354 button{min-height:42px!important;border:0!important;border-right:1px solid #e5eaf0!important;border-radius:0!important;background:transparent!important;color:#526074!important;font-size:11px!important}.mv-dash-tabs16354 button:last-child{border-right:0!important}.mv-dash-tabs16354 button.active{background:#fff!important;color:#0b66e4!important;box-shadow:inset 0 -2px #0b66e4!important}.mv-dash-tabs16354 button span{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:#e9eef5;color:#556274;font-size:9px}.mv-dash-tabs16354 button.has-alerts span{background:#fff0d8;color:#9a6200}.mv-dash-trips-body16354{padding:8px}.mv-dash-row16354{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;width:100%!important;padding:10px 11px!important;margin:0 0 6px!important;border:1px solid #e5eaf0!important;border-radius:7px!important;background:#fff!important;color:#213047!important;text-align:left!important}.mv-dash-row16354>div{display:grid;gap:2px;min-width:0}.mv-dash-row16354 small,.mv-dash-alert16354 small{font-size:9px;color:#708096}.mv-dash-row16354 b,.mv-dash-alert16354 b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mv-dash-row16354 span,.mv-dash-alert16354 span{font-size:10px;color:#68768a}.mv-dash-row16354 strong{font-size:10px;color:#0b66e4;white-space:nowrap}.mv-dash-alert16354{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 11px;margin-bottom:6px;border:1px solid #f0d9a9;border-radius:7px;background:#fffaf0}.mv-dash-alert16354>div{display:grid;gap:2px;min-width:0}.mv-dash-alert16354 button{width:auto!important;min-height:34px!important;padding:7px 10px!important;font-size:10px!important;background:#fff!important;color:#9a6500!important;border:1px solid #e9c983!important}.mv-dash-empty16354,.mv-dash-loading16354{padding:18px;text-align:center;color:#748095;font-size:11px}
-@media(max-width:820px){#app>.nav[data-mv-legacy-menu-source="1"]{top:0!important;bottom:auto!important;left:0!important;right:auto!important;position:fixed!important;max-height:100vh!important}#mvBottomDock85{pointer-events:auto!important;z-index:300!important}#mvBottomDock85 button{pointer-events:auto!important}.mv-dash-tabs16354 button{padding:5px 3px!important;font-size:10px!important}.mv-dash-alert16354{grid-template-columns:1fr}.mv-dash-alert16354 button{width:100%!important}}
+@media(max-width:820px){#app>.nav[data-mv-legacy-menu-source="1"]{top:0!important;bottom:auto!important;left:0!important;right:auto!important;position:fixed!important;max-height:100vh!important}#mvBottomDock85[data-mv-authority="163.54"]{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;z-index:300!important}#mvBottomDock85[data-mv-authority="163.54"] button{pointer-events:auto!important}.mv-dash-tabs16354 button{padding:5px 3px!important;font-size:10px!important}.mv-dash-alert16354{grid-template-columns:1fr}.mv-dash-alert16354 button{width:100%!important}}
+@media(min-width:821px){#mvBottomDock85[data-mv-authority="163.54"]{display:none!important}}
 `;
 if(!s.includes('</style>'))throw new Error('v163.54 css anchor not found');s=s.replace('</style>',css+'\n</style>');
 fs.writeFileSync('dist/index.html',s);console.log('Movvant v163.54 authoritative navigation and dashboard installed');
