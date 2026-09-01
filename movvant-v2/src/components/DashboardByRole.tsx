@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useSessionActivity } from '@/components/SessionActivityProvider';
 
 type RoleKey = 'vendedor' | 'gerente' | 'financeiro' | 'proprietario';
 
@@ -76,6 +77,7 @@ const views: Record<RoleKey, RoleView> = {
 
 export function DashboardByRole() {
   const [role, setRole] = useState<RoleKey>('proprietario');
+  const { journeys, totalKm } = useSessionActivity();
   const view = views[role];
 
   return (
@@ -93,6 +95,8 @@ export function DashboardByRole() {
           </select>
         </label>
       </section>
+
+      {journeys.length ? <section className="panel session-dashboard-strip" aria-label="Indicadores da homologação local"><div><span className="eyebrow">Atividade desta sessão</span><strong>{journeys.length} jornada(s) concluída(s)</strong><small>Esses números vêm do Modo Campo e desaparecem ao recarregar a aplicação.</small></div><div className="session-dashboard-metrics"><span><b>{totalKm.toLocaleString('pt-BR')} km</b><small>percorridos nesta sessão</small></span><span><b>{journeys.length}</b><small>visitas refletidas no histórico</small></span></div><Link href="/historico" className="secondary-button">Ver histórico da sessão</Link></section> : null}
 
       <section className="dashboard-grid" aria-label="Indicadores do perfil">
         {view.metrics.map(([label, value, note]) => (
