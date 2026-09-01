@@ -28,19 +28,21 @@ const requirements = [
 for(const [relative,needle,message] of requirements){ const file=path.join(src,relative); if(!fs.readFileSync(file,'utf8').includes(needle)) violations.push(message); }
 
 const providerText=fs.readFileSync(path.join(src,'components','SessionActivityProvider.tsx'),'utf8');
-for(const required of ['journeys','routes','expenses','appointments','vehicles','vehicleOptions','addVehicle','totalKm','totalExpenses','completedAppointments','activityCount']) if(!providerText.includes(required)) violations.push(`Session activity provider must expose ${required}`);
+for(const required of ['journeys','routes','expenses','appointments','vehicles','vehicleOptions','addVehicle','getVehicleKm','updateVehicleKm','totalKm','totalExpenses','completedAppointments','activityCount']) if(!providerText.includes(required)) violations.push(`Session activity provider must expose ${required}`);
+if(!providerText.includes('Math.max(vehicle.currentKm, nextKm)')) violations.push('Shared vehicle KM must never regress below the current known value');
+
 const routeText=fs.readFileSync(path.join(src,'components','RouteSessionModule.tsx'),'utf8');
-if(!routeText.includes('vehicleOptions')||!routeText.includes('addRoute')) violations.push('Routes must consume shared fleet and activity state');
+for(const required of ['vehicleOptions','getVehicleKm','updateVehicleKm','addRoute']) if(!routeText.includes(required)) violations.push(`Routes must use ${required} from shared fleet/activity state`);
 const fieldText=fs.readFileSync(path.join(src,'components','FieldJourneyModule.tsx'),'utf8');
-if(!fieldText.includes('vehicleOptions')||!fieldText.includes('addJourney')) violations.push('Field Mode must consume shared fleet and activity state');
+for(const required of ['vehicleOptions','getVehicleKm','updateVehicleKm','addJourney']) if(!fieldText.includes(required)) violations.push(`Field Mode must use ${required} from shared fleet/activity state`);
 const costText=fs.readFileSync(path.join(src,'components','CostSessionModule.tsx'),'utf8');
 if(!costText.includes('vehicleOptions')||!costText.includes('addExpense')) violations.push('Costs must consume shared fleet and activity state');
 const vehicleText=fs.readFileSync(path.join(src,'components','VehicleSessionModule.tsx'),'utf8');
-if(!vehicleText.includes('addVehicle')||!vehicleText.includes('vehicles')) violations.push('Vehicles must manage the shared fleet state');
+if(!vehicleText.includes('addVehicle')||!vehicleText.includes('vehicles')||!vehicleText.includes('currentKm')) violations.push('Vehicles must render the shared fleet KM state');
 const coreText=fs.readFileSync(path.join(src,'components','CoreModules.tsx'),'utf8');
 if(!coreText.includes('session-report-summary')||!coreText.includes('activityCount')) violations.push('Reports must display consolidated shared activity');
 const genericModulePage=path.join(src,'app','[module]','page.tsx');
 if(fs.existsSync(genericModulePage)) violations.push('Dynamic [module] page is forbidden');
 
 if(violations.length){ console.error('Movvant V2 architecture guard failed:\n'+violations.join('\n')); process.exit(1); }
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, shared fleet enforced across Veículos, Rotas, Custos and Modo Campo.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, shared fleet and monotonic KM synchronization enforced across Veículos, Rotas, Custos and Modo Campo.`);
