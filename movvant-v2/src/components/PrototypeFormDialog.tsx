@@ -5,7 +5,7 @@ import { FormEvent, ReactNode, useId, useRef, useState } from 'react';
 type Field = {
   name: string;
   label: string;
-  type?: 'text' | 'number' | 'date' | 'email' | 'tel' | 'select' | 'textarea';
+  type?: 'text' | 'number' | 'date' | 'email' | 'tel' | 'select' | 'multiselect' | 'textarea';
   placeholder?: string;
   required?: boolean;
   options?: string[];
@@ -60,11 +60,15 @@ export function PrototypeFormDialog({
               <form className="prototype-form" onSubmit={submit}>
                 <div className="prototype-form-grid">
                   {fields.map((field) => (
-                    <label className={`field-label ${field.type === 'textarea' ? 'prototype-span-2' : ''}`} key={field.name}>
+                    <label className={`field-label ${field.type === 'textarea' || field.type === 'multiselect' ? 'prototype-span-2' : ''}`} key={field.name}>
                       {field.label}{field.required ? ' *' : ''}
                       {field.type === 'select' ? (
                         <select className="field" name={field.name} required={field.required} defaultValue="">
                           <option value="" disabled>Selecione</option>
+                          {field.options?.map((option) => <option value={option} key={option}>{option}</option>)}
+                        </select>
+                      ) : field.type === 'multiselect' ? (
+                        <select className="field prototype-multiselect" name={field.name} required={field.required} multiple size={Math.min(field.options?.length || 3, 5)}>
                           {field.options?.map((option) => <option value={option} key={option}>{option}</option>)}
                         </select>
                       ) : field.type === 'textarea' ? (
