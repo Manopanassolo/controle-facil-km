@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { moduleMap } from '@/lib/modules';
+import { DocumentsModule, GenericModule, HistoryModule, IncidentsModule, NotificationsModule, ProfileModule, SettingsModule, TeamModule } from '@/components/RemainingModules';
 
 const dashboardMetrics = [
   ['Agenda de hoje', '4', 'compromissos previstos'],
@@ -35,7 +36,7 @@ function Costs() {
 
 function Vehicles() {
   const vehicles = [['SUV Comercial','ABC1D23','12.480 km','Ativo'],['Hatch Vendas','DEF4G56','38.210 km','Ativo'],['Utilitário','GHI7J89','64.990 km','Revisão']];
-  return <section className="cards-list">{vehicles.map(([name,plate,km,status]) => <article className="panel vehicle-card" key={plate}><div className="vehicle-icon">V</div><div className="vehicle-copy"><span className="eyebrow">{plate}</span><h2>{name}</h2><p>{km} registrados</p></div><span className={`tag ${status === 'Ativo' ? 'success' : ''}`}>{status}</span></article>)}</section>;
+  return <section className="cards-list">{vehicles.map(([name,plate,km,status]) => <article className="panel vehicle-card" key={plate}><div className="vehicle-icon">V</div><div className="vehicle-copy"><span className="eyebrow">{plate}</span><h2>{name}</h2><p>{km} registrados</p></div><span className={`tag ${status === 'Ativo' ? 'success' : 'warning'}`}>{status}</span></article>)}</section>;
 }
 
 function Reports() {
@@ -46,6 +47,21 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
   const { module: slug } = await params;
   const current = moduleMap.get(slug);
   if (!current) notFound();
-  const content = slug === 'dashboard' ? <Dashboard /> : slug === 'agenda' ? <Agenda /> : slug === 'roteiros' ? <Routes /> : slug === 'custos' ? <Costs /> : slug === 'veiculos' ? <Vehicles /> : slug === 'relatorios' ? <Reports /> : <section className="module-stage"><div className="module-empty"><div><strong>{current.label} já possui rota própria.</strong><span>Este módulo será reconstruído diretamente nesta base V2, sem scripts herdados ou camadas de correção.</span></div></div></section>;
+
+  const content = slug === 'dashboard' ? <Dashboard />
+    : slug === 'agenda' ? <Agenda />
+    : slug === 'roteiros' ? <Routes />
+    : slug === 'historico' ? <HistoryModule />
+    : slug === 'custos' ? <Costs />
+    : slug === 'veiculos' ? <Vehicles />
+    : slug === 'equipe' ? <TeamModule />
+    : slug === 'relatorios' ? <Reports />
+    : slug === 'documentos' ? <DocumentsModule />
+    : slug === 'sinistros' ? <IncidentsModule />
+    : slug === 'notificacoes' ? <NotificationsModule />
+    : slug === 'perfil' ? <ProfileModule />
+    : slug === 'configuracoes' ? <SettingsModule />
+    : <GenericModule title={current.label} />;
+
   return <><div className="page-head"><div><span className="eyebrow">Movvant V2</span><h1>{current.label}</h1><p>{current.description}</p></div><span className="status-badge">Base visual isolada · sem backend</span></div>{content}</>;
 }
