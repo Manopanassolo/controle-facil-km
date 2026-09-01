@@ -1,6 +1,6 @@
 import { ModuleHeader } from '@/components/CoreModules';
-import { FieldModeModule } from '@/components/OperationsModules';
+import { FieldJourneyModule } from '@/components/FieldJourneyModule';
 
 export default function FieldModePage() {
-  return <><ModuleHeader title="Modo Campo" description="Fluxo simplificado para operação externa no celular." /><FieldModeModule /></>;
+  return <><ModuleHeader title="Modo Campo" description="Jornada guiada para operação externa no celular." /><FieldJourneyModule /></>;
 }
