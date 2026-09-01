@@ -74,6 +74,15 @@ if (fs.existsSync(routePage) && !fs.readFileSync(routePage, 'utf8').includes('Ro
 const fieldPage = path.join(src, 'app', 'campo', 'page.tsx');
 if (fs.existsSync(fieldPage) && !fs.readFileSync(fieldPage, 'utf8').includes('FieldJourneyModule')) violations.push('Field Mode must use FieldJourneyModule for guided local homologation');
 
+const historyPage = path.join(src, 'app', 'historico', 'page.tsx');
+if (fs.existsSync(historyPage) && !fs.readFileSync(historyPage, 'utf8').includes('HistorySessionModule')) violations.push('History must consume the shared session activity state');
+
+const layoutPage = path.join(src, 'app', 'layout.tsx');
+if (!fs.readFileSync(layoutPage, 'utf8').includes('SessionActivityProvider')) violations.push('Root layout must provide shared session activity state');
+
+const dashboardComponent = path.join(src, 'components', 'DashboardByRole.tsx');
+if (!fs.readFileSync(dashboardComponent, 'utf8').includes('useSessionActivity')) violations.push('Dashboard must reflect shared session activity during homologation');
+
 const genericModulePage = path.join(src, 'app', '[module]', 'page.tsx');
 if (fs.existsSync(genericModulePage)) violations.push('Dynamic [module] page is forbidden: all canonical modules must remain independent physical routes');
 
@@ -82,4 +91,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, physical routes protected, with local KM and guided field homologation enforced.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, physical routes protected, with shared session activity reflected across Campo, Dashboard and Histórico.`);
