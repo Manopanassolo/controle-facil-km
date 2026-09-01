@@ -15,8 +15,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Validate Worker syntax
+        run: node --check cloudflare-worker.js
       - name: Build and validate production candidate
         run: npm run build
+      - name: Verify current authority markers
+        run: |
+          grep -q 'mvUiAuthorityV16354' dist/index.html
+          grep -q 'mvDashTrips16354' dist/index.html
+          grep -q 'mvGoogleCalendarV16355' dist/index.html
+          grep -q 'mvGoogleCalendar16355' dist/index.html
       - name: Inspect rendered shell
         run: node inspect-shell.js
       - name: Capture desktop visual preview
@@ -29,5 +37,5 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: movvant-v16331-desktop-preview
+          name: movvant-v16355-desktop-preview
           path: /tmp/movvant-preview-*.png
