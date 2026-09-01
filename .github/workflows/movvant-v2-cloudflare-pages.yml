@@ -57,7 +57,7 @@ jobs:
         run: npx next build
 
       - name: Deploy isolated homologation candidate
-        run: npx --yes wrangler@4 pages deploy out --project-name="$CF_PAGES_PROJECT" --branch=movvant-v2-rebuild --commit-hash="${GITHUB_SHA}"
+        run: npx --yes wrangler@4 pages deploy out --config wrangler.pages.jsonc --project-name="$CF_PAGES_PROJECT" --branch=movvant-v2-rebuild --commit-hash="${GITHUB_SHA}" --commit-dirty=true
 
       - name: Record deployment identity
         run: |
