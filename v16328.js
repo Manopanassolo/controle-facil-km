@@ -4,7 +4,12 @@ const js=`
 // v163.56: authoritative authentication surface. Never leave the app visible behind a clipped login card.
 (function(){
   const byId=id=>document.getElementById(id);
-  let syncing=false;
+  let syncing=false,bound=false;
+  function authClient(){
+    try{if(typeof sb!=='undefined'&&sb?.auth)return sb}catch(_){ }
+    try{if(globalThis.sb?.auth)return globalThis.sb}catch(_){ }
+    return null;
+  }
   function showLoggedOut(){
     const auth=byId('auth'),app=byId('app');
     document.body.dataset.mvAuth='logged-out';
@@ -18,24 +23,24 @@ const js=`
     if(auth){auth.classList.add('hide');auth.hidden=true;auth.setAttribute('aria-hidden','true')}
     if(app)app.classList.remove('hide');
     document.querySelectorAll('#mvBottomDock85,#mvSideMenu82,.mv-desktop-nav85').forEach(x=>x.removeAttribute('aria-hidden'));
+    setTimeout(()=>{try{globalThis.mvUiAuthorityV16354?.sync?.()}catch(_){ }try{globalThis.mvGoogleConnectV16360?.bind?.()}catch(_){ }},60);
   }
   async function syncAuth(){
-    if(syncing)return;syncing=true;
+    if(syncing)return;const client=authClient();if(!client)return;syncing=true;
     try{
-      if(!globalThis.sb?.auth){return}
-      const r=await sb.auth.getSession();const session=r?.data?.session||null;
+      const r=await client.auth.getSession();const session=r?.data?.session||null;
       if(session){showLoggedIn();setTimeout(()=>{try{globalThis.mvGoogleCalendarV16355?.refreshStatus?.()}catch(_){ }},120)}
       else showLoggedOut();
     }catch(e){console.warn('v163.56 auth sync',e);showLoggedOut()}finally{syncing=false}
   }
   function bind(){
-    try{sb.auth.onAuthStateChange((_event,session)=>{session?showLoggedIn():showLoggedOut();if(session)setTimeout(()=>{try{globalThis.mvGoogleCalendarV16355?.refreshStatus?.()}catch(_){ }},120)})}catch(_){ }
+    if(bound)return;const client=authClient();if(!client)return;bound=true;
+    try{client.auth.onAuthStateChange((_event,session)=>{session?showLoggedIn():showLoggedOut();if(session)setTimeout(()=>{try{globalThis.mvGoogleCalendarV16355?.refreshStatus?.()}catch(_){ }},120)})}catch(_){bound=false}
   }
-  [0,150,500,1200,2500].forEach(ms=>setTimeout(syncAuth,ms));
+  [0,150,500,1200,2500].forEach(ms=>setTimeout(()=>{syncAuth();bind()},ms));
   addEventListener('pageshow',()=>setTimeout(syncAuth,50),true);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncAuth()});
-  setTimeout(bind,300);
-  globalThis.mvAuthAuthorityV16356={syncAuth,showLoggedOut,showLoggedIn};
+  globalThis.mvAuthAuthorityV16356={syncAuth,showLoggedOut,showLoggedIn,authClient};
 })();
 `;
 if(!s.includes('carga();'))throw new Error('v163.56 startup anchor not found');
