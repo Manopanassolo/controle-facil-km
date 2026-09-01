@@ -1,0 +1,55 @@
+name: Canonicalize Movvant clean base
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canonicalize-clean-base.yml'
+permissions:
+  contents: write
+jobs:
+  canonicalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current validated state once
+        run: npm run build
+      - name: Promote generated app to canonical source
+        run: |
+          set -euo pipefail
+          cp dist/index.html index.html
+          cat > build.js <<'EOF'
+          const fs=require('fs');
+          fs.mkdirSync('dist',{recursive:true});
+          fs.copyFileSync('index.html','dist/index.html');
+          console.log('Movvant canonical build: index.html -> dist/index.html');
+          EOF
+          node - <<'EOF'
+          const fs=require('fs');
+          const p=JSON.parse(fs.readFileSync('package.json','utf8'));
+          p.version='164.0.0-clean';
+          p.scripts={build:'node build.js && node validate-core-flow.js && node validate-navigation.js && node validate-build.js'};
+          fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');
+          EOF
+          rm -f postprocess.js
+          find . -maxdepth 1 -type f -regextype posix-extended -regex './v[0-9]+\.js' -print -delete
+          rm -f .github/workflows/canonicalize-clean-base.yml
+          test -s index.html
+          grep -q 'mvUiAuthorityV16354' index.html
+          grep -q 'mvGoogleCalendarV16355' index.html
+          grep -q 'mvGoogleConnectV16360' index.html
+          ! grep -q 'v162.88.2: real-click page fallback' index.html
+          ! grep -q 'v162.87.1: only one mobile navigation system' index.html
+          npm run build
+      - name: Commit canonical clean base
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Canonicalize Movvant and remove historical patch chain'
+          git push
