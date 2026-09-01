@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { moduleGroups, modules } from '@/lib/modules';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const active = pathname.split('/').filter(Boolean)[0] || 'dashboard';
 
   return (
@@ -52,6 +53,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="topbar-actions">
           <span className="environment-pill">V2 visual</span>
+          <button type="button" className="icon-action nav-history-action" aria-label="Voltar" onClick={() => router.back()}>←</button>
+          <Link href="/dashboard" className="icon-action" aria-label="Tela inicial" aria-current={active === 'dashboard' ? 'page' : undefined}>⌂</Link>
           <Link href="/notificacoes" className="icon-action" aria-label="Notificações" aria-current={active === 'notificacoes' ? 'page' : undefined}>●</Link>
           <Link href="/perfil" className="profile-chip" aria-label="Perfil" aria-current={active === 'perfil' ? 'page' : undefined}>MP</Link>
         </div>
