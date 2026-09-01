@@ -1,6 +1,6 @@
 import { ModuleHeader } from '@/components/CoreModules';
-import { DocumentsModule } from '@/components/RemainingModules';
+import { DocumentsSessionModule } from '@/components/DocumentsSessionModule';
 
 export default function DocumentsPage() {
-  return <><ModuleHeader title="Documentos" description="Validades, comprovantes e documentos operacionais." /><DocumentsModule /></>;
+  return <><ModuleHeader title="Documentos" description="Validades, comprovantes e documentos operacionais." /><DocumentsSessionModule /></>;
 }
