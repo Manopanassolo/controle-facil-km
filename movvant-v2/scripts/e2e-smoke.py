@@ -29,8 +29,7 @@ def test_modal_keyboard(page):
     assert trigger.evaluate('(node)=>node===document.activeElement'), 'foco não retornou ao gatilho'
 
 
-def test_agenda_flow(page):
-    page.goto(f'{BASE}/agenda', wait_until='networkidle')
+def create_agenda_item(page):
     page.get_by_role('button', name='+ Novo compromisso').click()
     page.get_by_label('Título *').fill('Visita E2E')
     page.get_by_label('Cliente *').fill('Cliente Automação')
@@ -41,6 +40,11 @@ def test_agenda_flow(page):
     page.get_by_role('button', name='Adicionar nesta sessão').click()
     expect(page.get_by_text('Fluxo validado.')).to_be_visible()
     page.get_by_role('button', name='Concluir').click()
+
+
+def test_agenda_flow_and_route_draft(page):
+    page.goto(f'{BASE}/agenda', wait_until='networkidle')
+    create_agenda_item(page)
     expect(page.get_by_text('Visita E2E')).to_be_visible()
     expect(page.get_by_text('Cliente Automação · Rua Teste, 100, Itajaí')).to_be_visible()
     expect(page.locator('.agenda-main h2')).to_contain_text('2 de setembro')
@@ -48,6 +52,13 @@ def test_agenda_flow(page):
     expect(page.locator('.agenda-main h2')).to_contain_text('1 de setembro')
     page.get_by_role('button', name='Selecionar 2 de setembro').click()
     expect(page.get_by_text('Visita E2E')).to_be_visible()
+    page.get_by_role('link', name='Abrir rota').first.click()
+    expect(page.locator('h1')).to_contain_text('Rotas')
+    expect(page.get_by_text('Rota preparada pela Agenda · Cliente Automação')).to_be_visible()
+    page.get_by_role('button', name='Iniciar rota').click()
+    expect(page.get_by_label('Destino *')).to_have_value('Rua Teste, 100, Itajaí')
+    expect(page.get_by_label('Finalidade *')).to_have_value('Visita comercial')
+    page.keyboard.press('Escape')
 
 
 def test_reports_filter(page):
@@ -56,6 +67,34 @@ def test_reports_filter(page):
     page.get_by_label('Tipo').select_option('Agenda')
     expect(page.get_by_text('Nenhum registro no filtro')).to_be_visible()
     assert page.get_by_role('button', name='Exportar CSV').is_disabled(), 'CSV deveria estar desabilitado sem registros'
+
+
+def test_profile_edit(page):
+    page.goto(f'{BASE}/perfil', wait_until='networkidle')
+    page.get_by_role('button', name='Editar').click()
+    expect(page.get_by_label('Nome *')).to_have_value('Marcos Paulo')
+    expect(page.get_by_label('E-mail *')).to_have_value('usuario@movvant.app')
+    page.get_by_label('Nome *').fill('Marcos E2E')
+    page.get_by_role('button', name='Adicionar nesta sessão').click()
+    page.get_by_role('button', name='Concluir').click()
+    expect(page.locator('.profile-summary h2')).to_have_text('Marcos E2E')
+    expect(page.get_by_label('Função')).to_have_value('Administrador')
+
+
+def test_settings_filter_notifications(page):
+    page.goto(f'{BASE}/configuracoes', wait_until='networkidle')
+    fleet_row=page.locator('.setting-row').filter(has_text='Frota e manutenção')
+    toggle=fleet_row.get_by_role('button', name='Habilitada')
+    expect(toggle).to_have_attribute('aria-pressed','true')
+    toggle.click()
+    expect(fleet_row.get_by_role('button', name='Desabilitada')).to_have_attribute('aria-pressed','false')
+    page.get_by_role('link', name='Notificações').first.click()
+    expect(page.locator('h1')).to_contain_text('Notificações')
+    assert page.locator('.notification-row .tag', has_text='Frota').count() == 0, 'Frota deveria estar filtrada nas notificações'
+    page.get_by_role('link', name='Configurações').first.click()
+    page.get_by_role('button', name='Restaurar padrões').click()
+    page.get_by_role('link', name='Notificações').first.click()
+    assert page.locator('.notification-row .tag', has_text='Frota').count() > 0, 'Frota deveria retornar após restaurar padrões'
 
 
 def test_navigation(page):
@@ -74,8 +113,10 @@ def run_suite(browser, viewport):
         assert_layout(page,slug,title)
     test_navigation(page)
     test_modal_keyboard(page)
-    test_agenda_flow(page)
+    test_agenda_flow_and_route_draft(page)
     test_reports_filter(page)
+    test_profile_edit(page)
+    test_settings_filter_notifications(page)
     meaningful=[e for e in console_errors if 'favicon' not in e.lower()]
     assert not meaningful, 'Erros no console: '+ ' | '.join(meaningful[:8])
     page.close()
@@ -85,4 +126,4 @@ with sync_playwright() as p:
     run_suite(browser, {'width':1440,'height':1000})
     run_suite(browser, {'width':390,'height':844})
     browser.close()
-print('Movvant V2 browser E2E passed: 15 routes, desktop/mobile, navigation, modal keyboard, agenda flow and reports filters.')
+print('Movvant V2 browser E2E passed: 15 routes, desktop/mobile, navigation, modal keyboard, agenda-to-route draft, reports, profile and notification preferences.')
