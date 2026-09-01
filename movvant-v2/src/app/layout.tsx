@@ -5,6 +5,7 @@ import './module-extra.css';
 import './operations.css';
 import './polish.css';
 import { AppShell } from '@/components/AppShell';
+import { SessionActivityProvider } from '@/components/SessionActivityProvider';
 
 export const metadata: Metadata = {
   title: 'Movvant V2',
@@ -15,7 +16,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="pt-BR">
       <body>
-        <AppShell>{children}</AppShell>
+        <SessionActivityProvider>
+          <AppShell>{children}</AppShell>
+        </SessionActivityProvider>
       </body>
     </html>
   );
