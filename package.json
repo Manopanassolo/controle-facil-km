@@ -1,7 +1,7 @@
 {
   "name": "controle-facil-km",
   "private": true,
-  "version": "164.1.0-runtime",
+  "version": "164.2.0-stable-web",
   "scripts": {
     "build": "node build.js && node validate-clean-architecture.js && node validate-core-flow.js && node validate-navigation.js && node validate-build.js"
   }
