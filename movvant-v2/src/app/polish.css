@@ -66,11 +66,26 @@
   padding: 24px;
 }
 
+.prototype-form-dialog {
+  width: min(100%, 720px);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+}
+
 .prototype-dialog h2 { margin: 0; color: var(--mv-blue-950); font-size: 22px; }
 .prototype-dialog > p { color: var(--mv-muted); line-height: 1.55; font-size: 13px; }
 .prototype-notice { display: grid; gap: 4px; margin: 18px 0; padding: 14px; border-radius: 12px; background: #f3f8fb; border: 1px solid var(--mv-border); }
 .prototype-notice strong { font-size: 12px; color: var(--mv-blue-950); }
 .prototype-notice span { font-size: 11px; line-height: 1.45; color: var(--mv-muted); }
+.prototype-form { display: grid; gap: 4px; }
+.prototype-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+.prototype-span-2 { grid-column: 1 / -1; }
+.prototype-textarea { min-height: 96px; resize: vertical; }
+.prototype-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.prototype-success { display: grid; gap: 10px; margin-top: 18px; padding: 18px; border: 1px solid var(--mv-border); border-radius: 14px; background: #f6fbef; }
+.prototype-success strong { color: var(--mv-blue-950); }
+.prototype-success span { color: var(--mv-muted); font-size: 12px; line-height: 1.5; }
+.prototype-success .primary-button { justify-self: start; margin-top: 4px; }
 
 @media (max-width: 800px) {
   .sidebar {
@@ -93,6 +108,11 @@
   .vehicle-actions { width: 100%; margin-left: 0; justify-content: flex-start; }
 }
 
+@media (max-width: 620px) {
+  .prototype-form-grid { grid-template-columns: 1fr; }
+  .prototype-span-2 { grid-column: auto; }
+}
+
 @media (max-width: 520px) {
   .topbar { grid-template-columns: minmax(0,1fr) auto; }
   .brand { min-width: 0; }
@@ -107,6 +127,9 @@
   .panel-title-row { align-items: flex-start; flex-wrap: wrap; }
   .placeholder-row { align-items: flex-start; }
   .prototype-dialog { padding: 20px; }
+  .prototype-overlay { padding: 10px; }
+  .prototype-form-dialog { max-height: calc(100dvh - 20px); }
+  .prototype-dialog-actions > * { flex: 1 1 140px; }
   .row-actions { width: 100%; justify-content: flex-start; }
   .row-actions .secondary-button { flex: 1 1 120px; }
 }
