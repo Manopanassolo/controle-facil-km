@@ -25,18 +25,22 @@ const mark=async(name)=>{result.checkpoints.push(name);console.log('CHECKPOINT',
 try {
   console.log('CHECKPOINT preflight');
   const assetHash=sha(localHtml);
-  const preflight=await context.request.get(base+'/?qa_asset='+assetHash.slice(0,20),{timeout:15000,failOnStatusCode:false,headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
-  const liveHtml=await preflight.text();
-  result.preflight={status:preflight.status(),ok:preflight.ok(),liveSha:sha(liveHtml),localSha:assetHash,sameAsset:sha(liveHtml)===assetHash};
-  if(!preflight.ok())throw new Error('Cloudflare preflight HTTP '+preflight.status());
-  if(!result.preflight.sameAsset)throw new Error('Live Cloudflare HTML differs from exact local production candidate');
-  if(!liveHtml.includes('v162.62'))throw new Error('Live Cloudflare HTML missing v162.62 marker');
+  let preflight=null,liveHtml='',sameAsset=false;
+  for(let i=1;i<=6;i++){
+    preflight=await context.request.get(base+'/?qa_asset='+assetHash.slice(0,20)+'_'+i+'_'+Date.now(),{timeout:15000,failOnStatusCode:false,headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
+    liveHtml=await preflight.text();
+    sameAsset=sha(liveHtml)===assetHash;
+    if(preflight.ok()&&sameAsset)break;
+    await new Promise(r=>setTimeout(r,1200));
+  }
+  result.preflight={status:preflight?.status?.()||0,ok:!!preflight?.ok?.(),liveSha:sha(liveHtml),localSha:assetHash,sameAsset};
+  if(!result.preflight.ok)throw new Error('Cloudflare preflight HTTP '+result.preflight.status);
+  if(!result.preflight.sameAsset)throw new Error('Live Cloudflare HTML differs from exact local production candidate after cache-safe retries');
+  if(!liveHtml.includes('v164.0: single canonical navigation authority'))throw new Error('Live Cloudflare HTML missing canonical v164 marker');
 
   console.log('CHECKPOINT render');
   await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:15000});
   await page.waitForTimeout(2200);
-  // v162.93 intentionally keeps route planning collapsed. Open it before testing
-  // the route fields, stops and native Android interactions inside that panel.
   await page.evaluate(()=>{const fold=document.getElementById('mvRouteFold93');if(fold)fold.open=true});
   await page.waitForTimeout(180);
   const shell=await page.evaluate(()=>{
@@ -53,57 +57,36 @@ try {
   await mark('shell');
 
   const fields=await page.evaluate(()=>({
-    origin:!!document.getElementById('origem'),
-    destination:!!document.getElementById('destino'),
-    stops:!!document.getElementById('stopsV127'),
-    addStop:!!document.getElementById('addStopV127'),
-    calculate:!!document.getElementById('calcDirectRouteV127'),
-    map:!!document.getElementById('mapV127')
+    origin:!!document.getElementById('origem'),destination:!!document.getElementById('destino'),stops:!!document.getElementById('stopsV127'),addStop:!!document.getElementById('addStopV127'),calculate:!!document.getElementById('calcDirectRouteV127'),map:!!document.getElementById('mapV127')
   }));
   result.fields=fields;
   if(!fields.origin||!fields.destination||!fields.stops||!fields.addStop||!fields.calculate||!fields.map)throw new Error('Route planner fields missing');
   await mark('fields');
 
   const origin=page.locator('#origem');
-  await origin.scrollIntoViewIfNeeded();
-  await origin.click();
-  await origin.fill('Avenida Paulista, São Paulo');
-  await page.waitForTimeout(350);
-  result.originValue=await origin.inputValue();
-  if(!result.originValue.includes('Avenida Paulista'))throw new Error('Origin typing failed');
+  await origin.scrollIntoViewIfNeeded();await origin.click();await origin.fill('Avenida Paulista, São Paulo');await page.waitForTimeout(350);
+  result.originValue=await origin.inputValue();if(!result.originValue.includes('Avenida Paulista'))throw new Error('Origin typing failed');
   await mark('origin');
 
   const destination=page.locator('#destino');
-  await destination.scrollIntoViewIfNeeded();
-  await destination.click();
-  await destination.fill('Aeroporto de Congonhas, São Paulo');
-  await page.waitForTimeout(350);
-  result.destinationValue=await destination.inputValue();
-  if(!result.destinationValue.includes('Congonhas'))throw new Error('Destination typing failed');
+  await destination.scrollIntoViewIfNeeded();await destination.click();await destination.fill('Aeroporto de Congonhas, São Paulo');await page.waitForTimeout(350);
+  result.destinationValue=await destination.inputValue();if(!result.destinationValue.includes('Congonhas'))throw new Error('Destination typing failed');
   await mark('destination');
 
   const addStop=page.locator('#addStopV127');
-  await addStop.scrollIntoViewIfNeeded();
-  await addStop.click();
-  await page.waitForTimeout(150);
+  await addStop.scrollIntoViewIfNeeded();await addStop.click();await page.waitForTimeout(150);
   const stop=page.locator('#stopsV127 input').last();
-  if(await stop.count()){
-    await stop.fill('Parque Ibirapuera, São Paulo');
-    result.stopValue=await stop.inputValue();
-  }
-  result.stopCount=await page.locator('#stopsV127 input').count();
-  if(result.stopCount<1)throw new Error('Stop addition failed');
+  if(await stop.count()){await stop.fill('Parque Ibirapuera, São Paulo');result.stopValue=await stop.inputValue()}
+  result.stopCount=await page.locator('#stopsV127 input').count();if(result.stopCount<1)throw new Error('Stop addition failed');
   await mark('stop');
 
   await page.screenshot({path:'/tmp/movvant-android.png',fullPage:true,timeout:10000});
   result.pass=true;
 } catch (error) {
-  result.pass=false;
-  result.error=String(error?.stack||error);
+  result.pass=false;result.error=String(error?.stack||error);
 } finally {
   fs.writeFileSync('/tmp/movvant-visual-result.json',JSON.stringify(result,null,2));
   console.log(JSON.stringify(result,null,2));
-  await browser.close();
-  await new Promise(resolve=>server.close(resolve));
+  await browser.close();await new Promise(resolve=>server.close(resolve));
 }
 if(!result.pass)process.exit(1);
