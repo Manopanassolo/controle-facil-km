@@ -13,6 +13,7 @@ type Journey = {
   arrivalNote?: string;
   visitResult?: string;
   expense?: string;
+  expenseAmount?: number;
   kmEnd?: number;
 };
 
@@ -53,7 +54,7 @@ export function FieldJourneyModule() {
 
   function expense(values: PrototypeFormValues) {
     const amount = Number(text(values, 'valor').replace(',', '.')) || 0;
-    setJourney((current) => ({ ...current, expense: `${text(values, 'categoria')} · R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }));
+    setJourney((current) => ({ ...current, expenseAmount: amount, expense: `${text(values, 'categoria')} · R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }));
     setStep('expense');
   }
 
@@ -68,6 +69,7 @@ export function FieldJourneyModule() {
       client: journey.client || 'Atendimento externo',
       visitResult: journey.visitResult || 'Sem resultado registrado',
       expense: journey.expense || 'Sem despesa',
+      expenseAmount: journey.expenseAmount || 0,
       kmEnd,
       distance
     });
