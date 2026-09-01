@@ -32,9 +32,12 @@ const requirements=[
  ['app/documentos/page.tsx','DocumentsSessionModule','Documents must use shared compliance module'],
  ['app/sinistros/page.tsx','IncidentsSessionModule','Incidents must use shared incident workflow'],
  ['app/relatorios/page.tsx','ReportsSessionModule','Reports must use functional session reports'],
+ ['app/perfil/page.tsx','ProfileSessionModule','Profile must use shared editable session profile'],
+ ['app/configuracoes/page.tsx','SettingsSessionModule','Settings must use functional session preferences'],
  ['app/layout.tsx','SessionActivityProvider','Root layout must provide shared session state'],
  ['app/layout.tsx','DriverSessionProvider','Root layout must provide shared driver state'],
- ['app/layout.tsx','IncidentSessionProvider','Root layout must provide shared incident state']
+ ['app/layout.tsx','IncidentSessionProvider','Root layout must provide shared incident state'],
+ ['app/layout.tsx','PreferencesSessionProvider','Root layout must provide shared preference state']
 ];
 for(const[relative,needle,message]of requirements){const file=path.join(src,relative);if(!fs.readFileSync(file,'utf8').includes(needle))violations.push(message);}
 const providerText=fs.readFileSync(path.join(src,'components','SessionActivityProvider.tsx'),'utf8');
@@ -43,7 +46,10 @@ if(!providerText.includes('Math.max(vehicle.currentKm,km)'))violations.push('Sha
 if(!providerText.includes("document.kind==='CNH'||document.kind==='CRLV'||document.kind==='Seguro'"))violations.push('Critical expired documents must define scoped operational blocking');
 const driverText=fs.readFileSync(path.join(src,'components','DriverSessionProvider.tsx'),'utf8');for(const required of ['blockedDrivers','driverOptions','addDriver','isDriverEligible'])if(!driverText.includes(required))violations.push(`Driver session provider must expose ${required}`);
 const incidentProviderText=fs.readFileSync(path.join(src,'components','IncidentSessionProvider.tsx'),'utf8');for(const required of ['vehicleOptions','driverOptions','pendingIncidents','addIncident','startIncidentReview','resolveIncident'])if(!incidentProviderText.includes(required))violations.push(`Incident provider must expose ${required}`);
-const notificationText=fs.readFileSync(path.join(src,'components','NotificationsSessionModule.tsx'),'utf8');for(const required of ['maintenanceAlerts','documentAlerts','incidents','appointments','routes','journeys','expenses','Marcar todas como lidas','Notificação informa um evento'])if(!notificationText.includes(required))violations.push(`Notifications must expose ${required}`);if(notificationText.includes('setTimeout')||notificationText.includes('setInterval'))violations.push('Notifications must be derived from session state without timers');
+const preferencesText=fs.readFileSync(path.join(src,'components','PreferencesSessionProvider.tsx'),'utf8');for(const required of ['notificationPreferences','updateProfile','setNotificationPreference','resetPreferences','enabledNotificationCount'])if(!preferencesText.includes(required))violations.push(`Preferences provider must expose ${required}`);
+const notificationText=fs.readFileSync(path.join(src,'components','NotificationsSessionModule.tsx'),'utf8');for(const required of ['maintenanceAlerts','documentAlerts','incidents','appointments','routes','journeys','expenses','notificationPreferences','Marcar todas como lidas','Notificação informa um evento'])if(!notificationText.includes(required))violations.push(`Notifications must expose ${required}`);if(notificationText.includes('setTimeout')||notificationText.includes('setInterval'))violations.push('Notifications must be derived from session state without timers');
+const profileText=fs.readFileSync(path.join(src,'components','ProfileSessionModule.tsx'),'utf8');for(const required of ['usePreferencesSession','updateProfile','Função','Perfil ativo'])if(!profileText.includes(required))violations.push(`Profile must expose ${required}`);
+const settingsText=fs.readFileSync(path.join(src,'components','SettingsSessionModule.tsx'),'utf8');for(const required of ['notificationPreferences','setNotificationPreference','aria-pressed','Restaurar padrões'])if(!settingsText.includes(required))violations.push(`Settings must expose ${required}`);
 const reportsText=fs.readFileSync(path.join(src,'components','ReportsSessionModule.tsx'),'utf8');for(const required of ['Exportar CSV','Blob','URL.createObjectURL','maintenanceAlerts','documentAlerts','incidents','drivers','filteredKm','filteredAmount'])if(!reportsText.includes(required))violations.push(`Reports must expose ${required}`);
 const agendaText=fs.readFileSync(path.join(src,'components','AgendaSessionModule.tsx'),'utf8');for(const required of ['selectedDate','setSelectedDate','filter(item=>item.date===selectedDate)','Selecionar data'])if(!agendaText.includes(required))violations.push(`Agenda must expose ${required}`);
 const dialogText=fs.readFileSync(path.join(src,'components','PrototypeFormDialog.tsx'),'utf8');for(const required of ['aria-describedby','document.addEventListener','event.key===\'Escape\'','event.key!==\'Tab\'','requestAnimationFrame'])if(!dialogText.includes(required))violations.push(`Prototype form dialog must expose ${required}`);
@@ -51,4 +57,4 @@ const pendingText=fs.readFileSync(path.join(src,'components','PendingSessionModu
 const historyText=fs.readFileSync(path.join(src,'components','HistorySessionModule.tsx'),'utf8');if(!historyText.includes('incidents')||!historyText.includes("type:'Sinistro'"))violations.push('History must include incident lifecycle');
 if(fs.existsSync(path.join(src,'app','[module]','page.tsx')))violations.push('Dynamic [module] page is forbidden');
 if(violations.length){console.error('Movvant V2 architecture guard failed:\n'+violations.join('\n'));process.exit(1);}
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, with functional reports, date-aware agenda and accessible dialogs protected.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, with functional reports, profile/settings preferences, date-aware agenda and accessible dialogs protected.`);
