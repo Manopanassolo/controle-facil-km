@@ -56,15 +56,6 @@ jobs:
           CLOUDFLARE_PAGES: 'true'
         run: npx next build
 
-      - name: Ensure isolated Pages project exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          npx --yes wrangler@4 pages project list --json > /tmp/cf-pages-projects.json
-          if ! node -e "const fs=require('fs');const rows=JSON.parse(fs.readFileSync('/tmp/cf-pages-projects.json','utf8'));process.exit(rows.some(p=>p.name===process.env.CF_PAGES_PROJECT)?0:1)"; then
-            npx --yes wrangler@4 pages project create "$CF_PAGES_PROJECT" --production-branch=movvant-v2-rebuild
-          fi
-
       - name: Deploy isolated homologation candidate
         run: npx --yes wrangler@4 pages deploy out --project-name="$CF_PAGES_PROJECT" --branch=movvant-v2-rebuild --commit-hash="${GITHUB_SHA}"
 
