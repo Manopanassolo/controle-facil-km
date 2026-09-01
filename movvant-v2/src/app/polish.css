@@ -41,6 +41,10 @@
 
 .content-area:focus { outline: none; }
 .nav-history-action { border: 0; }
+.module-actions { margin-bottom: 14px; }
+.row-actions, .vehicle-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.vehicle-actions { margin-left: auto; }
+.member-card .secondary-button { margin-top: 12px; width: 100%; }
 
 .prototype-overlay {
   position: fixed;
@@ -85,6 +89,8 @@
   .menu-link { padding-inline: 13px; }
   .panel { padding: 17px; }
   .page-head { margin-bottom: 18px; }
+  .vehicle-card { align-items: flex-start; }
+  .vehicle-actions { width: 100%; margin-left: 0; justify-content: flex-start; }
 }
 
 @media (max-width: 520px) {
@@ -101,6 +107,8 @@
   .panel-title-row { align-items: flex-start; flex-wrap: wrap; }
   .placeholder-row { align-items: flex-start; }
   .prototype-dialog { padding: 20px; }
+  .row-actions { width: 100%; justify-content: flex-start; }
+  .row-actions .secondary-button { flex: 1 1 120px; }
 }
 
 @media (max-width: 390px) {
