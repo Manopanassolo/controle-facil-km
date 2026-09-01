@@ -1,10 +1,11 @@
 import Link from 'next/link';
+import { PrototypeActionButton } from '@/components/PrototypeActionButton';
 
 const pendingItems = [
-  { priority: 'Crítica', title: 'CNH próxima do vencimento', owner: 'Marcos Paulo', due: '18/09/2026', action: 'Atualizar documento' },
-  { priority: 'Alta', title: 'Despesa sem comprovante', owner: 'Rafael Silva', due: 'Hoje', action: 'Revisar lançamento' },
-  { priority: 'Média', title: 'Veículo com revisão prevista', owner: 'Frota', due: 'Em 6 dias', action: 'Agendar revisão' },
-  { priority: 'Média', title: 'Visita sem resultado registrado', owner: 'Ana Costa', due: 'Ontem', action: 'Completar visita' }
+  { priority: 'Crítica', title: 'CNH próxima do vencimento', owner: 'Marcos Paulo', due: '18/09/2026', action: 'Atualizar documento', detail: 'Abrirá o cadastro do documento correspondente para substituir validade e arquivo, mantendo histórico da alteração.' },
+  { priority: 'Alta', title: 'Despesa sem comprovante', owner: 'Rafael Silva', due: 'Hoje', action: 'Revisar lançamento', detail: 'Abrirá o lançamento para anexar comprovante, revisar os campos e concluir a pendência somente após validação.' },
+  { priority: 'Média', title: 'Veículo com revisão prevista', owner: 'Frota', due: 'Em 6 dias', action: 'Agendar revisão', detail: 'Abrirá o fluxo de manutenção para registrar oficina, data prevista, KM e responsável pelo acompanhamento.' },
+  { priority: 'Média', title: 'Visita sem resultado registrado', owner: 'Ana Costa', due: 'Ontem', action: 'Completar visita', detail: 'Abrirá a visita para registrar resultado, observações, próximos passos e eventual novo compromisso.' }
 ];
 
 export function PendingModule() {
@@ -22,7 +23,7 @@ export function PendingModule() {
               <div className="pending-title-line"><strong>{item.title}</strong><span className="tag">{item.priority}</span></div>
               <span>{item.owner} · prazo {item.due}</span>
             </div>
-            <button className="secondary-button" type="button">{item.action}</button>
+            <PrototypeActionButton className="secondary-button" title={item.action} description={item.detail}>{item.action}</PrototypeActionButton>
           </article>
         ))}
       </div>
