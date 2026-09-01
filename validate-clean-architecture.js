@@ -1,0 +1,17 @@
+const fs=require('fs');
+const path=require('path');
+const root=process.cwd();
+const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const files=fs.readdirSync(root);
+const historicalPatchFiles=files.filter(x=>/^v\d+\.js$/i.test(x)||x==='postprocess.js');
+if(historicalPatchFiles.length)throw new Error('historical patch files reintroduced: '+historicalPatchFiles.join(', '));
+const build=String(pkg.scripts?.build||'');
+if(/postprocess\.js|\bv\d+\.js\b/i.test(build))throw new Error('build invokes historical patch chain');
+const forbidden=['mvNavigationV16282','mvMenuV1629','v16210UnlockPage','mv_nav_stack_v16282','mvNavigationAuthorityV162882','mvGoogleConnectV16358'];
+const present=forbidden.filter(x=>html.includes(x));
+if(present.length)throw new Error('superseded authority embedded in canonical source: '+present.join(', '));
+const required=['v164.0: single canonical navigation authority','globalThis.mvNavigationV164','mvMenu164','mvGoogleConnectV16360','mvAuthAuthorityV16356'];
+const missing=required.filter(x=>!html.includes(x));
+if(missing.length)throw new Error('canonical authority missing: '+missing.join(', '));
+console.log('Clean architecture validation OK: canonical source only; historical patch chain and superseded navigation authorities absent');
