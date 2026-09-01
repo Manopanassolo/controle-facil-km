@@ -1,12 +1,14 @@
 import type { NextConfig } from 'next';
 
-const isPagesPreview = process.env.GITHUB_PAGES === 'true';
+const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+const isCloudflarePages = process.env.CLOUDFLARE_PAGES === 'true';
+const isStaticHosting = isGitHubPages || isCloudflarePages;
 
 const nextConfig: NextConfig = {
-  output: isPagesPreview ? 'export' : undefined,
-  basePath: isPagesPreview ? '/controle-facil-km' : undefined,
-  assetPrefix: isPagesPreview ? '/controle-facil-km/' : undefined,
-  trailingSlash: isPagesPreview
+  output: isStaticHosting ? 'export' : undefined,
+  basePath: isGitHubPages ? '/controle-facil-km' : undefined,
+  assetPrefix: isGitHubPages ? '/controle-facil-km/' : undefined,
+  trailingSlash: isStaticHosting
 };
 
 export default nextConfig;
