@@ -1,8 +1,8 @@
 {
   "name": "controle-facil-km",
   "private": true,
-  "version": "164.0.1-clean-navigation",
+  "version": "164.0.2-clean-base",
   "scripts": {
-    "build": "node build.js && node validate-core-flow.js && node validate-navigation.js && node validate-build.js"
+    "build": "node build.js && node validate-clean-architecture.js && node validate-core-flow.js && node validate-navigation.js && node validate-build.js"
   }
 }
