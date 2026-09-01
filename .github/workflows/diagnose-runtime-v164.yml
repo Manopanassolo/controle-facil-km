@@ -1,0 +1,27 @@
+name: Diagnose Movvant runtime v164
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-runtime-v164.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Inspect canonical navigation and legacy lifecycle hooks
+        run: |
+          echo '--- navigation authority ---'
+          grep -n -o "v164.0: single canonical navigation authority" index.html || true
+          echo '--- show declarations ---'
+          grep -n -E "function show\(|const show=|let show=|var show=|showPage\(" index.html | head -80 || true
+          echo '--- page lifecycle calls ---'
+          grep -n -E "load[A-Z][A-Za-z0-9_]*\(|render[A-Z][A-Za-z0-9_]*\(|ensure[A-Z][A-Za-z0-9_]*\(" index.html | tail -120 || true
+          echo '--- click route attributes ---'
+          grep -o -E "data-(p|page|mvroute|mv-dock|p-jump)=\"[^\"]+\"" index.html | sort | uniq -c | tail -120 || true
+          echo '--- legacy show calls ---'
+          grep -n -E "show\(['\"][a-zA-Z0-9_-]+['\"]\)" index.html | tail -120 || true
