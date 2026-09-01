@@ -54,21 +54,43 @@ export type SessionAppointment = {
   completedAt?: string;
 };
 
+export type SessionVehicle = {
+  id: string;
+  name: string;
+  plate: string;
+  model: string;
+  year: number;
+  currentKm: number;
+  responsible: string;
+  status: 'Ativo' | 'Reserva' | 'Manutenção';
+  source: 'base' | 'session';
+};
+
+const baseVehicles: SessionVehicle[] = [
+  { id: 'base-suv', name: 'SUV Comercial', plate: 'ABC1D23', model: 'Veículo demonstrativo', year: 2026, currentKm: 12480, responsible: 'Equipe comercial', status: 'Ativo', source: 'base' },
+  { id: 'base-hatch', name: 'Hatch Vendas', plate: 'DEF4G56', model: 'Veículo demonstrativo', year: 2025, currentKm: 38210, responsible: 'Equipe comercial', status: 'Ativo', source: 'base' },
+  { id: 'base-utilitario', name: 'Utilitário', plate: 'GHI7J89', model: 'Veículo demonstrativo', year: 2024, currentKm: 64990, responsible: 'Logística', status: 'Manutenção', source: 'base' }
+];
+
 type SessionActivityContextValue = {
   journeys: SessionJourney[];
   routes: SessionRoute[];
   expenses: SessionExpense[];
   appointments: SessionAppointment[];
+  vehicles: SessionVehicle[];
+  vehicleOptions: string[];
   addJourney: (journey: Omit<SessionJourney, 'id' | 'createdAt'>) => void;
   addRoute: (route: Omit<SessionRoute, 'id' | 'createdAt'>) => void;
   addExpense: (expense: Omit<SessionExpense, 'id' | 'createdAt'>) => void;
   addAppointment: (appointment: Omit<SessionAppointment, 'id' | 'createdAt' | 'status'>) => void;
+  addVehicle: (vehicle: Omit<SessionVehicle, 'id' | 'source'>) => void;
   startAppointment: (id: string) => void;
   completeAppointment: (id: string, result: string, nextStep: string) => void;
   clearJourneys: () => void;
   clearRoutes: () => void;
   clearExpenses: () => void;
   clearAppointments: () => void;
+  clearSessionVehicles: () => void;
   clearAllActivity: () => void;
   totalKm: number;
   totalExpenses: number;
@@ -87,6 +109,7 @@ export function SessionActivityProvider({ children }: { children: ReactNode }) {
   const [routes, setRoutes] = useState<SessionRoute[]>([]);
   const [expenses, setExpenses] = useState<SessionExpense[]>([]);
   const [appointments, setAppointments] = useState<SessionAppointment[]>([]);
+  const [sessionVehicles, setSessionVehicles] = useState<SessionVehicle[]>([]);
 
   function addJourney(journey: Omit<SessionJourney, 'id' | 'createdAt'>) {
     setJourneys((current) => [{ ...journey, id: createId('journey', current.length), createdAt: new Date().toISOString() }, ...current]);
@@ -104,6 +127,10 @@ export function SessionActivityProvider({ children }: { children: ReactNode }) {
     setAppointments((current) => [{ ...appointment, status: 'Planejado', id: createId('appointment', current.length), createdAt: new Date().toISOString() }, ...current]);
   }
 
+  function addVehicle(vehicle: Omit<SessionVehicle, 'id' | 'source'>) {
+    setSessionVehicles((current) => [{ ...vehicle, id: createId('vehicle', current.length), source: 'session' }, ...current]);
+  }
+
   function startAppointment(id: string) {
     const now = new Date().toISOString();
     setAppointments((current) => current.map((appointment) => appointment.id === id && appointment.status === 'Planejado' ? { ...appointment, status: 'Em atendimento', startedAt: now } : appointment));
@@ -118,7 +145,11 @@ export function SessionActivityProvider({ children }: { children: ReactNode }) {
   function clearRoutes() { setRoutes([]); }
   function clearExpenses() { setExpenses([]); }
   function clearAppointments() { setAppointments([]); }
+  function clearSessionVehicles() { setSessionVehicles([]); }
   function clearAllActivity() { setJourneys([]); setRoutes([]); setExpenses([]); setAppointments([]); }
+
+  const vehicles = useMemo(() => [...sessionVehicles, ...baseVehicles], [sessionVehicles]);
+  const vehicleOptions = useMemo(() => vehicles.filter((vehicle) => vehicle.status !== 'Manutenção').map((vehicle) => vehicle.name), [vehicles]);
 
   const totalKm = useMemo(
     () => journeys.reduce((sum, journey) => sum + journey.distance, 0) + routes.reduce((sum, route) => sum + route.distance, 0),
@@ -132,7 +163,7 @@ export function SessionActivityProvider({ children }: { children: ReactNode }) {
 
   const completedAppointments = useMemo(() => appointments.filter((appointment) => appointment.status === 'Concluído').length, [appointments]);
   const activityCount = journeys.length + routes.length + expenses.length + appointments.length;
-  const value = useMemo(() => ({ journeys, routes, expenses, appointments, addJourney, addRoute, addExpense, addAppointment, startAppointment, completeAppointment, clearJourneys, clearRoutes, clearExpenses, clearAppointments, clearAllActivity, totalKm, totalExpenses, completedAppointments, activityCount }), [journeys, routes, expenses, appointments, totalKm, totalExpenses, completedAppointments, activityCount]);
+  const value = useMemo(() => ({ journeys, routes, expenses, appointments, vehicles, vehicleOptions, addJourney, addRoute, addExpense, addAppointment, addVehicle, startAppointment, completeAppointment, clearJourneys, clearRoutes, clearExpenses, clearAppointments, clearSessionVehicles, clearAllActivity, totalKm, totalExpenses, completedAppointments, activityCount }), [journeys, routes, expenses, appointments, vehicles, vehicleOptions, totalKm, totalExpenses, completedAppointments, activityCount]);
 
   return <SessionActivityContext.Provider value={value}>{children}</SessionActivityContext.Provider>;
 }
