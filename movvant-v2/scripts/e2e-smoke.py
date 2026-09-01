@@ -81,6 +81,10 @@ def test_profile_edit(page):
     expect(page.get_by_label('Função')).to_have_value('Administrador')
 
 
+def fleet_notification_count(page):
+    return page.locator('.notification-row').filter(has=page.locator('.tag', has_text='Frota')).count()
+
+
 def test_settings_filter_notifications(page):
     page.goto(f'{BASE}/configuracoes', wait_until='networkidle')
     fleet_row=page.locator('.setting-row').filter(has_text='Frota e manutenção')
@@ -90,11 +94,11 @@ def test_settings_filter_notifications(page):
     expect(fleet_row.get_by_role('button', name='Desabilitada')).to_have_attribute('aria-pressed','false')
     page.get_by_role('link', name='Notificações').first.click()
     expect(page.locator('h1')).to_contain_text('Notificações')
-    assert page.locator('.notification-row .tag', has_text='Frota').count() == 0, 'Frota deveria estar filtrada nas notificações'
+    assert fleet_notification_count(page) == 0, 'Frota deveria estar filtrada nas notificações'
     page.get_by_role('link', name='Configurações').first.click()
     page.get_by_role('button', name='Restaurar padrões').click()
     page.get_by_role('link', name='Notificações').first.click()
-    assert page.locator('.notification-row .tag', has_text='Frota').count() > 0, 'Frota deveria retornar após restaurar padrões'
+    assert fleet_notification_count(page) > 0, 'Frota deveria retornar após restaurar padrões'
 
 
 def test_navigation(page):
