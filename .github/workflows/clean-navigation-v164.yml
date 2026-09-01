@@ -1,3 +1,4 @@
+# canonical navigation cleanup retry after validator migration
 name: Clean Movvant navigation v164
 on:
   push:
