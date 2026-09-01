@@ -23,7 +23,7 @@ const requiredModules = [
   'custos', 'veiculos', 'equipe', 'documentos', 'sinistros', 'relatorios', 'perfil', 'configuracoes'
 ];
 
-const requiredPhysicalRoutes = ['dashboard', 'agenda', 'roteiros', 'custos', 'veiculos', 'relatorios'];
+const requiredPhysicalRoutes = [...requiredModules];
 
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -61,16 +61,12 @@ for (const slug of requiredPhysicalRoutes) {
 const dashboardPage = path.join(src, 'app', 'dashboard', 'page.tsx');
 if (fs.existsSync(dashboardPage) && !fs.readFileSync(dashboardPage, 'utf8').includes('DashboardByRole')) violations.push('Dashboard route must use the role-aware dashboard');
 
-const modulePage = fs.readFileSync(path.join(src, 'app', '[module]', 'page.tsx'), 'utf8');
-if (!modulePage.includes("slug === 'pendencias'")) violations.push('Pending center must remain available');
-if (!modulePage.includes("slug === 'campo'")) violations.push('Field mode must remain available');
-for (const slug of ['agenda', 'roteiros', 'custos', 'veiculos', 'relatorios', 'dashboard']) {
-  if (modulePage.includes(`slug === '${slug}'`)) violations.push(`${slug} must not be rendered by the generic module page`);
-}
+const genericModulePage = path.join(src, 'app', '[module]', 'page.tsx');
+if (fs.existsSync(genericModulePage)) violations.push('Dynamic [module] page is forbidden: all canonical modules must remain independent physical routes');
 
 if (violations.length) {
   console.error('Movvant V2 architecture guard failed:\n' + violations.join('\n'));
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, ${requiredPhysicalRoutes.length} isolated core routes.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, all with independent physical routes.`);
