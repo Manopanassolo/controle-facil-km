@@ -45,14 +45,14 @@ export function FieldModeModule() {
         <span className="eyebrow">Uso rápido no celular</span>
         <h2>Seu dia em campo</h2>
         <p>Fluxo enxuto para executar as tarefas mais frequentes sem navegar por vários módulos.</p>
-        <div className="field-status"><span className="status-dot online" /><strong>Pronto para operar</strong><span>Sincronização online</span></div>
+        <div className="field-status"><span className="status-dot preview" /><strong>Fluxo visual pronto</strong><span>Backend e sincronização ainda não conectados</span></div>
       </article>
       <div className="field-action-list">
         {actions.map(([step,title,detail,href]) => (
           <Link href={href} className="field-action-card panel" key={step}>
             <span className="field-step">{step}</span>
             <div><strong>{title}</strong><span>{detail}</span></div>
-            <b>›</b>
+            <b aria-hidden="true">›</b>
           </Link>
         ))}
       </div>
