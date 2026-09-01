@@ -81,24 +81,27 @@ def test_profile_edit(page):
     expect(page.get_by_label('Função')).to_have_value('Administrador')
 
 
-def fleet_notification_count(page):
-    return page.locator('.notification-row').filter(has=page.locator('.tag', has_text='Frota')).count()
+def agenda_notification_count(page):
+    return page.locator('.notification-row .tag').filter(has_text='Agenda').count()
 
 
 def test_settings_filter_notifications(page):
-    page.goto(f'{BASE}/configuracoes', wait_until='networkidle')
-    fleet_row=page.locator('.setting-row').filter(has_text='Frota e manutenção')
-    toggle=fleet_row.get_by_role('button', name='Habilitada')
+    page.goto(f'{BASE}/notificacoes', wait_until='networkidle')
+    assert agenda_notification_count(page) > 0, 'Agenda deve existir antes de testar a preferência'
+    page.get_by_role('link', name='Configurações').first.click()
+    agenda_row=page.locator('.setting-row').filter(has_text='Agenda')
+    toggle=agenda_row.get_by_role('button', name='Habilitada')
     expect(toggle).to_have_attribute('aria-pressed','true')
     toggle.click()
-    expect(fleet_row.get_by_role('button', name='Desabilitada')).to_have_attribute('aria-pressed','false')
+    expect(agenda_row.get_by_role('button', name='Desabilitada')).to_have_attribute('aria-pressed','false')
     page.get_by_role('link', name='Notificações').first.click()
     expect(page.locator('h1')).to_contain_text('Notificações')
-    assert fleet_notification_count(page) == 0, 'Frota deveria estar filtrada nas notificações'
+    assert agenda_notification_count(page) == 0, 'Agenda deveria estar filtrada nas notificações'
     page.get_by_role('link', name='Configurações').first.click()
     page.get_by_role('button', name='Restaurar padrões').click()
+    expect(agenda_row.get_by_role('button', name='Habilitada')).to_have_attribute('aria-pressed','true')
     page.get_by_role('link', name='Notificações').first.click()
-    assert fleet_notification_count(page) > 0, 'Frota deveria retornar após restaurar padrões'
+    assert agenda_notification_count(page) > 0, 'Agenda deveria retornar após restaurar padrões'
 
 
 def test_navigation(page):
