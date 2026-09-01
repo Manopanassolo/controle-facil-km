@@ -4,51 +4,28 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useSessionActivity } from '@/components/SessionActivityProvider';
 
-type RoleKey = 'vendedor' | 'gerente' | 'financeiro' | 'proprietario';
-
-type RoleView = {
-  label: string;
-  headline: string;
-  metrics: Array<[string, string, string]>;
-  focusTitle: string;
-  focusItems: Array<[string, string]>;
-  secondaryTitle: string;
-  secondaryItems: Array<[string, string]>;
+type RoleKey='vendedor'|'gerente'|'financeiro'|'proprietario';
+type RoleView={label:string;headline:string;metrics:Array<[string,string,string]>;focusTitle:string;focusItems:Array<[string,string]>;secondaryTitle:string;secondaryItems:Array<[string,string]>;};
+const views:Record<RoleKey,RoleView>={
+  vendedor:{label:'Vendedor externo',headline:'Meu dia em campo',metrics:[['Agenda de hoje','4','compromissos previstos'],['Rotas','2','deslocamentos planejados'],['Visitas no mês','18','atividades concluídas'],['Pendências','2','ações pessoais']],focusTitle:'Próximas atividades',focusItems:[['08:30 · Casa do MDF','Visita comercial'],['10:45 · Cliente regional','Follow-up'],['14:00 · Equipe comercial','Reunião online'],['16:30 · Nova conta','Prospecção']],secondaryTitle:'Atenção pessoal',secondaryItems:[['Despesa sem comprovante','Hoje'],['Visita sem resultado','Ontem'],['Próxima revisão do veículo','6 dias']]},
+  gerente:{label:'Gerente comercial',headline:'Equipe e execução comercial',metrics:[['Equipe ativa','6','usuários em operação'],['Visitas hoje','14','equipe comercial'],['Pendências críticas','3','exigem acompanhamento'],['Cobertura de agenda','91%','atividades planejadas']],focusTitle:'Equipe em campo',focusItems:[['Rafael Silva','3 visitas · rota ativa'],['Ana Costa','2 visitas · dentro do planejado'],['Lucas Martins','1 pendência de cadastro'],['Equipe Camboriú','86% da agenda executada']],secondaryTitle:'Exceções para acompanhar',secondaryItems:[['2 visitas sem resultado','Alta'],['1 rota acima do previsto','Média'],['1 usuário pendente','Cadastro']]},
+  financeiro:{label:'Financeiro',headline:'Custos e conformidade',metrics:[['Despesas no mês','R$ 1.024','lançamentos registrados'],['Sem comprovante','2','itens pendentes'],['Custo por KM','R$ 0,82','média mensal'],['Documentos atenção','1','próximo do vencimento']],focusTitle:'Lançamentos para revisar',focusItems:[['Combustível · Rafael Silva','R$ 286,40'],['Estacionamento · Ana Costa','R$ 24,00'],['Pedágio · equipe externa','R$ 18,60']],secondaryTitle:'Conformidade',secondaryItems:[['Seguro Hatch Vendas','42 dias'],['2 comprovantes ausentes','Pendente'],['Fechamento mensal','Em andamento']]},
+  proprietario:{label:'Proprietário / administrador',headline:'Visão consolidada da operação',metrics:[['KM no mês','1.248','quilômetros registrados'],['Visitas comerciais','18','concluídas'],['Custo operacional','R$ 1.024','despesas registradas'],['Pendências','4','todas as áreas']],focusTitle:'Resumo da operação',focusItems:[['Comercial','91% da agenda executada'],['Campo','2 rotas em andamento'],['Financeiro','2 despesas para revisar'],['Frota','1 revisão próxima']],secondaryTitle:'Decisões necessárias',secondaryItems:[['Documento próximo do vencimento','Crítica'],['Despesa sem comprovante','Alta'],['Usuário pendente de ativação','Gestão']]}
 };
 
-const views: Record<RoleKey, RoleView> = {
-  vendedor: {
-    label: 'Vendedor externo', headline: 'Meu dia em campo', metrics: [['Agenda de hoje','4','compromissos previstos'],['Rotas','2','deslocamentos planejados'],['Visitas no mês','18','atividades concluídas'],['Pendências','2','ações pessoais']], focusTitle: 'Próximas atividades', focusItems: [['08:30 · Casa do MDF','Visita comercial'],['10:45 · Cliente regional','Follow-up'],['14:00 · Equipe comercial','Reunião online'],['16:30 · Nova conta','Prospecção']], secondaryTitle: 'Atenção pessoal', secondaryItems: [['Despesa sem comprovante','Hoje'],['Visita sem resultado','Ontem'],['Próxima revisão do veículo','6 dias']]
-  },
-  gerente: {
-    label: 'Gerente comercial', headline: 'Equipe e execução comercial', metrics: [['Equipe ativa','6','usuários em operação'],['Visitas hoje','14','equipe comercial'],['Pendências críticas','3','exigem acompanhamento'],['Cobertura de agenda','91%','atividades planejadas']], focusTitle: 'Equipe em campo', focusItems: [['Rafael Silva','3 visitas · rota ativa'],['Ana Costa','2 visitas · dentro do planejado'],['Lucas Martins','1 pendência de cadastro'],['Equipe Camboriú','86% da agenda executada']], secondaryTitle: 'Exceções para acompanhar', secondaryItems: [['2 visitas sem resultado','Alta'],['1 rota acima do previsto','Média'],['1 usuário pendente','Cadastro']]
-  },
-  financeiro: {
-    label: 'Financeiro', headline: 'Custos e conformidade', metrics: [['Despesas no mês','R$ 1.024','lançamentos registrados'],['Sem comprovante','2','itens pendentes'],['Custo por KM','R$ 0,82','média mensal'],['Documentos atenção','1','próximo do vencimento']], focusTitle: 'Lançamentos para revisar', focusItems: [['Combustível · Rafael Silva','R$ 286,40'],['Estacionamento · Ana Costa','R$ 24,00'],['Pedágio · equipe externa','R$ 18,60']], secondaryTitle: 'Conformidade', secondaryItems: [['Seguro Hatch Vendas','42 dias'],['2 comprovantes ausentes','Pendente'],['Fechamento mensal','Em andamento']]
-  },
-  proprietario: {
-    label: 'Proprietário / administrador', headline: 'Visão consolidada da operação', metrics: [['KM no mês','1.248','quilômetros registrados'],['Visitas comerciais','18','concluídas'],['Custo operacional','R$ 1.024','despesas registradas'],['Pendências','4','todas as áreas']], focusTitle: 'Resumo da operação', focusItems: [['Comercial','91% da agenda executada'],['Campo','2 rotas em andamento'],['Financeiro','2 despesas para revisar'],['Frota','1 revisão próxima']], secondaryTitle: 'Decisões necessárias', secondaryItems: [['Documento próximo do vencimento','Crítica'],['Despesa sem comprovante','Alta'],['Usuário pendente de ativação','Gestão']]
-  }
-};
+export function DashboardByRole(){
+  const [role,setRole]=useState<RoleKey>('proprietario');
+  const {journeys,routes,expenses,appointments,completedAppointments,totalKm,totalExpenses,activityCount,maintenancePendingCount,maintenanceAlerts}=useSessionActivity();
+  const view=views[role]; const sessionRoutes=journeys.length+routes.length; const activeAppointments=appointments.filter((a)=>a.status==='Em atendimento').length; const blockedVehicles=maintenanceAlerts.filter((a)=>a.state==='vencida').length;
+  return <>
+    <section className="panel role-preview-bar"><div><span className="eyebrow">Demonstração de perfil</span><strong>{view.headline}</strong><small>Na versão conectada, este perfil virá automaticamente da autenticação e das permissões.</small></div><label className="role-selector"><span>Visualizar como</span><select value={role} onChange={(event)=>setRole(event.target.value as RoleKey)}>{Object.entries(views).map(([key,item])=><option key={key} value={key}>{item.label}</option>)}</select></label></section>
 
-export function DashboardByRole() {
-  const [role, setRole] = useState<RoleKey>('proprietario');
-  const { journeys, routes, expenses, appointments, completedAppointments, totalKm, totalExpenses, activityCount } = useSessionActivity();
-  const view = views[role];
-  const sessionRoutes = journeys.length + routes.length;
-  const activeAppointments = appointments.filter((appointment) => appointment.status === 'Em atendimento').length;
+    {maintenancePendingCount?<section className="panel session-dashboard-strip" aria-label="Alertas de manutenção"><div><span className="eyebrow">Manutenção preventiva</span><strong>{maintenancePendingCount} veículo(s) exigem atenção</strong><small>Alertas calculados automaticamente por KM e data da frota compartilhada.</small></div><div className="session-dashboard-metrics"><span><b>{blockedVehicles}</b><small>bloqueado(s) por revisão vencida</small></span><span><b>{maintenancePendingCount-blockedVehicles}</b><small>revisão próxima</small></span></div><div className="session-dashboard-actions"><Link href="/pendencias" className="secondary-button">Ver pendências</Link><Link href="/veiculos" className="secondary-button">Ver frota</Link></div></section>:null}
 
-  return (
-    <>
-      <section className="panel role-preview-bar"><div><span className="eyebrow">Demonstração de perfil</span><strong>{view.headline}</strong><small>Na versão conectada, este perfil virá automaticamente da autenticação e das permissões.</small></div><label className="role-selector"><span>Visualizar como</span><select value={role} onChange={(event) => setRole(event.target.value as RoleKey)}>{Object.entries(views).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select></label></section>
+    {activityCount?<section className="panel session-dashboard-strip" aria-label="Indicadores da homologação local"><div><span className="eyebrow">Atividade desta sessão</span><strong>{activityCount} evento(s) consolidado(s)</strong><small>Agenda, Modo Campo, Rotas e Custos alimentam este resumo. Recarregar a aplicação limpa os dados.</small></div><div className="session-dashboard-metrics"><span><b>{totalKm.toLocaleString('pt-BR')} km</b><small>KM da sessão</small></span><span><b>{sessionRoutes}</b><small>deslocamentos concluídos</small></span><span><b>{journeys.length+completedAppointments}</b><small>visitas concluídas</small></span><span><b>{appointments.length}</b><small>compromissos locais</small></span><span><b>{activeAppointments}</b><small>em atendimento agora</small></span><span><b>R$ {totalExpenses.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</b><small>despesas da sessão</small></span><span><b>{expenses.length}</b><small>lançamentos independentes</small></span></div><div className="session-dashboard-actions"><Link href="/agenda" className="secondary-button">Ver agenda</Link><Link href="/historico" className="secondary-button">Ver histórico</Link><Link href="/relatorios" className="secondary-button">Ver relatório</Link></div></section>:null}
 
-      {activityCount ? <section className="panel session-dashboard-strip" aria-label="Indicadores da homologação local"><div><span className="eyebrow">Atividade desta sessão</span><strong>{activityCount} evento(s) consolidado(s)</strong><small>Agenda, Modo Campo, Rotas e Custos alimentam este resumo. Recarregar a aplicação limpa os dados.</small></div><div className="session-dashboard-metrics"><span><b>{totalKm.toLocaleString('pt-BR')} km</b><small>KM da sessão</small></span><span><b>{sessionRoutes}</b><small>deslocamentos concluídos</small></span><span><b>{journeys.length + completedAppointments}</b><small>visitas concluídas</small></span><span><b>{appointments.length}</b><small>compromissos locais</small></span><span><b>{activeAppointments}</b><small>em atendimento agora</small></span><span><b>R$ {totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b><small>despesas da sessão</small></span><span><b>{expenses.length}</b><small>lançamentos independentes</small></span></div><div className="session-dashboard-actions"><Link href="/agenda" className="secondary-button">Ver agenda</Link><Link href="/historico" className="secondary-button">Ver histórico</Link><Link href="/relatorios" className="secondary-button">Ver relatório</Link></div></section> : null}
-
-      <section className="dashboard-grid" aria-label="Indicadores do perfil">{view.metrics.map(([label, metricValue, note]) => <article className="metric-card" key={label}><span className="metric-label">{label}</span><strong className="metric-value">{metricValue}</strong><div className="metric-note">{note}</div></article>)}</section>
-
-      <section className="main-grid"><article className="panel"><div className="panel-title-row"><h2>{view.focusTitle}</h2><Link href="/relatorios" className="text-link">Detalhes</Link></div><div className="placeholder-list">{view.focusItems.map(([title, detail]) => <div className="placeholder-row" key={title}><strong>{title}</strong><span>{detail}</span></div>)}</div></article><article className="panel"><div className="panel-title-row"><h2>{view.secondaryTitle}</h2><Link href="/pendencias" className="text-link">Ver pendências</Link></div><div className="placeholder-list">{view.secondaryItems.map(([title, detail]) => <div className="placeholder-row" key={title}><strong>{title}</strong><span>{detail}</span></div>)}</div></article></section>
-
-      <section className="dashboard-field-strip panel"><div><span className="eyebrow">Atalho operacional</span><h2>Modo Campo</h2><p>Fluxo simplificado para trabalhar pelo celular com poucos toques.</p></div><Link href="/campo" className="primary-button">Abrir Modo Campo</Link></section>
-    </>
-  );
+    <section className="dashboard-grid" aria-label="Indicadores do perfil">{view.metrics.map(([label,metricValue,note])=><article className="metric-card" key={label}><span className="metric-label">{label}</span><strong className="metric-value">{metricValue}</strong><div className="metric-note">{note}</div></article>)}</section>
+    <section className="main-grid"><article className="panel"><div className="panel-title-row"><h2>{view.focusTitle}</h2><Link href="/relatorios" className="text-link">Detalhes</Link></div><div className="placeholder-list">{view.focusItems.map(([title,detail])=><div className="placeholder-row" key={title}><strong>{title}</strong><span>{detail}</span></div>)}</div></article><article className="panel"><div className="panel-title-row"><h2>{view.secondaryTitle}</h2><Link href="/pendencias" className="text-link">Ver pendências</Link></div><div className="placeholder-list">{view.secondaryItems.map(([title,detail])=><div className="placeholder-row" key={title}><strong>{title}</strong><span>{detail}</span></div>)}</div></article></section>
+    <section className="dashboard-field-strip panel"><div><span className="eyebrow">Atalho operacional</span><h2>Modo Campo</h2><p>Fluxo simplificado para trabalhar pelo celular com poucos toques.</p></div><Link href="/campo" className="primary-button">Abrir Modo Campo</Link></section>
+  </>;
 }
