@@ -1,0 +1,76 @@
+name: Movvant V2 Cloudflare Pages Homologation
+
+on:
+  push:
+    branches:
+      - movvant-v2-rebuild
+    paths:
+      - 'movvant-v2/**'
+      - '.github/workflows/movvant-v2-cloudflare-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: movvant-v2-cloudflare-pages-homologation
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  CF_PAGES_PROJECT: movvant-v2-homologacao
+
+jobs:
+  deploy-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: movvant-v2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: movvant-v2/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+      - name: Architecture guard
+        run: npm run guard
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Build static Cloudflare Pages candidate
+        env:
+          CLOUDFLARE_PAGES: 'true'
+        run: npx next build
+
+      - name: Ensure isolated Pages project exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 pages project list --json > /tmp/cf-pages-projects.json
+          if ! node -e "const fs=require('fs');const rows=JSON.parse(fs.readFileSync('/tmp/cf-pages-projects.json','utf8'));process.exit(rows.some(p=>p.name===process.env.CF_PAGES_PROJECT)?0:1)"; then
+            npx --yes wrangler@4 pages project create "$CF_PAGES_PROJECT" --production-branch=movvant-v2-rebuild
+          fi
+
+      - name: Deploy isolated homologation candidate
+        run: npx --yes wrangler@4 pages deploy out --project-name="$CF_PAGES_PROJECT" --branch=movvant-v2-rebuild --commit-hash="${GITHUB_SHA}"
+
+      - name: Record deployment identity
+        run: |
+          echo "Cloudflare Pages project: $CF_PAGES_PROJECT"
+          echo "Branch: movvant-v2-rebuild"
+          echo "Commit: $GITHUB_SHA"
+          echo "Legacy Worker 'movvant' was not modified by this workflow."
