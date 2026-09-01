@@ -55,7 +55,14 @@ for (const slug of requiredModules) {
 
 for (const slug of requiredPhysicalRoutes) {
   const page = path.join(src, 'app', slug, 'page.tsx');
-  if (!fs.existsSync(page)) violations.push(`${slug} must have an independent physical route`);
+  if (!fs.existsSync(page)) {
+    violations.push(`${slug} must have an independent physical route`);
+    continue;
+  }
+  if (slug !== 'dashboard') {
+    const pageText = fs.readFileSync(page, 'utf8');
+    if (!pageText.includes('ModuleHeader')) violations.push(`${slug} must use the canonical ModuleHeader`);
+  }
 }
 
 const dashboardPage = path.join(src, 'app', 'dashboard', 'page.tsx');
@@ -69,4 +76,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, all with independent physical routes.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, all with independent physical routes and canonical headers.`);
