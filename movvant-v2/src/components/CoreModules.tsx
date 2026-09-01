@@ -23,7 +23,7 @@ export function CostsModule() {
 
 export function VehiclesModule() {
   const vehicles = [['SUV Comercial','ABC1D23','12.480 km','Ativo'],['Hatch Vendas','DEF4G56','38.210 km','Ativo'],['Utilitário','GHI7J89','64.990 km','Revisão']];
-  return <section className="cards-list">{vehicles.map(([name,plate,km,status]) => <article className="panel vehicle-card" key={plate}><div className="vehicle-icon">V</div><div className="vehicle-copy"><span className="eyebrow">{plate}</span><h2>{name}</h2><p>{km} registrados</p></div><span className={`tag ${status === 'Ativo' ? 'success' : 'warning'}`}>{status}</span></article>)}</section>;
+  return <><div className="panel-title-row module-actions"><span/><PrototypeActionButton title="Novo veículo" description="Abrirá identificação, placa, modelo, ano, KM inicial, responsável, documentos e regras de manutenção.">+ Novo veículo</PrototypeActionButton></div><section className="cards-list">{vehicles.map(([name,plate,km,status]) => <article className="panel vehicle-card" key={plate}><div className="vehicle-icon">V</div><div className="vehicle-copy"><span className="eyebrow">{plate}</span><h2>{name}</h2><p>{km} registrados</p></div><div className="vehicle-actions"><span className={`tag ${status === 'Ativo' ? 'success' : 'warning'}`}>{status}</span><PrototypeActionButton className="secondary-button" title={name} description="Abrirá dados do veículo, KM, documentos, revisões, despesas e histórico de utilização.">Gerenciar</PrototypeActionButton></div></article>)}</section></>;
 }
 
 export function ReportsModule() {
