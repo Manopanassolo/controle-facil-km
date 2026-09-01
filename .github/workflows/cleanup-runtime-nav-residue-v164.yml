@@ -1,0 +1,76 @@
+name: Cleanup embedded navigation residue v164
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cleanup-runtime-nav-residue-v164.yml'
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Remove old runtime navigation authorities
+        run: |
+          node - <<'EOF'
+          const fs=require('fs');
+          let s=fs.readFileSync('index.html','utf8');
+          function removeBetween(start,end,label,includeEnd=false){
+            const a=s.indexOf(start);if(a<0)throw new Error('missing '+label+' start');
+            const b=s.indexOf(end,a+start.length);if(b<0)throw new Error('missing '+label+' end');
+            s=s.slice(0,a)+s.slice(b+(includeEnd?end.length:0));
+          }
+          // v162.49: keep visual relabel/chrome, physically remove obsolete bottom navigation generator.
+          removeBetween('  function bottomNav(){','  function homeLayout(){','v162.49 bottomNav');
+          s=s.replace('  function apply(){relabel();brandSidebar();bottomNav();homeLayout();pageChrome();}','  function apply(){relabel();brandSidebar();homeLayout();pageChrome();}');
+          // v162.88: retain approved dashboard presentation only; remove its competing capture click authority and legacy-dock killer.
+          removeBetween(' function killLegacyDock(){',' function text(id,fallback=\'0\'){','v162.88 click authority');
+          s=s.replace(' function desktopState(){document.body.classList.toggle(\'mv-desktop88\',innerWidth>=900);killLegacyDock();makeHome()}',' function desktopState(){document.body.classList.toggle(\'mv-desktop88\',innerWidth>=900);makeHome()}');
+          // v163.07 existed only to add another global navigation click authority; canonical v164 fully supersedes it.
+          removeBetween('// v163.07: window navigation authority; mobile bottom Menu always opens deterministically.','// v162.89: one canonical shell, home-only dashboard, collapsible desktop sidebar.','v163.07 block');
+          // Remove obsolete CSS for a DOM element that is no longer created.
+          s=s.replace(/[^\n]*#mvBottomV16249[^\n]*\n/g,'');
+          // Current code should no longer need to hide a deleted legacy bar.
+          s=s.replace(/\s*document\.querySelectorAll\('\#mvBottomV16249'\)\.forEach\([^\n]*\);?/g,'');
+          fs.writeFileSync('index.html',s);
+          EOF
+          node build.js
+          node validate-core-flow.js
+          node validate-navigation.js
+          node validate-build.js
+          grep -q 'globalThis.mvNavigationV164' index.html
+          ! grep -q 'mvBottomV16249' index.html
+          ! grep -q 'v163.07: window navigation authority' index.html
+          ! grep -q "document.addEventListener('click',clickAuthority,true)" index.html
+      - name: Stabilize authenticated shell QA after startup auth timers
+        run: |
+          node - <<'EOF'
+          const fs=require('fs');
+          let s=fs.readFileSync('cloudflare-shell-real-click-test.mjs','utf8');
+          s=s.replace("await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(1800);","await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(2850);");
+          s=s.replace("await page.waitForTimeout(350);","await page.waitForTimeout(180);");
+          s=s.replace("await page.waitForTimeout(100)\n}","await page.waitForTimeout(120)\n}");
+          fs.writeFileSync('cloudflare-shell-real-click-test.mjs',s);
+          EOF
+      - name: Remove stale legacy markers from deploy verification
+        run: |
+          node - <<'EOF'
+          const fs=require('fs');
+          let s=fs.readFileSync('.github/workflows/deploy-cloudflare.yml','utf8');
+          s=s.replace("grep -q 'v162.88' /tmp/movvant.html && grep -q 'mvHome88' /tmp/movvant.html && grep -q 'mvTopNavV16282' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html", "grep -q 'v164.0: single canonical navigation authority' /tmp/movvant.html && grep -q 'mvHome88' /tmp/movvant.html && grep -q 'globalThis.mvNavigationV164' /tmp/movvant.html && grep -q 'activeTrip=r.data' /tmp/movvant.html && grep -q 'mvNativeLeafletControllerV16279' /tmp/movvant.html");
+          fs.writeFileSync('.github/workflows/deploy-cloudflare.yml',s);
+          EOF
+          rm -f .github/workflows/cleanup-runtime-nav-residue-v164.yml
+      - name: Commit runtime cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Remove embedded legacy navigation click authorities'
+          git push
