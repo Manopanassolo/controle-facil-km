@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright, expect
 
 BASE='http://127.0.0.1:3000'
 ROUTES={
- 'dashboard':'Dashboard','pendencias':'Pendências','agenda':'Agenda','notificacoes':'Notificações','campo':'Modo Campo','roteiros':'Rotas / KM','historico':'Histórico','custos':'Custos','veiculos':'Veículos','equipe':'Equipe','documentos':'Documentos','sinistros':'Sinistros','relatorios':'Relatórios','perfil':'Perfil','configuracoes':'Configurações'
+ 'dashboard':'Dashboard','pendencias':'Pendências','agenda':'Agenda','notificacoes':'Notificações','campo':'Modo Campo','roteiros':'Rotas','historico':'Histórico','custos':'Custos','veiculos':'Veículos','equipe':'Equipe','documentos':'Documentos','sinistros':'Sinistros','relatorios':'Relatórios','perfil':'Perfil','configuracoes':'Configurações'
 }
 
 def assert_layout(page, slug, title):
