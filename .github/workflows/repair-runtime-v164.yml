@@ -1,0 +1,51 @@
+name: Repair Movvant runtime v164
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-runtime-v164.yml'
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Bridge canonical navigation to module lifecycle
+        run: |
+          node - <<'EOF'
+          const fs=require('fs');
+          let s=fs.readFileSync('index.html','utf8');
+          const oldValid="const order=Object.keys(labels);let current='inicio';const valid=p=>order.includes(p)&&!!byId('p-'+p);";
+          const newValid="const order=Object.keys(labels);let current='inicio';const valid=p=>!!p&&!!byId('p-'+p);";
+          if(!s.includes(oldValid))throw new Error('v164 valid marker not found');
+          s=s.replace(oldValid,newValid);
+          const oldShow=`function showPage(p,{historyMode='push'}={}){if(!valid(p))p='inicio';document.querySelectorAll('#app [id^="p-"]').forEach(el=>{el.classList.add('hide');el.setAttribute('aria-hidden','true');el.style.removeProperty('display')});const t=byId('p-'+p);t.classList.remove('hide');t.setAttribute('aria-hidden','false');current=p;document.body.dataset.mvPage=p;document.body.dataset.mvNavAuthority='164.0';try{localStorage.setItem('mv_last_page_v164',p)}catch(_){};try{const u=new URL(location.href);u.hash='p='+encodeURIComponent(p);history[historyMode==='replace'?'replaceState':'pushState']({...(history.state||{}),mvPage:p,mvVersion:'164.0'},'',u.pathname+u.search+u.hash)}catch(_){};renderActive(p);closeMenu();window.scrollTo(0,0);return true}`;
+          const newShow=`function showPage(p,{historyMode='push'}={}){if(!valid(p))p='inicio';let lifecycle=false;try{if(typeof show==='function'){show(p);lifecycle=true}}catch(e){console.warn('v164 module lifecycle',p,e)}if(!lifecycle){document.querySelectorAll('#app [id^="p-"]').forEach(el=>{el.classList.add('hide');el.setAttribute('aria-hidden','true');el.style.removeProperty('display')});const x=byId('p-'+p);x?.classList.remove('hide')}const t=byId('p-'+p);if(!t)return false;t.classList.remove('hide');t.setAttribute('aria-hidden','false');document.querySelectorAll('#app [id^="p-"]').forEach(el=>{if(el!==t)el.setAttribute('aria-hidden','true')});current=p;document.body.dataset.mvPage=p;document.body.dataset.mvNavAuthority='164.1';try{localStorage.setItem('mv_last_page_v164',p)}catch(_){};try{const u=new URL(location.href);u.hash='p='+encodeURIComponent(p);history[historyMode==='replace'?'replaceState':'pushState']({...(history.state||{}),mvPage:p,mvVersion:'164.1'},'',u.pathname+u.search+u.hash)}catch(_){};renderActive(p);closeMenu();window.scrollTo(0,0);return true}`;
+          if(!s.includes(oldShow))throw new Error('v164 showPage marker not found');
+          s=s.replace(oldShow,newShow);
+          const oldClick=`document.addEventListener('click',e=>{const r=e.target.closest?.('[data-mvroute]');if(r&&valid(r.dataset.mvroute)){e.preventDefault();e.stopImmediatePropagation();navigate(r.dataset.mvroute);return}const j=e.target.closest?.('[data-p-jump]');if(j&&valid(j.dataset.pJump)){e.preventDefault();e.stopImmediatePropagation();navigate(j.dataset.pJump)}},true);`;
+          const newClick=`document.addEventListener('click',e=>{const r=e.target.closest?.('[data-mvroute]');if(r&&valid(r.dataset.mvroute)){e.preventDefault();e.stopImmediatePropagation();navigate(r.dataset.mvroute);return}const j=e.target.closest?.('[data-p-jump]');if(j&&valid(j.dataset.pJump)){e.preventDefault();e.stopImmediatePropagation();navigate(j.dataset.pJump);return}const p=e.target.closest?.('[data-p]');if(p&&valid(p.dataset.p)){e.preventDefault();e.stopImmediatePropagation();navigate(p.dataset.p);return}const q=e.target.closest?.('[data-page]');if(q&&valid(q.dataset.page)){e.preventDefault();e.stopImmediatePropagation();navigate(q.dataset.page)}},true);`;
+          if(!s.includes(oldClick))throw new Error('v164 click marker not found');
+          s=s.replace(oldClick,newClick);
+          s=s.replace("document.body.dataset.mvNavAuthority='164.0'","document.body.dataset.mvNavAuthority='164.1'");
+          fs.writeFileSync('index.html',s);
+          EOF
+          node build.js
+          node validate-core-flow.js
+          node validate-build.js
+          grep -q "typeof show==='function'" index.html
+          grep -q "closest?.('\[data-p\]')" index.html
+          grep -q "mvNavAuthority='164.1'" index.html
+      - name: Commit repaired canonical runtime
+        run: |
+          rm -f .github/workflows/repair-runtime-v164.yml .github/workflows/diagnose-runtime-v164.yml
+          git config user.name 'Movvant Repair Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html .github/workflows/repair-runtime-v164.yml .github/workflows/diagnose-runtime-v164.yml
+          git commit -m 'Restore module lifecycle under canonical v164 navigation'
+          git push
