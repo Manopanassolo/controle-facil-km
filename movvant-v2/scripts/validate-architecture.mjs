@@ -15,6 +15,8 @@ for(const file of files){
   if(!accessibilityDialog&&pattern.test(text))violations.push(`${path.relative(root,file)}: forbidden legacy/runtime pattern ${pattern}`);
  }
  if(/from\s+['"]\.\.\/\.\.\/\.\.\//.test(text))violations.push(`${path.relative(root,file)}: import outside V2 boundary`);
+ if(/from\s+['"]@supabase\//.test(text)||/require\s*\(\s*['"]@supabase\//.test(text))violations.push(`${path.relative(root,file)}: Supabase runtime import is forbidden while V2 is memory-only`);
+ if(/NEXT_PUBLIC_SUPABASE_|SUPABASE_SERVICE_ROLE|service_role/i.test(text))violations.push(`${path.relative(root,file)}: backend credentials/config are forbidden in memory-only runtime source`);
 }
 const shellFiles=files.filter(file=>fs.readFileSync(file,'utf8').includes('function AppShell'));if(shellFiles.length!==1)violations.push(`Expected exactly one AppShell, found ${shellFiles.length}`);
 const modulesText=fs.readFileSync(path.join(src,'lib','modules.ts'),'utf8');
@@ -58,6 +60,9 @@ const routeText=fs.readFileSync(path.join(src,'components','RouteSessionModule.t
 const dialogText=fs.readFileSync(path.join(src,'components','PrototypeFormDialog.tsx'),'utf8');for(const required of ['aria-describedby','document.addEventListener','event.key===\'Escape\'','event.key!==\'Tab\'','requestAnimationFrame','defaultValue?:string'])if(!dialogText.includes(required))violations.push(`Prototype form dialog must expose ${required}`);
 const pendingText=fs.readFileSync(path.join(src,'components','PendingSessionModule.tsx'),'utf8');for(const required of ['maintenanceAlerts','documentAlerts','pendingIncidents'])if(!pendingText.includes(required))violations.push(`Pending center must expose ${required}`);
 const historyText=fs.readFileSync(path.join(src,'components','HistorySessionModule.tsx'),'utf8');if(!historyText.includes('incidents')||!historyText.includes("type:'Sinistro'"))violations.push('History must include incident lifecycle');
+const backendContract=path.join(src,'services','backend-contract.ts');if(!fs.existsSync(backendContract))violations.push('Backend readiness contract is required');else{const text=fs.readFileSync(backendContract,'utf8');if(!text.includes("BACKEND_RUNTIME_MODE = 'memory-only'"))violations.push('Backend runtime must remain memory-only until isolated Supabase branch exists');if(!text.includes('requiresIsolatedSupabaseBranch: true'))violations.push('Backend contract must require an isolated Supabase branch');}
+if(!fs.existsSync(path.join(root,'BACKEND_READINESS.md')))violations.push('Backend readiness documentation is required');
+const packageText=fs.readFileSync(path.join(root,'package.json'),'utf8');if(packageText.includes('@supabase/'))violations.push('Supabase packages must not be installed before isolated backend activation');
 if(fs.existsSync(path.join(src,'app','[module]','page.tsx')))violations.push('Dynamic [module] page is forbidden');
 if(violations.length){console.error('Movvant V2 architecture guard failed:\n'+violations.join('\n'));process.exit(1);}
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, with functional reports including documents, profile/settings, agenda route drafts and accessible prefills protected.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, memory-only backend readiness, functional reports/profile/settings, agenda route drafts and accessible prefills protected.`);
