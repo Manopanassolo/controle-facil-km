@@ -40,6 +40,7 @@
 }
 
 .content-area:focus { outline: none; }
+.nav-history-action { border: 0; }
 
 @media (max-width: 800px) {
   .sidebar {
@@ -65,13 +66,22 @@
   .brand { min-width: 0; }
   .brand-copy { min-width: 0; }
   .brand-copy strong { white-space: nowrap; }
-  .topbar-actions { gap: 6px; }
-  .profile-chip { width: 42px; height: 42px; }
+  .topbar-actions { gap: 5px; }
+  .topbar-actions .icon-action { display: grid; width: 40px; height: 40px; min-height: 40px; }
+  .profile-chip { width: 40px; height: 40px; min-height: 40px; }
   .content-area { padding-inline: 10px; }
   .page-head h1 { font-size: 28px; }
   .status-badge { white-space: normal; line-height: 1.35; }
   .panel-title-row { align-items: flex-start; flex-wrap: wrap; }
   .placeholder-row { align-items: flex-start; }
+}
+
+@media (max-width: 390px) {
+  .topbar { padding-inline: 8px; gap: 6px; }
+  .brand-symbol { display: none; }
+  .topbar-actions { gap: 4px; }
+  .topbar-actions .icon-action,
+  .profile-chip { width: 38px; height: 38px; min-height: 38px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
