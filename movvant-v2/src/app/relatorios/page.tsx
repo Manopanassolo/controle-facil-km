@@ -1,6 +1,6 @@
-import { ModuleHeader, ReportsModule } from '@/components/CoreModules';
-import { ReportsControls } from '@/components/ReportsControls';
+import { ModuleHeader } from '@/components/CoreModules';
+import { ReportsSessionModule } from '@/components/ReportsSessionModule';
 
 export default function ReportsPage() {
-  return <><ModuleHeader title="Relatórios" description="Relatórios gerenciais e comerciais." /><ReportsControls /><ReportsModule /></>;
+  return <><ModuleHeader title="Relatórios" description="Indicadores, filtros e exportação da operação desta sessão." /><ReportsSessionModule /></>;
 }
