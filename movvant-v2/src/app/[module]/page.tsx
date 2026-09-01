@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { moduleMap } from '@/lib/modules';
 import { DocumentsModule, GenericModule, HistoryModule, IncidentsModule, NotificationsModule, ProfileModule, SettingsModule, TeamModule } from '@/components/RemainingModules';
+import { FieldModeModule, PendingModule } from '@/components/OperationsModules';
 
 const dashboardMetrics = [
   ['Agenda de hoje', '4', 'compromissos previstos'],
@@ -18,7 +19,7 @@ const agendaItems = [
 ];
 
 function Dashboard() {
-  return <><section className="dashboard-grid" aria-label="Indicadores">{dashboardMetrics.map(([label,value,note]) => <article className="metric-card" key={label}><span className="metric-label">{label}</span><strong className="metric-value">{value}</strong><div className="metric-note">{note}</div></article>)}</section><section className="main-grid"><article className="panel"><div className="panel-title-row"><h2>Agenda e atividades</h2><Link href="/agenda" className="text-link">Abrir agenda</Link></div><div className="placeholder-list">{agendaItems.map(([time,title,place]) => <div className="placeholder-row" key={`${time}-${title}`}><div><strong>{title}</strong><small>{place}</small></div><span>{time}</span></div>)}</div></article><article className="panel"><div className="panel-title-row"><h2>Resumo de campo</h2><Link href="/relatorios" className="text-link">Detalhes</Link></div><div className="placeholder-list"><div className="placeholder-row"><strong>Visitas realizadas</strong><span>18 este mês</span></div><div className="placeholder-row"><strong>Despesas</strong><span>R$ 1.024,30</span></div><div className="placeholder-row"><strong>Veículos ativos</strong><span>3</span></div><div className="placeholder-row"><strong>KM comercial</strong><span>1.248 km</span></div></div></article></section></>;
+  return <><section className="dashboard-grid" aria-label="Indicadores">{dashboardMetrics.map(([label,value,note]) => <article className="metric-card" key={label}><span className="metric-label">{label}</span><strong className="metric-value">{value}</strong><div className="metric-note">{note}</div></article>)}</section><section className="main-grid"><article className="panel"><div className="panel-title-row"><h2>Agenda e atividades</h2><Link href="/agenda" className="text-link">Abrir agenda</Link></div><div className="placeholder-list">{agendaItems.map(([time,title,place]) => <div className="placeholder-row" key={`${time}-${title}`}><div><strong>{title}</strong><small>{place}</small></div><span>{time}</span></div>)}</div></article><article className="panel"><div className="panel-title-row"><h2>Atenção necessária</h2><Link href="/pendencias" className="text-link">Ver pendências</Link></div><div className="placeholder-list"><div className="placeholder-row"><strong>Documento próximo do vencimento</strong><span>Crítica</span></div><div className="placeholder-row"><strong>Despesa sem comprovante</strong><span>Alta</span></div><div className="placeholder-row"><strong>Revisão de veículo</strong><span>6 dias</span></div><div className="placeholder-row"><strong>Visita sem resultado</strong><span>Ontem</span></div></div></article></section><section className="dashboard-field-strip panel"><div><span className="eyebrow">Atalho operacional</span><h2>Modo Campo</h2><p>Fluxo simplificado para trabalhar pelo celular com poucos toques.</p></div><Link href="/campo" className="primary-button">Abrir Modo Campo</Link></section></>;
 }
 
 function Agenda() {
@@ -49,7 +50,9 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
   if (!current) notFound();
 
   const content = slug === 'dashboard' ? <Dashboard />
+    : slug === 'pendencias' ? <PendingModule />
     : slug === 'agenda' ? <Agenda />
+    : slug === 'campo' ? <FieldModeModule />
     : slug === 'roteiros' ? <Routes />
     : slug === 'historico' ? <HistoryModule />
     : slug === 'custos' ? <Costs />
