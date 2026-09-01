@@ -1,0 +1,61 @@
+name: Movvant V2 D1 Bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: movvant-v2/cloudflare-backend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DB_NAME: movvant-v2-db
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve isolated D1 database id
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW="$(npx --yes wrangler@4 d1 list --json)"
+          DB_ID="$(node -e 'const rows=JSON.parse(process.argv[1]); const hits=rows.filter(x=>x.name===process.env.DB_NAME); if(hits.length!==1){console.error(`Expected exactly one ${process.env.DB_NAME}, found ${hits.length}`); process.exit(2)}; process.stdout.write(hits[0].uuid || hits[0].id || "")' "$RAW")"
+          test -n "$DB_ID"
+          echo "Resolved D1 database: $DB_NAME"
+          echo "DB_ID=$DB_ID" >> "$GITHUB_ENV"
+
+      - name: Build ephemeral Wrangler config
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const text = fs.readFileSync('wrangler.jsonc', 'utf8');
+          const next = text.replace('REPLACE_AFTER_PROVISIONING', process.env.DB_ID);
+          if (next === text) throw new Error('D1 placeholder not found');
+          fs.writeFileSync('wrangler.bootstrap.jsonc', next);
+          NODE
+
+      - name: List pending migrations
+        run: npx --yes wrangler@4 d1 migrations list "$DB_NAME" --remote --config wrangler.bootstrap.jsonc
+
+      - name: Apply versioned migrations to isolated D1
+        run: npx --yes wrangler@4 d1 migrations apply "$DB_NAME" --remote --config wrangler.bootstrap.jsonc
+
+      - name: Validate core tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$(npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --config wrangler.bootstrap.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organizations','users','organization_memberships','audit_log') ORDER BY name;" --json)"
+          node -e 'const x=JSON.parse(process.argv[1]); const rows=(x[0]&&x[0].results)||[]; const names=new Set(rows.map(r=>r.name)); const expected=["organizations","users","organization_memberships","audit_log"]; const missing=expected.filter(n=>!names.has(n)); if(missing.length){console.error(`Missing tables: ${missing.join(", ")}`); process.exit(3)}; console.log(`Validated core tables: ${expected.join(", ")}`)' "$OUT"
+
+      - name: Safety note
+        run: echo "D1 bootstrap complete. No Worker deployment and no legacy resource mutation performed."
