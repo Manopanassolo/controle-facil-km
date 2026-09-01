@@ -9,8 +9,18 @@ const forbidden = [
   /mvShellV\d+/i,
   /v16\d{3,}\.js/i,
   /postprocess\.js/i,
-  /querySelectorAll\([^)]*\.page[^)]*\).*style\.display/si,
-  /setTimeout\([^,]+,\s*(?:900|1200|1400|1800|2000|2400|2600|3200)\s*\)/i
+  /querySelector(All)?\s*\(/i,
+  /getElementById\s*\(/i,
+  /\.style\.display\s*=/i,
+  /\.style\.visibility\s*=/i,
+  /addEventListener\s*\(\s*['"]click['"]/i,
+  /setTimeout\s*\(/i,
+  /setInterval\s*\(/i
+];
+
+const requiredModules = [
+  'dashboard', 'agenda', 'roteiros', 'historico', 'custos', 'veiculos', 'equipe',
+  'relatorios', 'documentos', 'sinistros', 'notificacoes', 'perfil', 'configuracoes'
 ];
 
 function walk(dir) {
@@ -25,8 +35,10 @@ const violations = [];
 
 for (const file of files) {
   const text = fs.readFileSync(file, 'utf8');
-  for (const pattern of forbidden) {
-    if (pattern.test(text)) violations.push(`${path.relative(root, file)}: ${pattern}`);
+  if (!file.endsWith('.css')) {
+    for (const pattern of forbidden) {
+      if (pattern.test(text)) violations.push(`${path.relative(root, file)}: forbidden legacy/runtime pattern ${pattern}`);
+    }
   }
   if (/from\s+['"]\.\.\/\.\.\/\.\.\//.test(text)) {
     violations.push(`${path.relative(root, file)}: import outside V2 boundary`);
@@ -36,9 +48,20 @@ for (const file of files) {
 const shellFiles = files.filter((file) => fs.readFileSync(file, 'utf8').includes('function AppShell'));
 if (shellFiles.length !== 1) violations.push(`Expected exactly one AppShell, found ${shellFiles.length}`);
 
+const modulesFile = path.join(src, 'lib', 'modules.ts');
+const modulesText = fs.readFileSync(modulesFile, 'utf8');
+for (const slug of requiredModules) {
+  if (!modulesText.includes(`slug: '${slug}'`)) violations.push(`Missing canonical module route: ${slug}`);
+}
+
+const modulePage = fs.readFileSync(path.join(src, 'app', '[module]', 'page.tsx'), 'utf8');
+if (!modulePage.includes("slug === 'agenda'")) violations.push('Agenda must render from canonical module route');
+if (!modulePage.includes("slug === 'roteiros'")) violations.push('Routes must render from canonical module route');
+if (!modulePage.includes("slug === 'dashboard'")) violations.push('Dashboard must render from canonical module route');
+
 if (violations.length) {
   console.error('Movvant V2 architecture guard failed:\n' + violations.join('\n'));
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed (${files.length} source files).`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical routes.`);
