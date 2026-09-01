@@ -1,0 +1,20 @@
+name: Diagnose Movvant flicker v164
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnose-flicker-v164.yml']
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect redraw timers and navigation lifecycle
+        run: |
+          echo '--- intervals ---'
+          grep -n "setInterval" index.html || true
+          echo '--- repeating delayed sync/boot sequences ---'
+          grep -n -E "\[[0-9, ]+\]\.forEach\(.*setTimeout|setTimeout\(.*sync|setTimeout\(.*boot|pageshow|visibilitychange|hashchange" index.html | tail -160 || true
+          echo '--- v164.1 navigation block ---'
+          sed -n '6360,6415p' index.html || true
+          echo '--- desktop shell blocks ---'
+          sed -n '5700,5860p' index.html || true
