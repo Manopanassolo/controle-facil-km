@@ -30,6 +30,14 @@ Alterações sensíveis precisam registrar quem fez, quando fez, valor anterior 
 
 Regra: registros de auditoria não devem ser editáveis por usuários comuns.
 
+### 6. Dashboard por perfil
+A página inicial deve priorizar informações diferentes conforme a função do usuário. Vendedor externo recebe agenda, rotas e pendências próprias; gerente recebe equipe, desempenho e exceções; financeiro recebe custos e documentos; proprietário/administrador recebe visão consolidada.
+
+Regra: o perfil visual deve ser derivado da autenticação e das permissões reais. O seletor manual existente na fase visual é apenas demonstração e não deve existir como autoridade de acesso quando o backend for conectado.
+
+## Identidade visual e assets
+Logo, ícones e demais elementos de marca devem entrar na V2 como arquivos estáticos independentes. Não extrair nem importar assets a partir do HTML, CSS ou JavaScript legado, para não reintroduzir dependências da aplicação antiga.
+
 ## Ordem recomendada de integração
 1. Homologação visual e navegação.
 2. Autenticação.
