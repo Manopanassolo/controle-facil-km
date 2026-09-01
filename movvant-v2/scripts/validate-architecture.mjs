@@ -19,8 +19,8 @@ const forbidden = [
 ];
 
 const requiredModules = [
-  'dashboard', 'agenda', 'roteiros', 'historico', 'custos', 'veiculos', 'equipe',
-  'relatorios', 'documentos', 'sinistros', 'notificacoes', 'perfil', 'configuracoes'
+  'dashboard', 'pendencias', 'agenda', 'notificacoes', 'campo', 'roteiros', 'historico',
+  'custos', 'veiculos', 'equipe', 'documentos', 'sinistros', 'relatorios', 'perfil', 'configuracoes'
 ];
 
 function walk(dir) {
@@ -57,7 +57,12 @@ for (const slug of requiredModules) {
 const modulePage = fs.readFileSync(path.join(src, 'app', '[module]', 'page.tsx'), 'utf8');
 if (!modulePage.includes("slug === 'agenda'")) violations.push('Agenda must render from canonical module route');
 if (!modulePage.includes("slug === 'roteiros'")) violations.push('Routes must render from canonical module route');
-if (!modulePage.includes("slug === 'dashboard'")) violations.push('Dashboard must render from canonical module route');
+if (!modulePage.includes("slug === 'pendencias'")) violations.push('Pending center must render from canonical module route');
+if (!modulePage.includes("slug === 'campo'")) violations.push('Field mode must render from canonical module route');
+
+const dashboardPage = path.join(src, 'app', 'dashboard', 'page.tsx');
+if (!fs.existsSync(dashboardPage)) violations.push('Dashboard must have an independent canonical route');
+else if (!fs.readFileSync(dashboardPage, 'utf8').includes('DashboardByRole')) violations.push('Dashboard route must use the role-aware dashboard');
 
 if (violations.length) {
   console.error('Movvant V2 architecture guard failed:\n' + violations.join('\n'));
