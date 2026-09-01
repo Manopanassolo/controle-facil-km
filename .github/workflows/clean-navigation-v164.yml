@@ -1,10 +1,11 @@
-# final canonical navigation cleanup with all validators migrated
+# final canonical navigation cleanup after removing all legacy validator dependencies
 name: Clean Movvant navigation v164
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/clean-navigation-v164.yml'
+      - 'validate-build.js'
 permissions:
   contents: write
 jobs:
