@@ -23,6 +23,8 @@ const requiredModules = [
   'custos', 'veiculos', 'equipe', 'documentos', 'sinistros', 'relatorios', 'perfil', 'configuracoes'
 ];
 
+const requiredPhysicalRoutes = ['dashboard', 'agenda', 'roteiros', 'custos', 'veiculos', 'relatorios'];
+
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
@@ -40,33 +42,35 @@ for (const file of files) {
       if (pattern.test(text)) violations.push(`${path.relative(root, file)}: forbidden legacy/runtime pattern ${pattern}`);
     }
   }
-  if (/from\s+['"]\.\.\/\.\.\/\.\.\//.test(text)) {
-    violations.push(`${path.relative(root, file)}: import outside V2 boundary`);
-  }
+  if (/from\s+['"]\.\.\/\.\.\/\.\.\//.test(text)) violations.push(`${path.relative(root, file)}: import outside V2 boundary`);
 }
 
 const shellFiles = files.filter((file) => fs.readFileSync(file, 'utf8').includes('function AppShell'));
 if (shellFiles.length !== 1) violations.push(`Expected exactly one AppShell, found ${shellFiles.length}`);
 
-const modulesFile = path.join(src, 'lib', 'modules.ts');
-const modulesText = fs.readFileSync(modulesFile, 'utf8');
+const modulesText = fs.readFileSync(path.join(src, 'lib', 'modules.ts'), 'utf8');
 for (const slug of requiredModules) {
   if (!modulesText.includes(`slug: '${slug}'`)) violations.push(`Missing canonical module route: ${slug}`);
 }
 
-const modulePage = fs.readFileSync(path.join(src, 'app', '[module]', 'page.tsx'), 'utf8');
-if (!modulePage.includes("slug === 'agenda'")) violations.push('Agenda must render from canonical module route');
-if (!modulePage.includes("slug === 'roteiros'")) violations.push('Routes must render from canonical module route');
-if (!modulePage.includes("slug === 'pendencias'")) violations.push('Pending center must render from canonical module route');
-if (!modulePage.includes("slug === 'campo'")) violations.push('Field mode must render from canonical module route');
+for (const slug of requiredPhysicalRoutes) {
+  const page = path.join(src, 'app', slug, 'page.tsx');
+  if (!fs.existsSync(page)) violations.push(`${slug} must have an independent physical route`);
+}
 
 const dashboardPage = path.join(src, 'app', 'dashboard', 'page.tsx');
-if (!fs.existsSync(dashboardPage)) violations.push('Dashboard must have an independent canonical route');
-else if (!fs.readFileSync(dashboardPage, 'utf8').includes('DashboardByRole')) violations.push('Dashboard route must use the role-aware dashboard');
+if (fs.existsSync(dashboardPage) && !fs.readFileSync(dashboardPage, 'utf8').includes('DashboardByRole')) violations.push('Dashboard route must use the role-aware dashboard');
+
+const modulePage = fs.readFileSync(path.join(src, 'app', '[module]', 'page.tsx'), 'utf8');
+if (!modulePage.includes("slug === 'pendencias'")) violations.push('Pending center must remain available');
+if (!modulePage.includes("slug === 'campo'")) violations.push('Field mode must remain available');
+for (const slug of ['agenda', 'roteiros', 'custos', 'veiculos', 'relatorios', 'dashboard']) {
+  if (modulePage.includes(`slug === '${slug}'`)) violations.push(`${slug} must not be rendered by the generic module page`);
+}
 
 if (violations.length) {
   console.error('Movvant V2 architecture guard failed:\n' + violations.join('\n'));
   process.exit(1);
 }
 
-console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical routes.`);
+console.log(`Movvant V2 architecture guard passed: ${files.length} source files, one AppShell, ${requiredModules.length} canonical modules, ${requiredPhysicalRoutes.length} isolated core routes.`);
