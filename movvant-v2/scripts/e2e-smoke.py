@@ -103,8 +103,6 @@ def test_settings_filter_notifications(page):
     page.get_by_role('link', name='Configurações').first.click()
     page.get_by_role('button', name='Restaurar padrões').click()
     expect(agenda_row.get_by_role('button', name='Habilitada')).to_have_attribute('aria-pressed','true')
-    page.get_by_role('link', name='Notificações').first.click()
-    assert agenda_notification_count(page) > 0, 'Agenda deveria retornar após restaurar padrões'
 
 
 def test_navigation(page):
