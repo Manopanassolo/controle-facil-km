@@ -11,12 +11,6 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "FILES",
-      "bucket_name": "movvant-v2-files"
-    }
-  ],
   "vars": {
     "APP_ENV": "homologation",
     "ALLOWED_ORIGIN": "https://homologacao.movvant.com.br"
