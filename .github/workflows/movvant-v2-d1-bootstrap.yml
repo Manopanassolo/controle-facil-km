@@ -2,6 +2,11 @@ name: Movvant V2 D1 Bootstrap
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - movvant-v2-rebuild
+    paths:
+      - .github/movvant-v2-d1-bootstrap.trigger
 
 permissions:
   contents: read
@@ -54,8 +59,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$(npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --config wrangler.bootstrap.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organizations','users','organization_memberships','audit_log') ORDER BY name;" --json)"
-          node -e 'const x=JSON.parse(process.argv[1]); const rows=(x[0]&&x[0].results)||[]; const names=new Set(rows.map(r=>r.name)); const expected=["organizations","users","organization_memberships","audit_log"]; const missing=expected.filter(n=>!names.has(n)); if(missing.length){console.error(`Missing tables: ${missing.join(", ")}`); process.exit(3)}; console.log(`Validated core tables: ${expected.join(", ")}`)' "$OUT"
+          OUT="$(npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --config wrangler.bootstrap.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organizations','users','memberships','audit_events') ORDER BY name;" --json)"
+          node -e 'const x=JSON.parse(process.argv[1]); const rows=(x[0]&&x[0].results)||[]; const names=new Set(rows.map(r=>r.name)); const expected=["organizations","users","memberships","audit_events"]; const missing=expected.filter(n=>!names.has(n)); if(missing.length){console.error(`Missing tables: ${missing.join(", ")}`); process.exit(3)}; console.log(`Validated core tables: ${expected.join(", ")}`)' "$OUT"
 
       - name: Safety note
         run: echo "D1 bootstrap complete. No Worker deployment and no legacy resource mutation performed."
