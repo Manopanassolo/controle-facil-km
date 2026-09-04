@@ -2,39 +2,86 @@ import * as Location from 'expo-location';
 
 export type Point = { latitude: number; longitude: number; timestamp: number };
 
-export async function ensureForegroundLocation(): Promise<boolean> {
-  const current = await Location.getForegroundPermissionsAsync();
-  if (current.granted) return true;
-  const requested = await Location.requestForegroundPermissionsAsync();
-  return requested.granted;
+export type LocationStartResult =
+  | { ok: true; point: Point }
+  | { ok: false; reason: string };
+
+export async function ensureForegroundLocation(): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    if (!servicesEnabled) {
+      return { ok: false, reason: 'Ative a localização do aparelho para iniciar o deslocamento.' };
+    }
+
+    const current = await Location.getForegroundPermissionsAsync();
+    if (current.granted) return { ok: true };
+
+    const requested = await Location.requestForegroundPermissionsAsync();
+    if (!requested.granted) {
+      return { ok: false, reason: 'Permita o acesso à localização durante o uso do app.' };
+    }
+
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: 'Não foi possível validar a permissão de localização.' };
+  }
 }
 
-export async function getCurrentPoint(): Promise<Point | null> {
-  const ok = await ensureForegroundLocation();
-  if (!ok) return null;
-  const result = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-  return {
-    latitude: result.coords.latitude,
-    longitude: result.coords.longitude,
-    timestamp: result.timestamp,
-  };
+export async function getCurrentPoint(): Promise<LocationStartResult> {
+  const permission = await ensureForegroundLocation();
+  if (!permission.ok) return permission;
+
+  try {
+    const last = await Location.getLastKnownPositionAsync({ maxAge: 120000, requiredAccuracy: 500 });
+    if (last) {
+      return {
+        ok: true,
+        point: {
+          latitude: last.coords.latitude,
+          longitude: last.coords.longitude,
+          timestamp: last.timestamp,
+        },
+      };
+    }
+
+    const result = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      mayShowUserSettingsDialog: true,
+    });
+
+    return {
+      ok: true,
+      point: {
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+        timestamp: result.timestamp,
+      },
+    };
+  } catch {
+    return { ok: false, reason: 'GPS indisponível no momento. Verifique a localização do aparelho e tente novamente.' };
+  }
 }
 
 export async function watchRoute(onPoint: (point: Point) => void) {
-  const ok = await ensureForegroundLocation();
-  if (!ok) return null;
-  return Location.watchPositionAsync(
-    {
-      accuracy: Location.Accuracy.High,
-      distanceInterval: 10,
-      timeInterval: 5000,
-    },
-    result => onPoint({
-      latitude: result.coords.latitude,
-      longitude: result.coords.longitude,
-      timestamp: result.timestamp,
-    }),
-  );
+  const permission = await ensureForegroundLocation();
+  if (!permission.ok) return null;
+
+  try {
+    return await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 10,
+        timeInterval: 5000,
+      },
+      result => onPoint({
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+        timestamp: result.timestamp,
+      }),
+    );
+  } catch {
+    return null;
+  }
 }
 
 export function distanceMeters(a: Point, b: Point): number {
