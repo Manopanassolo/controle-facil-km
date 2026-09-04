@@ -38,5 +38,10 @@ jobs:
           grep -q 'com.movvant.enterprise' /tmp/rc11-expo-config.json
       - name: Install EAS CLI
         run: npm install --global eas-cli
+      - name: Sync Google Maps key into EAS preview environment
+        run: |
+          eas env:create --environment preview --name GOOGLE_MAPS_API_KEY --value "$GOOGLE_MAPS_API_KEY" --visibility sensitive --force --non-interactive
+      - name: Verify preview environment contains Maps key
+        run: eas env:list --environment preview --non-interactive | grep -q 'GOOGLE_MAPS_API_KEY'
       - name: Start RC11 Android APK build
         run: eas build --platform android --profile preview --non-interactive --no-wait
