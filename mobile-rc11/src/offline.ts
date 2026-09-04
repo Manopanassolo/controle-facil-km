@@ -130,6 +130,26 @@ export async function enqueue(item: Omit<SyncItem, 'id' | 'createdAt'>): Promise
   return updated;
 }
 
+export async function enqueueReplacingLocal(entity: SyncItem['entity'], localId: string, item: Omit<SyncItem, 'id' | 'createdAt'>): Promise<SyncItem[]> {
+  const queue = await readQueue();
+  const filtered = queue.filter(existing => !(existing.entity === entity && existing.payload?.localId === localId));
+  const next: SyncItem = {
+    ...item,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+  };
+  const updated = [...filtered, next];
+  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
+  return updated;
+}
+
+export async function removeQueuedForLocal(entity: SyncItem['entity'], localId: string): Promise<SyncItem[]> {
+  const queue = await readQueue();
+  const updated = queue.filter(existing => !(existing.entity === entity && existing.payload?.localId === localId));
+  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
+  return updated;
+}
+
 export async function removeQueued(ids: string[]): Promise<SyncItem[]> {
   const queue = await readQueue();
   const updated = queue.filter(item => !ids.includes(item.id));
