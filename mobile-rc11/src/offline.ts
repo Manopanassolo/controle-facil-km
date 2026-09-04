@@ -100,6 +100,10 @@ export async function saveAppointmentLocal(item: LocalAppointment) {
   return mutateLocal(state => ({ ...state, appointments: [item, ...state.appointments.filter(x => x.id !== item.id)].slice(0, 500) }));
 }
 
+export async function removeAppointmentLocal(id: string) {
+  return mutateLocal(state => ({ ...state, appointments: state.appointments.filter(x => x.id !== id) }));
+}
+
 export async function saveKmLocal(item: LocalKmRecord) {
   return mutateLocal(state => ({ ...state, km: [item, ...state.km.filter(x => x.id !== item.id)].slice(0, 500) }));
 }
