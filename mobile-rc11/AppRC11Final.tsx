@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as ImagePicker from 'expo-image-picker';
@@ -84,7 +84,7 @@ function Home({ session, data, local, appointments, online, pending, goAgenda, g
   const todayItems = appointments.filter(x => x.date === todayKey).sort((a,b) => a.time.localeCompare(b.time));
   const todayStores = new Set(todayItems.map(x => x.customerId).filter(Boolean)).size;
   const localKm = local.km.filter(x => x.createdAt.slice(0,10) === todayKey).reduce((n,x) => n + x.total, 0);
-  const localTripKm = local.trips.filter(x => new Date(x.finishedAt).toISOString().slice(0,10) === todayKey).reduce((n,x) => n + x.distanceMeters / 1000, 0);
+  const localTripKm = local.trips.filter(x => isoDate(new Date(x.finishedAt)) === todayKey).reduce((n,x) => n + x.distanceMeters / 1000, 0);
   const km = localKm || localTripKm;
   return <ScrollView contentContainerStyle={s.content}>
     <View style={s.profile}><View style={s.avatar}><Text style={s.avatarText}>{initials(name)}</Text></View><View style={{ flex: 1 }}><Text style={s.hello}>Olá, {name.split(' ')[0]}</Text><Text style={s.muted}>{roleOf(data)}{data?.directory?.branch_name ? ` · ${data.directory.branch_name}` : ''}</Text><Text style={s.dateText}>{WEEK[today.getDay()]}, {today.getDate()} de {MONTHS[today.getMonth()].toLowerCase()}</Text></View></View>
@@ -210,6 +210,7 @@ function Drawer({ visible, close, setTab, setMore, session, data, logout }: { vi
 
 export default function AppRC11Final() {
   const [session,setSession] = useState<Session|null>(null); const [boot,setBoot] = useState(true); const [data,setData] = useState<BootstrapData|null>(null); const [local,setLocal] = useState<LocalState>({ appointments:[],km:[],trips:[] }); const [online,setOnline] = useState(true); const [pending,setPending] = useState(0); const [syncing,setSyncing] = useState(false); const [prefs,setPrefs] = useState<Preferences>(DEFAULT_PREFS); const [tab,setTab] = useState<Tab>('home'); const [more,setMore] = useState<MorePage>('menu'); const [drawer,setDrawer] = useState(false);
+  const lastAutoSyncAttempt = useRef(0);
 
   const reloadLocal = useCallback(async () => { setLocal(await readLocalState()); setPending((await readQueue()).length); }, []);
   const refresh = useCallback(async (activeSession?: Session | null) => {
@@ -239,7 +240,7 @@ export default function AppRC11Final() {
   }, []);
 
   useEffect(() => NetInfo.addEventListener(state => setOnline(Boolean(state.isConnected))), []);
-  useEffect(() => { if (online && prefs.autoSync && session && data?.companyId && pending > 0) sync(); }, [online,prefs.autoSync,session,data?.companyId,pending]);
+  useEffect(() => { if (!online || !prefs.autoSync || !session || !data?.companyId || pending <= 0 || syncing) return; const now = Date.now(); if (now - lastAutoSyncAttempt.current < 15000) return; lastAutoSyncAttempt.current = now; sync(); }, [online,prefs.autoSync,session,data?.companyId,pending,syncing,sync]);
 
   const customersById = useMemo(() => new Map((data?.customers || []).map(c => [c.id,c])), [data?.customers]);
   const remoteAppointments = useMemo<Appointment[]>(() => (data?.visits || []).filter(v => v.scheduled_start).map(v => { const d = new Date(v.scheduled_start!); const c = customersById.get(v.customer_id); return { id:v.id,date:isoDate(d),time:`${pad(d.getHours())}:${pad(d.getMinutes())}`,title:v.purpose||'Visita',store:customerName(c),type:'Visita',customerId:v.customer_id,status:v.status }; }), [data?.visits,customersById]);
