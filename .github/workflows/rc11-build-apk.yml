@@ -1,0 +1,38 @@
+name: Movvant RC11 build APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-rc11
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Guard required secrets
+        run: |
+          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN ausente' && exit 1)
+          test -n "$GOOGLE_MAPS_API_KEY" || (echo 'GOOGLE_MAPS_API_KEY ausente' && exit 1)
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Quality gate
+        run: |
+          npx expo-doctor
+          npx tsc --noEmit
+          npx expo config --type public > /tmp/rc11-expo-config.json
+          grep -q 'com.movvant.enterprise' /tmp/rc11-expo-config.json
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Start RC11 Android APK build
+        run: eas build --platform android --profile preview --non-interactive --no-wait
