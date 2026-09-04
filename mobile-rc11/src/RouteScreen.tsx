@@ -3,9 +3,11 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import type { LocationSubscription } from 'expo-location';
 import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';
-import { enqueue } from './offline';
+import { enqueue, saveTripLocal } from './offline';
 
 type RouteStatus = 'idle' | 'starting' | 'running' | 'paused' | 'finished';
+
+type Props = { onSaved?: () => void };
 
 const BLUE = '#1769E0';
 const ORANGE = '#F59E0B';
@@ -13,21 +15,26 @@ const NAVY = '#0B3558';
 const MUTED = '#7A899A';
 const RED = '#E5484D';
 
-export default function RouteScreen() {
+export default function RouteScreen({ onSaved }: Props) {
   const [status, setStatus] = useState<RouteStatus>('idle');
   const [points, setPoints] = useState<Point[]>([]);
   const [returnStart, setReturnStart] = useState<number | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [region, setRegion] = useState<Region | null>(null);
-  const [mapFailed, setMapFailed] = useState(false);
   const subscription = useRef<LocationSubscription | null>(null);
+  const lastElapsedBase = useRef(0);
+  const resumeStartedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    if (status !== 'running' || !startedAt) return;
-    const timer = setInterval(() => setElapsed(Date.now() - startedAt), 1000);
+    if (status !== 'running') return;
+    if (!resumeStartedAt.current) resumeStartedAt.current = Date.now();
+    const timer = setInterval(() => {
+      const segment = resumeStartedAt.current ? Date.now() - resumeStartedAt.current : 0;
+      setElapsed(lastElapsedBase.current + segment);
+    }, 1000);
     return () => clearInterval(timer);
-  }, [status, startedAt]);
+  }, [status]);
 
   useEffect(() => () => {
     subscription.current?.remove();
@@ -47,7 +54,11 @@ export default function RouteScreen() {
     try {
       subscription.current?.remove();
       subscription.current = await watchRoute(point => {
-        setPoints(previous => [...previous, point]);
+        setPoints(previous => {
+          const last = previous[previous.length - 1];
+          if (last && distanceMeters(last, point) < 3) return previous;
+          return [...previous, point];
+        });
       });
       if (!subscription.current) {
         Alert.alert('GPS', 'A rota foi iniciada, mas o acompanhamento contínuo do GPS não pôde ser ativado.');
@@ -61,8 +72,6 @@ export default function RouteScreen() {
   const start = async () => {
     if (status === 'starting') return;
     setStatus('starting');
-    setMapFailed(false);
-
     try {
       const result = await getCurrentPoint();
       if (!result.ok) {
@@ -70,18 +79,14 @@ export default function RouteScreen() {
         Alert.alert('Localização necessária', result.reason);
         return;
       }
-
       const first = result.point;
       setPoints([first]);
       setReturnStart(null);
       setStartedAt(Date.now());
+      lastElapsedBase.current = 0;
+      resumeStartedAt.current = Date.now();
       setElapsed(0);
-      setRegion({
-        latitude: first.latitude,
-        longitude: first.longitude,
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      });
+      setRegion({ latitude: first.latitude, longitude: first.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 });
       setStatus('running');
       await beginWatcher();
     } catch {
@@ -93,10 +98,14 @@ export default function RouteScreen() {
   const pause = () => {
     subscription.current?.remove();
     subscription.current = null;
+    if (resumeStartedAt.current) lastElapsedBase.current += Date.now() - resumeStartedAt.current;
+    resumeStartedAt.current = null;
+    setElapsed(lastElapsedBase.current);
     setStatus('paused');
   };
 
   const resume = async () => {
+    resumeStartedAt.current = Date.now();
     setStatus('running');
     await beginWatcher();
   };
@@ -113,20 +122,19 @@ export default function RouteScreen() {
     try {
       subscription.current?.remove();
       subscription.current = null;
+      if (status === 'running' && resumeStartedAt.current) {
+        lastElapsedBase.current += Date.now() - resumeStartedAt.current;
+        resumeStartedAt.current = null;
+      }
+      const finalElapsed = lastElapsedBase.current || elapsed;
+      const finishedAt = Date.now();
+      const id = `${finishedAt}-trip`;
+      setElapsed(finalElapsed);
       setStatus('finished');
-      await enqueue({
-        entity: 'trip',
-        action: 'finish',
-        payload: {
-          startedAt,
-          finishedAt: Date.now(),
-          elapsedMs: elapsed,
-          distanceMeters: Math.round(distance),
-          returnStart,
-          points,
-        },
-      });
-      Alert.alert('Deslocamento salvo', 'A rota foi salva no aparelho e ficará disponível para sincronização.');
+      await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, synced: false });
+      await enqueue({ entity: 'trip', action: 'finish', payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points } });
+      onSaved?.();
+      Alert.alert('Deslocamento salvo', 'A rota foi salva no aparelho e entrou na fila de sincronização.');
     } catch {
       Alert.alert('Falha ao salvar', 'A rota foi finalizada, mas não foi possível gravar o registro local.');
     }
@@ -140,19 +148,11 @@ export default function RouteScreen() {
     return `${h}:${m}:${s}`;
   };
 
-  const title = status === 'running'
-    ? 'Em deslocamento'
-    : status === 'paused'
-      ? 'Deslocamento pausado'
-      : status === 'finished'
-        ? 'Deslocamento finalizado'
-        : status === 'starting'
-          ? 'Localizando veículo...'
-          : 'Pronto para iniciar';
+  const title = status === 'running' ? 'Em deslocamento' : status === 'paused' ? 'Deslocamento pausado' : status === 'finished' ? 'Deslocamento finalizado' : status === 'starting' ? 'Localizando veículo...' : 'Pronto para iniciar';
 
   return (
     <View style={styles.screen}>
-      {region && !mapFailed ? (
+      {region ? (
         <MapView
           style={StyleSheet.absoluteFill}
           initialRegion={region}
@@ -160,8 +160,6 @@ export default function RouteScreen() {
           showsMyLocationButton
           showsCompass
           toolbarEnabled={false}
-          onMapReady={() => setMapFailed(false)}
-          onMapLoaded={() => setMapFailed(false)}
           onRegionChangeComplete={setRegion}
         >
           {points[0] && <Marker coordinate={points[0]} title="Início" pinColor="green" />}
@@ -172,8 +170,8 @@ export default function RouteScreen() {
       ) : (
         <View style={styles.emptyMap}>
           <View style={styles.pinBadge}><Text style={styles.pinIcon}>⌖</Text></View>
-          <Text style={styles.emptyTitle}>{mapFailed ? 'Mapa temporariamente indisponível' : 'Mapa pronto para iniciar'}</Text>
-          <Text style={styles.emptyText}>{mapFailed ? 'O deslocamento pode ser salvo localmente. Tente abrir o mapa novamente depois.' : 'O GPS será solicitado somente ao iniciar o deslocamento.'}</Text>
+          <Text style={styles.emptyTitle}>Mapa pronto para iniciar</Text>
+          <Text style={styles.emptyText}>O GPS será solicitado somente quando você tocar em iniciar deslocamento.</Text>
         </View>
       )}
 
@@ -183,12 +181,12 @@ export default function RouteScreen() {
           <Text style={styles.title}>{title}</Text>
         </View>
         <View style={styles.metrics}>
-          <View style={styles.metric}><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo</Text></View>
+          <View style={styles.metric}><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo ativo</Text></View>
           <View style={styles.metricRight}><Text style={styles.value}>{(distance / 1000).toFixed(1)} km</Text><Text style={styles.label}>Distância GPS</Text></View>
         </View>
         {status === 'idle' || status === 'finished' || status === 'starting' ? (
           <Pressable style={[styles.primary, status === 'starting' && styles.disabled]} onPress={start} disabled={status === 'starting'}>
-            <Text style={styles.primaryText}>{status === 'starting' ? 'Localizando...' : 'Iniciar deslocamento'}</Text>
+            <Text style={styles.primaryText}>{status === 'starting' ? 'Localizando...' : status === 'finished' ? 'Iniciar novo deslocamento' : 'Iniciar deslocamento'}</Text>
           </Pressable>
         ) : (
           <View style={styles.actions}>
