@@ -1,7 +1,8 @@
 module.exports = {
   expo: {
     name: 'Movvant Enterprise',
-    slug: 'movvant-mobile-rc11',
+    slug: 'movvant-enterprise',
+    owner: 'movant',
     version: '1.0.0',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
@@ -22,7 +23,10 @@ module.exports = {
     },
     extra: {
       releaseChannel: 'rc11',
-      mapsConfiguredFromEnv: Boolean(process.env.GOOGLE_MAPS_API_KEY)
+      mapsConfiguredFromEnv: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      eas: {
+        projectId: '445d022e-f19a-44cd-bb5f-826d603bb70f'
+      }
     }
   }
 };
