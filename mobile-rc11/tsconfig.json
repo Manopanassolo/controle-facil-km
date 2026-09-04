@@ -6,8 +6,7 @@
     "noEmit": true
   },
   "include": [
-    "AppRC11.tsx",
-    "react-native-compat.d.ts",
+    "AppRC11Final.tsx",
     "src/**/*.ts",
     "src/**/*.tsx"
   ]
