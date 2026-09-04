@@ -2,6 +2,10 @@ name: Movvant RC11 build APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - 'mobile-rc11/BUILD_RC11_APK'
 
 permissions:
   contents: read
