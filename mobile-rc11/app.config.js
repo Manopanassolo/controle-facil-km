@@ -3,7 +3,7 @@ module.exports = {
     name: 'Movvant Enterprise',
     slug: 'movvant-enterprise',
     owner: 'movant',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     plugins: [
@@ -13,7 +13,7 @@ module.exports = {
     ],
     android: {
       package: 'com.movvant.enterprise',
-      versionCode: 23,
+      versionCode: 24,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
       config: {
         googleMaps: {
@@ -22,7 +22,7 @@ module.exports = {
       }
     },
     extra: {
-      releaseChannel: 'rc11',
+      releaseChannel: 'rc11.1',
       mapsConfiguredFromEnv: Boolean(process.env.GOOGLE_MAPS_API_KEY),
       eas: {
         projectId: '445d022e-f19a-44cd-bb5f-826d603bb70f'
