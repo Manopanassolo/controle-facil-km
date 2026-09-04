@@ -118,20 +118,43 @@ export async function removeQueued(ids: string[]): Promise<SyncItem[]> {
   return updated;
 }
 
+async function markLocalSynced(sent: SyncItem[]) {
+  if (!sent.length) return;
+  const ids = {
+    appointment: new Set<string>(),
+    km: new Set<string>(),
+    trip: new Set<string>(),
+  };
+  for (const item of sent) {
+    const localId = typeof item.payload.localId === 'string' ? item.payload.localId : '';
+    if (localId && item.entity in ids) ids[item.entity].add(localId);
+  }
+  await mutateLocal(state => ({
+    appointments: state.appointments.map(x => ids.appointment.has(x.id) ? { ...x, synced: true } : x),
+    km: state.km.map(x => ids.km.has(x.id) ? { ...x, synced: true } : x),
+    trips: state.trips.map(x => ids.trip.has(x.id) ? { ...x, synced: true } : x),
+  }));
+}
+
 export async function syncPending(session: Session, companyId: string): Promise<{ sent: number; pending: number; errors: string[] }> {
   const queue = await readQueue();
   if (!queue.length) return { sent: 0, pending: 0, errors: [] };
   const sentIds: string[] = [];
+  const sentItems: SyncItem[] = [];
   const errors: string[] = [];
   for (const item of queue) {
     try {
       await enqueueRemote(session, companyId, item);
       sentIds.push(item.id);
+      sentItems.push(item);
     } catch (e) {
       errors.push(e instanceof Error ? e.message : 'Falha ao sincronizar registro.');
     }
   }
-  if (sentIds.length) await removeQueued(sentIds);
+  if (sentIds.length) {
+    await removeQueued(sentIds);
+    await markLocalSynced(sentItems);
+  }
   const pending = (await readQueue()).length;
   return { sent: sentIds.length, pending, errors };
 }
