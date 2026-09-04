@@ -5,12 +5,13 @@ import type { LocationSubscription } from 'expo-location';
 import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';
 import { enqueue } from './offline';
 
-type RouteStatus = 'idle' | 'running' | 'paused' | 'finished';
+type RouteStatus = 'idle' | 'starting' | 'running' | 'paused' | 'finished';
 
-const BLUE = '#0B63E5';
-const ORANGE = '#F39A2B';
-const NAVY = '#07365B';
-const MUTED = '#75859A';
+const BLUE = '#1769E0';
+const ORANGE = '#F59E0B';
+const NAVY = '#0B3558';
+const MUTED = '#7A899A';
+const RED = '#E5484D';
 
 export default function RouteScreen() {
   const [status, setStatus] = useState<RouteStatus>('idle');
@@ -19,6 +20,7 @@ export default function RouteScreen() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [region, setRegion] = useState<Region | null>(null);
+  const [mapFailed, setMapFailed] = useState(false);
   const subscription = useRef<LocationSubscription | null>(null);
 
   useEffect(() => {
@@ -42,25 +44,50 @@ export default function RouteScreen() {
   const returning = returnStart == null ? [] : points.slice(returnStart);
 
   const beginWatcher = async () => {
-    subscription.current?.remove();
-    subscription.current = await watchRoute(point => {
-      setPoints(previous => [...previous, point]);
-    });
+    try {
+      subscription.current?.remove();
+      subscription.current = await watchRoute(point => {
+        setPoints(previous => [...previous, point]);
+      });
+      if (!subscription.current) {
+        Alert.alert('GPS', 'A rota foi iniciada, mas o acompanhamento contínuo do GPS não pôde ser ativado.');
+      }
+    } catch {
+      subscription.current = null;
+      Alert.alert('GPS', 'Não foi possível iniciar o acompanhamento contínuo da localização.');
+    }
   };
 
   const start = async () => {
-    const first = await getCurrentPoint();
-    if (!first) {
-      Alert.alert('Localização necessária', 'Ative a permissão de localização para iniciar o deslocamento.');
-      return;
+    if (status === 'starting') return;
+    setStatus('starting');
+    setMapFailed(false);
+
+    try {
+      const result = await getCurrentPoint();
+      if (!result.ok) {
+        setStatus('idle');
+        Alert.alert('Localização necessária', result.reason);
+        return;
+      }
+
+      const first = result.point;
+      setPoints([first]);
+      setReturnStart(null);
+      setStartedAt(Date.now());
+      setElapsed(0);
+      setRegion({
+        latitude: first.latitude,
+        longitude: first.longitude,
+        latitudeDelta: 0.025,
+        longitudeDelta: 0.025,
+      });
+      setStatus('running');
+      await beginWatcher();
+    } catch {
+      setStatus('idle');
+      Alert.alert('Não foi possível iniciar', 'O Movvant encontrou um erro ao iniciar o deslocamento. Nenhum registro foi criado.');
     }
-    setPoints([first]);
-    setReturnStart(null);
-    setStartedAt(Date.now());
-    setElapsed(0);
-    setRegion({ latitude: first.latitude, longitude: first.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 });
-    setStatus('running');
-    await beginWatcher();
   };
 
   const pause = () => {
@@ -75,25 +102,34 @@ export default function RouteScreen() {
   };
 
   const markReturn = () => {
-    if (points.length > 1 && returnStart == null) setReturnStart(points.length - 1);
+    if (points.length > 1 && returnStart == null) {
+      setReturnStart(points.length - 1);
+      return;
+    }
+    if (returnStart == null) Alert.alert('Retorno', 'Aguarde o GPS registrar mais pontos da rota antes de marcar o retorno.');
   };
 
   const finish = async () => {
-    subscription.current?.remove();
-    subscription.current = null;
-    setStatus('finished');
-    await enqueue({
-      entity: 'trip',
-      action: 'finish',
-      payload: {
-        startedAt,
-        finishedAt: Date.now(),
-        elapsedMs: elapsed,
-        distanceMeters: Math.round(distance),
-        returnStart,
-        points,
-      },
-    });
+    try {
+      subscription.current?.remove();
+      subscription.current = null;
+      setStatus('finished');
+      await enqueue({
+        entity: 'trip',
+        action: 'finish',
+        payload: {
+          startedAt,
+          finishedAt: Date.now(),
+          elapsedMs: elapsed,
+          distanceMeters: Math.round(distance),
+          returnStart,
+          points,
+        },
+      });
+      Alert.alert('Deslocamento salvo', 'A rota foi salva no aparelho e ficará disponível para sincronização.');
+    } catch {
+      Alert.alert('Falha ao salvar', 'A rota foi finalizada, mas não foi possível gravar o registro local.');
+    }
   };
 
   const formatTime = (ms: number) => {
@@ -104,14 +140,28 @@ export default function RouteScreen() {
     return `${h}:${m}:${s}`;
   };
 
+  const title = status === 'running'
+    ? 'Em deslocamento'
+    : status === 'paused'
+      ? 'Deslocamento pausado'
+      : status === 'finished'
+        ? 'Deslocamento finalizado'
+        : status === 'starting'
+          ? 'Localizando veículo...'
+          : 'Pronto para iniciar';
+
   return (
     <View style={styles.screen}>
-      {region ? (
+      {region && !mapFailed ? (
         <MapView
           style={StyleSheet.absoluteFill}
           initialRegion={region}
           showsUserLocation
           showsMyLocationButton
+          showsCompass
+          toolbarEnabled={false}
+          onMapReady={() => setMapFailed(false)}
+          onMapLoaded={() => setMapFailed(false)}
           onRegionChangeComplete={setRegion}
         >
           {points[0] && <Marker coordinate={points[0]} title="Início" pinColor="green" />}
@@ -120,22 +170,33 @@ export default function RouteScreen() {
           {returning.length > 1 && <Polyline coordinates={returning} strokeWidth={5} strokeColor={ORANGE} />}
         </MapView>
       ) : (
-        <View style={styles.emptyMap}><Text style={styles.emptyTitle}>Mapa pronto para iniciar</Text><Text style={styles.emptyText}>O GPS será solicitado somente ao iniciar o deslocamento.</Text></View>
+        <View style={styles.emptyMap}>
+          <View style={styles.pinBadge}><Text style={styles.pinIcon}>⌖</Text></View>
+          <Text style={styles.emptyTitle}>{mapFailed ? 'Mapa temporariamente indisponível' : 'Mapa pronto para iniciar'}</Text>
+          <Text style={styles.emptyText}>{mapFailed ? 'O deslocamento pode ser salvo localmente. Tente abrir o mapa novamente depois.' : 'O GPS será solicitado somente ao iniciar o deslocamento.'}</Text>
+        </View>
       )}
 
       <View style={styles.panel}>
-        <Text style={styles.title}>{status === 'running' ? 'Em deslocamento' : status === 'paused' ? 'Deslocamento pausado' : status === 'finished' ? 'Deslocamento finalizado' : 'Pronto para iniciar'}</Text>
-        <View style={styles.metrics}>
-          <View><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo</Text></View>
-          <View><Text style={styles.value}>{(distance / 1000).toFixed(1)} km</Text><Text style={styles.label}>Distância GPS</Text></View>
+        <View style={styles.statusLine}>
+          <View style={[styles.statusDot, status === 'running' && styles.statusDotOn]} />
+          <Text style={styles.title}>{title}</Text>
         </View>
-        {status === 'idle' || status === 'finished' ? (
-          <Pressable style={styles.primary} onPress={start}><Text style={styles.primaryText}>Iniciar deslocamento</Text></Pressable>
+        <View style={styles.metrics}>
+          <View style={styles.metric}><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo</Text></View>
+          <View style={styles.metricRight}><Text style={styles.value}>{(distance / 1000).toFixed(1)} km</Text><Text style={styles.label}>Distância GPS</Text></View>
+        </View>
+        {status === 'idle' || status === 'finished' || status === 'starting' ? (
+          <Pressable style={[styles.primary, status === 'starting' && styles.disabled]} onPress={start} disabled={status === 'starting'}>
+            <Text style={styles.primaryText}>{status === 'starting' ? 'Localizando...' : 'Iniciar deslocamento'}</Text>
+          </Pressable>
         ) : (
           <View style={styles.actions}>
-            <Pressable style={styles.secondary} onPress={status === 'paused' ? resume : pause}><Text style={styles.secondaryText}>{status === 'paused' ? 'Continuar' : 'Pausar'}</Text></Pressable>
-            <Pressable style={styles.returnButton} onPress={markReturn}><Text style={styles.returnText}>{returnStart == null ? 'Iniciar retorno' : 'Retorno marcado'}</Text></Pressable>
-            <Pressable style={styles.finish} onPress={finish}><Text style={styles.finishText}>Finalizar</Text></Pressable>
+            <View style={styles.actionRow}>
+              <Pressable style={styles.secondary} onPress={status === 'paused' ? resume : pause}><Text style={styles.secondaryText}>{status === 'paused' ? 'Continuar' : 'Pausar'}</Text></Pressable>
+              <Pressable style={styles.returnButton} onPress={markReturn}><Text style={styles.returnText}>{returnStart == null ? 'Marcar retorno' : 'Retorno marcado'}</Text></Pressable>
+            </View>
+            <Pressable style={styles.finish} onPress={finish}><Text style={styles.finishText}>Finalizar deslocamento</Text></Pressable>
           </View>
         )}
       </View>
@@ -146,20 +207,29 @@ export default function RouteScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#E8EEF5' },
   emptyMap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
-  emptyTitle: { fontSize: 18, fontWeight: '900', color: NAVY },
-  emptyText: { fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 8 },
-  panel: { backgroundColor: '#fff', padding: 16, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
-  title: { fontSize: 16, fontWeight: '900', color: NAVY },
-  metrics: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 },
-  value: { fontSize: 18, fontWeight: '900', color: NAVY },
-  label: { fontSize: 11, color: MUTED },
-  actions: { gap: 8 },
-  primary: { minHeight: 48, backgroundColor: BLUE, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: '#fff', fontWeight: '900' },
-  secondary: { minHeight: 44, backgroundColor: '#E9EEF5', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  pinBadge: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#DCEAF8', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  pinIcon: { fontSize: 30, color: NAVY, fontWeight: '800' },
+  emptyTitle: { fontSize: 20, fontWeight: '900', color: NAVY },
+  emptyText: { fontSize: 13, color: MUTED, textAlign: 'center', marginTop: 8, lineHeight: 19, maxWidth: 320 },
+  panel: { backgroundColor: '#fff', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 16, borderTopLeftRadius: 26, borderTopRightRadius: 26 },
+  statusLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#B8C4D1' },
+  statusDotOn: { backgroundColor: '#25B979' },
+  title: { fontSize: 17, fontWeight: '900', color: NAVY },
+  metrics: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 16 },
+  metric: { alignItems: 'flex-start' },
+  metricRight: { alignItems: 'flex-end' },
+  value: { fontSize: 22, fontWeight: '900', color: NAVY },
+  label: { fontSize: 11, color: MUTED, marginTop: 2 },
+  actions: { gap: 10 },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  primary: { minHeight: 54, backgroundColor: BLUE, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  disabled: { opacity: 0.6 },
+  primaryText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  secondary: { flex: 1, minHeight: 48, backgroundColor: '#EDF2F7', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: NAVY, fontWeight: '800' },
-  returnButton: { minHeight: 44, backgroundColor: '#FFF0DD', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  returnButton: { flex: 1, minHeight: 48, backgroundColor: '#FFF3E4', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   returnText: { color: ORANGE, fontWeight: '900' },
-  finish: { minHeight: 44, backgroundColor: '#FF4A4A', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  finishText: { color: '#fff', fontWeight: '900' },
+  finish: { minHeight: 48, backgroundColor: '#FFF0F0', borderRadius: 12, borderWidth: 1, borderColor: '#F7C6C8', alignItems: 'center', justifyContent: 'center' },
+  finishText: { color: RED, fontWeight: '900' },
 });
