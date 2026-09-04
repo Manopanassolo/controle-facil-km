@@ -1,4 +1,4 @@
 import { registerRootComponent } from 'expo';
-import AppRC11 from './AppRC11';
+import AppRC11Final from './AppRC11Final';
 
-registerRootComponent(AppRC11);
+registerRootComponent(AppRC11Final);
