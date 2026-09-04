@@ -76,7 +76,7 @@ export default function AppRC11GoogleGate() {
       <View style={s.divider}><View style={s.line}/><Text style={s.or}>ou</Text><View style={s.line}/></View>
       <Pressable style={[s.google, (loading || googleLoading) && s.disabled]} onPress={loginGoogle} disabled={loading || googleLoading}><Text style={s.googleText}>{googleLoading ? 'Conectando ao Google...' : 'G   Entrar com Google'}</Text></Pressable>
       <Text style={s.foot}>Mobilidade que impulsiona resultados</Text>
-      <Text style={s.version}>Movvant Mobile · RC11.2</Text>
+      <Text style={s.version}>Movvant Mobile · Visual 100</Text>
     </View>
   </SafeAreaView>;
 }
