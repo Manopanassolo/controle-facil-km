@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { enqueueRemote, Session } from './api';
+import { enqueueRemote, restSelect, Session } from './api';
 
 const QUEUE_KEY = 'movvant.rc11.syncQueue';
 const STATE_KEY = 'movvant.rc11.localState';
@@ -51,6 +51,21 @@ export type LocalState = {
   appointments: LocalAppointment[];
   km: LocalKmRecord[];
   trips: LocalTripRecord[];
+};
+
+type RemoteQueueRow = {
+  id: string;
+  status: 'pending' | 'processing' | 'synced' | 'conflict' | 'failed' | 'cancelled';
+  server_entity_id?: string | null;
+  error_message?: string | null;
+};
+
+type RemoteMutation = {
+  id: string;
+  entity: string;
+  action: 'insert' | 'update' | 'delete' | 'upsert';
+  payload: Record<string, unknown>;
+  createdAt: string;
 };
 
 const EMPTY_STATE: LocalState = { appointments: [], km: [], trips: [] };
@@ -118,16 +133,134 @@ export async function removeQueued(ids: string[]): Promise<SyncItem[]> {
   return updated;
 }
 
+function toIso(date: string, time: string) {
+  const d = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(d.getTime())) throw new Error('Data ou horário inválido para sincronização.');
+  return d.toISOString();
+}
+
+function mapMutation(item: SyncItem, session: Session): RemoteMutation {
+  if (item.entity === 'appointment') {
+    const customerId = typeof item.payload.customerId === 'string' ? item.payload.customerId : '';
+    if (!customerId) throw new Error('Compromisso sem loja vinculada permanece somente no aparelho.');
+    const date = String(item.payload.date || '');
+    const time = String(item.payload.time || '09:00');
+    const start = toIso(date, time);
+    const end = new Date(new Date(start).getTime() + 60 * 60 * 1000).toISOString();
+    return {
+      id: item.id,
+      entity: 'visit',
+      action: 'insert',
+      createdAt: item.createdAt,
+      payload: {
+        customer_id: customerId,
+        scheduled_start: start,
+        scheduled_end: end,
+        status: 'planned',
+        purpose: String(item.payload.title || 'Visita'),
+        notes: 'Criado pelo Movvant Mobile',
+      },
+    };
+  }
+
+  if (item.entity === 'km') {
+    const vehicleId = typeof item.payload.vehicleId === 'string' ? item.payload.vehicleId : '';
+    if (!vehicleId) throw new Error('Registro de KM sem veículo vinculado.');
+    const hasPhoto = typeof item.payload.photoUri === 'string' && item.payload.photoUri.length > 0;
+    return {
+      id: item.id,
+      entity: 'odometer_reading',
+      action: 'insert',
+      createdAt: item.createdAt,
+      payload: {
+        vehicle_id: vehicleId,
+        reading_type: 'end',
+        odometer_km: Number(item.payload.end || 0),
+        photo_path: hasPhoto ? `mobile-pending/${item.id}` : 'not_provided',
+        captured_at: String(item.payload.createdAt || item.createdAt),
+        metadata: {
+          source: 'movvant_mobile',
+          start_km: Number(item.payload.start || 0),
+          distance_km: Number(item.payload.total || 0),
+          reason: String(item.payload.reason || ''),
+          photo_attached_locally: hasPhoto,
+        },
+      },
+    };
+  }
+
+  const started = Number(item.payload.startedAt || Date.now());
+  const finished = Number(item.payload.finishedAt || Date.now());
+  const date = new Date(started);
+  return {
+    id: item.id,
+    entity: 'route_plan',
+    action: 'insert',
+    createdAt: item.createdAt,
+    payload: {
+      route_type: 'field_trip',
+      assigned_user_id: session.user.id,
+      route_date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+      status: 'completed',
+      started_at: new Date(started).toISOString(),
+      ended_at: new Date(finished).toISOString(),
+      actual_distance_m: Math.max(0, Number(item.payload.distanceMeters || 0)),
+      actual_duration_s: Math.max(0, Math.round(Number(item.payload.elapsedMs || 0) / 1000)),
+      metadata: {
+        source: 'movvant_mobile',
+        return_start_index: item.payload.returnStart ?? null,
+        gps_points: Array.isArray(item.payload.points) ? item.payload.points : [],
+      },
+    },
+  };
+}
+
+async function applyRemoteQueue(session: Session, queueId: string, retry: boolean) {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+  const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error('Supabase não configurado nesta instalação.');
+  const r = await fetch(`${url}/functions/v1/sync-apply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: key,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ queue_id: queueId, retry }),
+  });
+  const text = await r.text();
+  let body: Record<string, unknown> = {};
+  if (text) try { body = JSON.parse(text) as Record<string, unknown>; } catch { body = { message: text }; }
+  if (!r.ok || body.ok !== true) throw new Error(String(body.message || body.error || `Falha sync-apply HTTP ${r.status}`));
+  return body;
+}
+
+async function findExistingRemote(session: Session, mutationId: string): Promise<RemoteQueueRow | null> {
+  const rows = await restSelect<RemoteQueueRow>(session, 'sync_queue', `select=id,status,server_entity_id,error_message&client_mutation_id=eq.${encodeURIComponent(mutationId)}&user_id=eq.${encodeURIComponent(session.user.id)}&order=server_received_at.desc&limit=1`);
+  return rows[0] || null;
+}
+
+async function pushAndApply(session: Session, companyId: string, item: SyncItem) {
+  const mutation = mapMutation(item, session);
+  let row = await findExistingRemote(session, item.id);
+  if (row?.status === 'synced') return;
+  if (row?.status === 'processing') throw new Error('Registro já está sendo processado no servidor.');
+  if (row?.status === 'cancelled') throw new Error('Registro foi cancelado no servidor.');
+
+  if (!row) {
+    const created = await enqueueRemote(session, companyId, mutation) as unknown as RemoteQueueRow[];
+    row = created[0] || null;
+  }
+  if (!row?.id) throw new Error('Servidor não retornou o identificador da fila.');
+  await applyRemoteQueue(session, row.id, row.status === 'failed' || row.status === 'conflict');
+}
+
 async function markLocalSynced(sent: SyncItem[]) {
   if (!sent.length) return;
-  const ids = {
-    appointment: new Set<string>(),
-    km: new Set<string>(),
-    trip: new Set<string>(),
-  };
+  const ids = { appointment: new Set<string>(), km: new Set<string>(), trip: new Set<string>() };
   for (const item of sent) {
     const localId = typeof item.payload.localId === 'string' ? item.payload.localId : '';
-    if (localId && item.entity in ids) ids[item.entity].add(localId);
+    if (localId) ids[item.entity].add(localId);
   }
   await mutateLocal(state => ({
     appointments: state.appointments.map(x => ids.appointment.has(x.id) ? { ...x, synced: true } : x),
@@ -144,7 +277,7 @@ export async function syncPending(session: Session, companyId: string): Promise<
   const errors: string[] = [];
   for (const item of queue) {
     try {
-      await enqueueRemote(session, companyId, item);
+      await pushAndApply(session, companyId, item);
       sentIds.push(item.id);
       sentItems.push(item);
     } catch (e) {
