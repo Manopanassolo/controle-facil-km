@@ -1,0 +1,52 @@
+name: RC11 photo sync polish
+
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - '.github/workflows/rc11-photo-sync-polish.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Wire KM photo upload into enterprise storage
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/src/offline.ts')
+          s=p.read_text()
+          old="function mapMutation(item: SyncItem, session: Session): RemoteMutation {"
+          insert="""async function uploadKmPhoto(session: Session, companyId: string, item: SyncItem): Promise<string | null> {\n  const uri = typeof item.payload.photoUri === 'string' ? item.payload.photoUri : '';\n  if (!uri) return null;\n  const url = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\\/$/, '');\n  const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;\n  if (!url || !key) throw new Error('Supabase não configurado nesta instalação.');\n  const source = await fetch(uri);\n  if (!source.ok) throw new Error('Não foi possível ler a foto do registro de KM.');\n  const blob = await source.blob();\n  const path = `${companyId}/${session.user.id}/odometer/${item.id}.jpg`;\n  const upload = await fetch(`${url}/storage/v1/object/fleet-documents/${path}`, {\n    method: 'POST',\n    headers: {\n      apikey: key,\n      Authorization: `Bearer ${session.access_token}`,\n      'Content-Type': blob.type || 'image/jpeg',\n      'x-upsert': 'true',\n    },\n    body: blob,\n  });\n  if (!upload.ok) {\n    const message = await upload.text();\n    throw new Error(message || `Falha ao enviar foto HTTP ${upload.status}`);\n  }\n  return path;\n}\n\nasync function mapMutation(item: SyncItem, session: Session, companyId: string): Promise<RemoteMutation> {"""
+          if old not in s: raise SystemExit('map signature missing')
+          s=s.replace(old,insert,1)
+          old2="    const hasPhoto = typeof item.payload.photoUri === 'string' && item.payload.photoUri.length > 0;"
+          new2="    const photoPath = await uploadKmPhoto(session, companyId, item);\n    const hasPhoto = Boolean(photoPath);"
+          if old2 not in s: raise SystemExit('photo flag missing')
+          s=s.replace(old2,new2,1)
+          old3="        photo_path: hasPhoto ? `mobile-pending/${item.id}` : 'not_provided',"
+          new3="        photo_path: photoPath || 'not_provided',"
+          if old3 not in s: raise SystemExit('photo path missing')
+          s=s.replace(old3,new3,1)
+          old4="  const mutation = mapMutation(item, session);"
+          new4="  const mutation = await mapMutation(item, session, companyId);"
+          if old4 not in s: raise SystemExit('map call missing')
+          s=s.replace(old4,new4,1)
+          p.write_text(s)
+          PY
+      - name: Commit polish
+        run: |
+          git config user.name 'Movvant Build Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add mobile-rc11/src/offline.ts
+          git commit -m 'RC11 final: upload KM evidence before enterprise sync'
+          git push origin HEAD:movvant-mobile-rc11
