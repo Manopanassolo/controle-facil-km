@@ -1,0 +1,39 @@
+name: RC11 integrated Agenda KM block
+
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - '.github/workflows/rc11-block2-agenda-km.yml'
+      - '.github/scripts/rc11_block2_agenda_km.py'
+
+permissions:
+  contents: write
+
+jobs:
+  agenda-km:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply Agenda and KM integration
+        run: python3 .github/scripts/rc11_block2_agenda_km.py
+      - name: Validate mobile
+        working-directory: mobile-rc11
+        run: |
+          npm install --no-audit --no-fund
+          npx expo-doctor
+          npx tsc --noEmit
+          npx expo config --type public > /tmp/rc11-block2.json
+          grep -q 'com.movvant.enterprise' /tmp/rc11-block2.json
+      - name: Commit block
+        run: |
+          git config user.name 'Movvant Build Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add mobile-rc11/src/offline.ts mobile-rc11/AppRC11Final.tsx mobile-rc11/INTEGRATED_BLOCK2_STATUS.md
+          git commit -m 'RC11: close integrated Agenda and KM block'
+          git push origin HEAD:movvant-mobile-rc11
