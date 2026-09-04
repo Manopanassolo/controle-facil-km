@@ -1,0 +1,278 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
+import * as ImagePicker from 'expo-image-picker';
+import { Alert, Modal, Pressable, SafeAreaView, ScrollView, Share, StatusBar, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import RouteScreen from './src/RouteScreen';
+import { BootstrapData, CustomerRow, NotificationRow, Session, VehicleRow, loadBootstrap, markNotificationRead, refreshSession, signIn } from './src/api';
+import { LocalAppointment, LocalKmRecord, LocalState, enqueue, readLocalState, readQueue, saveAppointmentLocal, saveKmLocal, syncPending } from './src/offline';
+
+type Tab = 'home' | 'agenda' | 'km' | 'mapa' | 'mais';
+type MorePage = 'menu' | 'lojas' | 'relatorios' | 'notificacoes' | 'sincronizacao' | 'configuracoes';
+type Appointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; local?: boolean; status?: string };
+type Preferences = { autoSync: boolean; offlineMode: boolean; notifications: boolean };
+
+const BLUE = '#1769E0';
+const NAVY = '#0B3558';
+const BG = '#F3F6FA';
+const TEXT = '#17324D';
+const MUTED = '#78889A';
+const BORDER = '#DFE6EE';
+const GREEN = '#22B77A';
+const ORANGE = '#F59E0B';
+const RED = '#E5484D';
+const SESSION_KEY = 'movvant.rc11.session';
+const PREFS_KEY = 'movvant.rc11.preferences';
+const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const WEEK = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const DEFAULT_PREFS: Preferences = { autoSync: true, offlineMode: true, notifications: true };
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const num = (v: unknown) => Number(v || 0) || 0;
+const money = (v: unknown) => num(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const nameOf = (session: Session | null, data?: BootstrapData | null) => data?.directory?.full_name || String(session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Usuário');
+const roleOf = (data?: BootstrapData | null) => data?.directory?.role_name || data?.directory?.job_title || 'Usuário';
+const initials = (name: string) => name.split(' ').filter(Boolean).slice(0,2).map(x => x[0]?.toUpperCase()).join('') || 'MV';
+const customerName = (c?: CustomerRow | null) => c?.trade_name || c?.legal_name || 'Loja';
+const cacheKey = (userId: string) => `movvant.rc11.bootstrap.${userId}`;
+
+async function saveBootstrap(userId: string, data: BootstrapData) {
+  await AsyncStorage.setItem(cacheKey(userId), JSON.stringify(data));
+}
+async function readBootstrap(userId: string): Promise<BootstrapData | null> {
+  const raw = await AsyncStorage.getItem(cacheKey(userId));
+  if (!raw) return null;
+  try { return JSON.parse(raw) as BootstrapData; } catch { return null; }
+}
+async function savePrefs(p: Preferences) { await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(p)); }
+async function readPrefs(): Promise<Preferences> {
+  const raw = await AsyncStorage.getItem(PREFS_KEY);
+  if (!raw) return DEFAULT_PREFS;
+  try { return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<Preferences>) }; } catch { return DEFAULT_PREFS; }
+}
+
+function Field({ label, value, setValue, placeholder, secure = false, numeric = false, editable = true }: { label: string; value: string; setValue: (v: string) => void; placeholder?: string; secure?: boolean; numeric?: boolean; editable?: boolean }) {
+  return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput style={[s.input, !editable && s.inputOff]} value={value} onChangeText={setValue} placeholder={placeholder} secureTextEntry={secure} keyboardType={numeric ? 'numeric' : 'default'} editable={editable} autoCapitalize={label.toLowerCase().includes('e-mail') ? 'none' : 'sentences'} /></View>;
+}
+function Empty({ title, text }: { title: string; text: string }) { return <View style={s.empty}><Text style={s.emptyTitle}>{title}</Text><Text style={s.sub}>{text}</Text></View>; }
+function Hero({ title, text }: { title: string; text: string }) { return <View style={s.hero}><Text style={s.heroTop}>MOVVANT ENTERPRISE</Text><Text style={s.heroTitle}>{title}</Text><Text style={s.heroText}>{text}</Text></View>; }
+function Row({ icon, title, sub, onPress }: { icon: string; title: string; sub: string; onPress: () => void }) { return <Pressable style={s.row} onPress={onPress}><View style={s.rowIcon}><Text style={s.rowIconText}>{icon}</Text></View><View style={{ flex: 1 }}><Text style={s.rowTitle}>{title}</Text><Text style={s.sub}>{sub}</Text></View><Text style={s.rowArrow}>›</Text></Pressable>; }
+function Header({ title, onMenu, onBack, unread }: { title: string; onMenu: () => void; onBack?: () => void; unread: number }) { return <View style={s.header}><Pressable style={s.headerBtn} onPress={onBack || onMenu}><Text style={s.headerBtnText}>{onBack ? '‹' : '☰'}</Text></Pressable><Text style={s.headerTitle}>{title}</Text><View style={s.headerRight}>{unread > 0 && <View style={s.unreadBadge}><Text style={s.unreadText}>{unread > 99 ? '99+' : unread}</Text></View>}<Text style={s.headerBell}>●</Text></View></View>; }
+function Bottom({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) { const rows: Array<[Tab,string,string]> = [['home','⌂','Home'],['agenda','▣','Agenda'],['km','◎','KM'],['mapa','⌖','Mapa'],['mais','•••','Mais']]; return <View style={s.bottom}>{rows.map(([k,i,l]) => <Pressable key={k} style={s.bottomItem} onPress={() => setTab(k)}><Text style={[s.bottomIcon, tab === k && s.active]}>{i}</Text><Text style={[s.bottomLabel, tab === k && s.active]}>{l}</Text></Pressable>)}</View>; }
+function Metric({ icon, value, label, tone }: { icon: string; value: string; label: string; tone: 'g'|'b'|'o' }) { const bg = tone === 'g' ? '#E7F7F0' : tone === 'b' ? '#EAF2FE' : '#FFF3E5'; const color = tone === 'g' ? GREEN : tone === 'b' ? BLUE : ORANGE; return <View style={s.metric}><View style={[s.metricIcon,{ backgroundColor: bg }]}><Text style={{ color, fontWeight: '900' }}>{icon}</Text></View><Text style={s.metricValue}>{value}</Text><Text style={s.metricLabel}>{label}</Text></View>; }
+
+function Login({ onLogin }: { onLogin: (session: Session) => void }) {
+  const [email,setEmail] = useState(''); const [password,setPassword] = useState(''); const [loading,setLoading] = useState(false);
+  const submit = async () => {
+    if (!email.trim() || !password) return Alert.alert('Acesso', 'Informe e-mail e senha.');
+    setLoading(true);
+    try {
+      const session = await signIn(email, password);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      onLogin(session);
+    } catch (e) { Alert.alert('Não foi possível entrar', e instanceof Error ? e.message : 'Verifique e-mail, senha e conexão.'); }
+    finally { setLoading(false); }
+  };
+  return <SafeAreaView style={s.login}><StatusBar barStyle="light-content" backgroundColor={NAVY}/><View style={s.loginHero}><View style={s.logo}><Text style={s.logoText}>M</Text></View><Text style={s.brand}>Movvant</Text><Text style={s.enterprise}>ENTERPRISE</Text><Text style={s.tag}>A gestão em movimento</Text></View><View style={s.loginCard}><Text style={s.loginTitle}>Bem-vindo</Text><Text style={s.loginSub}>Entre para acessar sua operação</Text><Field label="E-mail" value={email} setValue={setEmail} placeholder="seu@email.com"/><Field label="Senha" value={password} setValue={setPassword} secure placeholder="••••••••"/><Pressable style={[s.primary, loading && s.disabled]} onPress={submit} disabled={loading}><Text style={s.primaryText}>{loading ? 'Entrando...' : 'Entrar'}</Text></Pressable><Text style={s.loginFoot}>Mobilidade que impulsiona resultados</Text><Text style={s.version}>Movvant Mobile · RC11 Final</Text></View></SafeAreaView>;
+}
+
+function AgendaRow({ item }: { item: Appointment }) { return <View style={s.agendaRow}><Text style={s.time}>{item.time}</Text><View style={[s.greenLine, item.local && { backgroundColor: ORANGE }]}/><View style={{ flex: 1 }}><Text style={s.store}>{item.store}</Text><Text style={s.sub}>{item.title}{item.local ? ' · aguardando sincronização' : ''}</Text></View></View>; }
+
+function Home({ session, data, local, appointments, online, pending, goAgenda, goMap }: { session: Session; data: BootstrapData | null; local: LocalState; appointments: Appointment[]; online: boolean; pending: number; goAgenda: () => void; goMap: () => void }) {
+  const today = new Date(); const todayKey = isoDate(today); const name = nameOf(session,data);
+  const todayItems = appointments.filter(x => x.date === todayKey).sort((a,b) => a.time.localeCompare(b.time));
+  const todayStores = new Set(todayItems.map(x => x.customerId).filter(Boolean)).size;
+  const localKm = local.km.filter(x => x.createdAt.slice(0,10) === todayKey).reduce((n,x) => n + x.total, 0);
+  const localTripKm = local.trips.filter(x => new Date(x.finishedAt).toISOString().slice(0,10) === todayKey).reduce((n,x) => n + x.distanceMeters / 1000, 0);
+  const km = localKm || localTripKm;
+  return <ScrollView contentContainerStyle={s.content}>
+    <View style={s.profile}><View style={s.avatar}><Text style={s.avatarText}>{initials(name)}</Text></View><View style={{ flex: 1 }}><Text style={s.hello}>Olá, {name.split(' ')[0]}</Text><Text style={s.muted}>{roleOf(data)}{data?.directory?.branch_name ? ` · ${data.directory.branch_name}` : ''}</Text><Text style={s.dateText}>{WEEK[today.getDay()]}, {today.getDate()} de {MONTHS[today.getMonth()].toLowerCase()}</Text></View></View>
+    <View style={s.metricRow}><Metric icon="▦" value={String(todayStores)} label="Lojas hoje" tone="g"/><Metric icon="◷" value={String(todayItems.length)} label="Compromissos" tone="b"/><Metric icon="⌖" value={`${km.toFixed(1)} km`} label="Percorridos" tone="o"/></View>
+    <View style={s.sectionHead}><Text style={s.sectionTitle}>Próximos compromissos</Text><Pressable onPress={goAgenda}><Text style={s.link}>Ver todos</Text></Pressable></View>
+    {todayItems.length ? todayItems.slice(0,4).map(x => <AgendaRow key={x.id} item={x}/>) : <Empty title="Agenda livre hoje" text="Seus próximos compromissos aparecerão aqui."/>}
+    <Pressable style={s.primary} onPress={goMap}><Text style={s.primaryText}>Iniciar deslocamento</Text></Pressable>
+    <View style={s.syncCard}><View style={[s.syncCheck, !online && { backgroundColor: '#FFF3E5' }]}><Text style={[s.syncCheckText, !online && { color: ORANGE }]}>{online ? '✓' : '!'}</Text></View><View style={{ flex: 1 }}><Text style={s.syncTitle}>{online ? 'Conectado ao Movvant' : 'Trabalhando offline'}</Text><Text style={s.sub}>{pending ? `${pending} registro(s) aguardando envio.` : 'Fila local sem pendências.'}</Text></View><View style={[s.onlineDot, !online && { backgroundColor: ORANGE }]}/></View>
+    {!data?.companyId && <Empty title="Sem vínculo empresarial" text="Seu login é válido, mas não há empresa ativa vinculada ao perfil. Solicite a liberação do administrador."/>}
+  </ScrollView>;
+}
+
+function CustomerPicker({ visible, customers, selected, close, select }: { visible: boolean; customers: CustomerRow[]; selected?: string; close: () => void; select: (c: CustomerRow) => void }) {
+  const [q,setQ] = useState('');
+  useEffect(() => { if (!visible) setQ(''); }, [visible]);
+  const rows = customers.filter(c => `${customerName(c)} ${c.legal_name} ${c.city || ''} ${c.state || ''}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0,100);
+  return <Modal visible={visible} animationType="slide" onRequestClose={close}><SafeAreaView style={s.screen}><View style={s.modalHeader}><Pressable onPress={close}><Text style={s.modalBack}>‹</Text></Pressable><Text style={s.modalTitle}>Selecionar loja</Text><View style={{ width: 32 }}/></View><View style={s.modalSearch}><TextInput value={q} onChangeText={setQ} placeholder="Buscar loja, cidade..." style={s.searchInput}/></View><ScrollView contentContainerStyle={s.modalList}>{rows.map(c => <Pressable key={c.id} style={[s.selectRow, selected === c.id && s.selectRowOn]} onPress={() => { select(c); close(); }}><View><Text style={s.rowTitle}>{customerName(c)}</Text><Text style={s.sub}>{[c.city,c.state].filter(Boolean).join(' · ') || c.legal_name}</Text></View>{selected === c.id && <Text style={s.check}>✓</Text>}</Pressable>)}{!rows.length && <Empty title="Nenhuma loja encontrada" text="A busca respeita a carteira disponível para seu usuário."/>}</ScrollView></SafeAreaView></Modal>;
+}
+
+function VehiclePicker({ visible, vehicles, selected, close, select }: { visible: boolean; vehicles: VehicleRow[]; selected?: string; close: () => void; select: (v: VehicleRow) => void }) {
+  return <Modal visible={visible} animationType="slide" onRequestClose={close}><SafeAreaView style={s.screen}><View style={s.modalHeader}><Pressable onPress={close}><Text style={s.modalBack}>‹</Text></Pressable><Text style={s.modalTitle}>Selecionar veículo</Text><View style={{ width: 32 }}/></View><ScrollView contentContainerStyle={s.modalList}>{vehicles.map(v => <Pressable key={v.id} style={[s.selectRow, selected === v.id && s.selectRowOn]} onPress={() => { select(v); close(); }}><View><Text style={s.rowTitle}>{v.plate}</Text><Text style={s.sub}>{[v.make,v.model].filter(Boolean).join(' ') || 'Veículo'}</Text></View>{selected === v.id && <Text style={s.check}>✓</Text>}</Pressable>)}{!vehicles.length && <Empty title="Nenhum veículo disponível" text="Seu perfil não possui veículo ativo atribuído."/>}</ScrollView></SafeAreaView></Modal>;
+}
+
+function Agenda({ appointments, customers, onSave }: { appointments: Appointment[]; customers: CustomerRow[]; onSave: (item: LocalAppointment) => Promise<void> }) {
+  const now = new Date();
+  const [cursor,setCursor] = useState(new Date(now.getFullYear(),now.getMonth(),1)); const [selected,setSelected] = useState(isoDate(now)); const [open,setOpen] = useState(false); const [title,setTitle] = useState(''); const [time,setTime] = useState('09:00'); const [customer,setCustomer] = useState<CustomerRow | null>(null); const [picker,setPicker] = useState(false);
+  const y = cursor.getFullYear(), m = cursor.getMonth(), first = new Date(y,m,1).getDay(), days = new Date(y,m+1,0).getDate();
+  const cells = Array.from({ length: first + days }, (_,i) => i < first ? null : i - first + 1);
+  const dayItems = appointments.filter(x => x.date === selected).sort((a,b) => a.time.localeCompare(b.time));
+  const selectedObj = new Date(`${selected}T12:00:00`);
+  const change = (delta: number) => { const n = new Date(y,m+delta,1); setCursor(n); setSelected(isoDate(n.getFullYear() === now.getFullYear() && n.getMonth() === now.getMonth() ? now : n)); };
+  const save = async () => {
+    if (!title.trim()) return Alert.alert('Compromisso', 'Informe um título.');
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return Alert.alert('Horário', 'Use o formato HH:MM.');
+    const item: LocalAppointment = { id: `${Date.now()}-appointment`, date: selected, time, title: title.trim(), store: customer ? customerName(customer) : 'Sem loja definida', type: 'Compromisso', customerId: customer?.id, synced: false };
+    await onSave(item); setTitle(''); setTime('09:00'); setCustomer(null); setOpen(false);
+  };
+  return <ScrollView contentContainerStyle={s.content}>
+    <View style={s.calendar}><View style={s.monthHead}><Pressable onPress={() => change(-1)}><Text style={s.arrow}>‹</Text></Pressable><Text style={s.monthTitle}>{MONTHS[m]} {y}</Text><Pressable onPress={() => change(1)}><Text style={s.arrow}>›</Text></Pressable></View><View style={s.week}>{['D','S','T','Q','Q','S','S'].map((x,i) => <Text key={i} style={s.weekText}>{x}</Text>)}</View><View style={s.days}>{cells.map((d,i) => !d ? <View key={`e-${i}`} style={s.dayCell}/> : <Pressable key={d} style={s.dayCell} onPress={() => setSelected(isoDate(new Date(y,m,d)))}><View style={[s.dayCircle, selected === isoDate(new Date(y,m,d)) && s.daySelected]}><Text style={[s.dayText, selected === isoDate(new Date(y,m,d)) && s.dayTextSelected]}>{d}</Text></View>{appointments.some(x => x.date === isoDate(new Date(y,m,d))) && <View style={s.dayDot}/>}</Pressable>)}</View></View>
+    <View style={s.sectionHead}><Text style={s.sectionTitle}>{WEEK[selectedObj.getDay()]}, {selectedObj.getDate()} de {MONTHS[selectedObj.getMonth()].toLowerCase()}</Text><Pressable onPress={() => setOpen(true)}><Text style={s.link}>+ Novo</Text></Pressable></View>
+    {dayItems.length ? dayItems.map(x => <AgendaRow key={x.id} item={x}/>) : <Empty title="Nenhum compromisso" text="Toque em + Novo para adicionar."/>}
+    <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}><SafeAreaView style={s.screen}><View style={s.modalHeader}><Pressable onPress={() => setOpen(false)}><Text style={s.modalBack}>‹</Text></Pressable><Text style={s.modalTitle}>Novo compromisso</Text><View style={{ width: 32 }}/></View><ScrollView contentContainerStyle={s.content}><Field label="Título" value={title} setValue={setTitle} placeholder="Ex.: Visita comercial"/><Field label="Data" value={`${pad(selectedObj.getDate())}/${pad(selectedObj.getMonth()+1)}/${selectedObj.getFullYear()}`} setValue={() => {}} editable={false}/><Field label="Horário" value={time} setValue={setTime} placeholder="09:00"/><View style={s.field}><Text style={s.label}>Loja</Text><Pressable style={s.inputButton} onPress={() => setPicker(true)}><Text style={customer ? s.inputButtonText : s.inputPlaceholder}>{customer ? customerName(customer) : 'Selecionar loja'}</Text><Text style={s.rowArrow}>›</Text></Pressable></View><Pressable style={s.primary} onPress={save}><Text style={s.primaryText}>Salvar compromisso</Text></Pressable></ScrollView><CustomerPicker visible={picker} customers={customers} selected={customer?.id} close={() => setPicker(false)} select={setCustomer}/></SafeAreaView></Modal>
+  </ScrollView>;
+}
+
+function Km({ vehicles, history, onSave }: { vehicles: VehicleRow[]; history: LocalKmRecord[]; onSave: (item: LocalKmRecord) => Promise<void> }) {
+  const [tab,setTab] = useState<'register'|'history'>('register'); const [vehicle,setVehicle] = useState<VehicleRow | null>(vehicles[0] || null); const [start,setStart] = useState(''); const [end,setEnd] = useState(''); const [reason,setReason] = useState(''); const [photo,setPhoto] = useState<string | null>(null); const [picker,setPicker] = useState(false);
+  useEffect(() => { if (!vehicle && vehicles[0]) setVehicle(vehicles[0]); }, [vehicles,vehicle]);
+  const a = Number(start.replace(/\D/g,'')), b = Number(end.replace(/\D/g,'')); const total = start && end && b >= a ? b - a : 0;
+  const capture = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return Alert.alert('Câmera', 'Permita o uso da câmera para anexar a foto.');
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: false });
+    if (!result.canceled && result.assets[0]?.uri) setPhoto(result.assets[0].uri);
+  };
+  const save = async () => {
+    if (!vehicle) return Alert.alert('Veículo', 'Selecione um veículo.');
+    if (!start || !end) return Alert.alert('Registro de KM', 'Informe KM inicial e KM final.');
+    if (b < a) return Alert.alert('KM inválido', 'O KM final não pode ser menor que o inicial.');
+    const item: LocalKmRecord = { id: `${Date.now()}-km`, vehicleId: vehicle.id, vehicle: vehicle.plate, start: a, end: b, total, reason: reason.trim(), photoUri: photo, createdAt: new Date().toISOString(), synced: false };
+    await onSave(item); setStart(''); setEnd(''); setReason(''); setPhoto(null); Alert.alert('Registro salvo', 'O KM foi salvo localmente e entrou na fila de sincronização.');
+  };
+  return <ScrollView contentContainerStyle={s.content}><View style={s.segment}><Pressable style={[s.segmentTab,tab==='register'&&s.segmentOn]} onPress={() => setTab('register')}><Text style={[s.segmentText,tab==='register'&&s.segmentTextOn]}>Registrar</Text></Pressable><Pressable style={[s.segmentTab,tab==='history'&&s.segmentOn]} onPress={() => setTab('history')}><Text style={[s.segmentText,tab==='history'&&s.segmentTextOn]}>Histórico</Text></Pressable></View>
+    {tab === 'register' ? <><View style={s.field}><Text style={s.label}>Veículo</Text><Pressable style={s.inputButton} onPress={() => setPicker(true)}><Text style={vehicle ? s.inputButtonText : s.inputPlaceholder}>{vehicle ? `${vehicle.plate}${vehicle.model ? ` · ${vehicle.model}` : ''}` : 'Selecionar veículo'}</Text><Text style={s.rowArrow}>›</Text></Pressable></View><Field label="KM inicial" value={start} setValue={setStart} numeric placeholder={vehicle?.current_odometer_km ? String(Math.round(num(vehicle.current_odometer_km))) : '0'}/><Field label="KM final" value={end} setValue={setEnd} numeric placeholder="0"/><View style={s.total}><View><Text style={s.muted}>Distância percorrida</Text><Text style={s.totalHint}>Cálculo automático</Text></View><Text style={s.totalValue}>{total} km</Text></View><Field label="Motivo" value={reason} setValue={setReason} placeholder="Ex.: Visita a lojas"/><Pressable style={[s.attach,photo&&s.attachDone]} onPress={capture}><Text style={s.attachIcon}>{photo ? '✓' : '▧'}</Text><View><Text style={s.rowTitle}>{photo ? 'Foto anexada' : 'Adicionar foto'}</Text><Text style={s.sub}>{photo ? 'Toque para substituir' : 'Opcional · comprovante ou painel'}</Text></View></Pressable><Pressable style={s.primary} onPress={save}><Text style={s.primaryText}>Salvar registro</Text></Pressable><VehiclePicker visible={picker} vehicles={vehicles} selected={vehicle?.id} close={() => setPicker(false)} select={setVehicle}/></> : history.length ? history.map(x => <View style={s.historyCard} key={x.id}><View style={s.historyHead}><Text style={s.rowTitle}>{x.vehicle}</Text><Text style={[s.statusPill,x.synced&&s.statusPillOk]}>{x.synced?'Enviado':'Local'}</Text></View><Text style={s.historyKm}>{x.total} km</Text><Text style={s.sub}>{new Date(x.createdAt).toLocaleString('pt-BR')} · {x.start} → {x.end}</Text>{x.reason ? <Text style={s.sub}>{x.reason}</Text> : null}</View>) : <Empty title="Histórico vazio" text="Os registros feitos neste aparelho aparecerão aqui."/>}
+  </ScrollView>;
+}
+
+function Stores({ customers, branchId, branchScoped }: { customers: CustomerRow[]; branchId: string | null; branchScoped: boolean }) {
+  const [q,setQ] = useState('');
+  const scoped = branchScoped && branchId ? customers.filter(c => !c.branch_id || c.branch_id === branchId) : customers;
+  const rows = scoped.filter(c => `${customerName(c)} ${c.legal_name} ${c.city || ''} ${c.state || ''}`.toLowerCase().includes(q.toLowerCase()));
+  return <ScrollView contentContainerStyle={s.content}><View style={s.search}><Text style={s.searchIcon}>⌕</Text><TextInput style={s.searchTextInput} value={q} onChangeText={setQ} placeholder="Buscar loja..."/></View><View style={s.listCount}><Text style={s.sectionTitle}>Carteira</Text><Text style={s.muted}>{rows.length} loja(s)</Text></View>{rows.length ? rows.map(c => <View style={s.storeCard} key={c.id}><View style={s.storeBadge}><Text style={s.storeBadgeText}>▦</Text></View><View style={{flex:1}}><Text style={s.rowTitle}>{customerName(c)}</Text><Text style={s.sub}>{[c.city,c.state].filter(Boolean).join(' · ') || c.legal_name}</Text></View></View>) : <Empty title="Nenhuma loja encontrada" text="A carteira exibida respeita os dados disponíveis para seu usuário."/>}</ScrollView>;
+}
+
+function Reports({ data, local }: { data: BootstrapData | null; local: LocalState }) {
+  const perf = data?.performance;
+  const localKm = local.km.reduce((n,x) => n + x.total, 0); const tripKm = local.trips.reduce((n,x) => n + x.distanceMeters / 1000, 0); const tripMinutes = local.trips.reduce((n,x) => n + x.elapsedMs / 60000, 0);
+  const share = async () => {
+    const text = [`Movvant Enterprise — resumo operacional`,`Usuário: ${data?.directory?.full_name || 'Usuário'}`,`Período remoto: últimos 30 dias`,`Visitas: ${num(perf?.visits_30d)}`,`Visitas validadas: ${num(perf?.validated_visits_30d)}`,`KM remoto: ${num(perf?.actual_km_30d).toFixed(1)} km`,`KM registrado no aparelho: ${localKm.toFixed(1)} km`,`Rotas concluídas: ${num(perf?.completed_routes_30d)}/${num(perf?.routes_30d)}`,`Receita: ${money(perf?.revenue_30d)}`].join('\n');
+    await Share.share({ message: text, title: 'Resumo Movvant' });
+  };
+  const cards: Array<[string,string,string]> = [['▣',String(num(perf?.visits_30d)),'Visitas · 30 dias'],['✓',String(num(perf?.validated_visits_30d)),'Visitas validadas'],['⌖',`${num(perf?.actual_km_30d).toFixed(1)} km`,'KM remoto · 30 dias'],['◎',`${localKm.toFixed(1)} km`,'KM neste aparelho'],['◷',`${Math.round(tripMinutes)} min`,'Deslocamento local'],['↗',`${num(perf?.avg_adherence_pct).toFixed(0)}%`,'Aderência às rotas']];
+  return <ScrollView contentContainerStyle={s.content}><Hero title="Informação na palma da mão" text="Indicadores reais disponíveis para sua operação."/><View style={s.reportGrid}>{cards.map(([i,v,l]) => <View key={l} style={s.reportCard}><Text style={s.reportIcon}>{i}</Text><Text style={s.reportValue}>{v}</Text><Text style={s.metricLabel}>{l}</Text></View>)}</View><View style={s.reportWide}><Text style={s.rowTitle}>Resultado comercial · 30 dias</Text><View style={s.reportLine}><Text style={s.sub}>Pedidos</Text><Text style={s.reportLineValue}>{num(perf?.orders_30d)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Receita</Text><Text style={s.reportLineValue}>{money(perf?.revenue_30d)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Rotas concluídas</Text><Text style={s.reportLineValue}>{num(perf?.completed_routes_30d)} / {num(perf?.routes_30d)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Deslocamentos locais</Text><Text style={s.reportLineValue}>{local.trips.length} · {tripKm.toFixed(1)} km</Text></View></View><Pressable style={s.primary} onPress={share}><Text style={s.primaryText}>Compartilhar resumo</Text></Pressable>{!perf && <Empty title="Indicadores ainda indisponíveis" text="O painel será preenchido quando a base empresarial tiver dados liberados para este usuário."/>}</ScrollView>;
+}
+
+function Notifications({ rows, onRead }: { rows: NotificationRow[]; onRead: (id: string) => Promise<void> }) {
+  const [filter,setFilter] = useState<'all'|'unread'|'system'>('all');
+  const visible = rows.filter(n => filter === 'unread' ? !n.read_at : filter === 'system' ? n.notification_type.toLowerCase().includes('system') || n.notification_type.toLowerCase().includes('sistema') : true);
+  return <ScrollView contentContainerStyle={s.content}><View style={s.segment}><Pressable style={[s.segmentTab,filter==='all'&&s.segmentOn]} onPress={() => setFilter('all')}><Text style={[s.segmentText,filter==='all'&&s.segmentTextOn]}>Todas</Text></Pressable><Pressable style={[s.segmentTab,filter==='unread'&&s.segmentOn]} onPress={() => setFilter('unread')}><Text style={[s.segmentText,filter==='unread'&&s.segmentTextOn]}>Não lidas</Text></Pressable><Pressable style={[s.segmentTab,filter==='system'&&s.segmentOn]} onPress={() => setFilter('system')}><Text style={[s.segmentText,filter==='system'&&s.segmentTextOn]}>Sistema</Text></Pressable></View>{visible.length ? visible.map(n => <Pressable key={n.id} style={[s.notification,!n.read_at&&s.notificationUnread]} onPress={() => !n.read_at ? onRead(n.id) : undefined}><View style={[s.notifDot,n.priority==='high'&&{backgroundColor:RED}]}/><View style={{flex:1}}><Text style={s.rowTitle}>{n.title}</Text>{n.body ? <Text style={s.sub}>{n.body}</Text> : null}<Text style={s.notifTime}>{new Date(n.created_at).toLocaleString('pt-BR')}</Text></View>{!n.read_at&&<Text style={s.newText}>Nova</Text>}</Pressable>) : <Empty title="Nenhuma notificação" text="Não há itens neste filtro."/>}</ScrollView>;
+}
+
+function SyncPage({ online, pending, lastLoaded, errors, syncing, onSync, onRefresh }: { online: boolean; pending: number; lastLoaded?: string; errors: string[]; syncing: boolean; onSync: () => Promise<void>; onRefresh: () => Promise<void> }) {
+  return <ScrollView contentContainerStyle={s.content}><View style={s.syncHero}><View style={[s.syncBig,!online&&{backgroundColor:'#FFF3E5'}]}><Text style={[s.syncBigText,!online&&{color:ORANGE}]}>{online?'✓':'!'}</Text></View><Text style={s.syncHeroTitle}>{online?'Conexão disponível':'Modo offline ativo'}</Text><Text style={s.syncHeroText}>{pending ? `${pending} alteração(ões) estão protegidas na fila local.` : 'Não há alterações locais pendentes.'}</Text></View><View style={s.checkRow}><Text style={s.check}>✓</Text><View><Text style={s.rowTitle}>Agenda, KM e deslocamentos</Text><Text style={s.sub}>Persistência local ativa</Text></View></View><View style={s.checkRow}><Text style={online?s.check:s.warn}>●</Text><View><Text style={s.rowTitle}>Base empresarial</Text><Text style={s.sub}>{lastLoaded ? `Última carga: ${new Date(lastLoaded).toLocaleString('pt-BR')}` : 'Ainda não carregada'}</Text></View></View><Pressable style={[s.primary,(!online||syncing)&&s.disabled]} onPress={onSync} disabled={!online||syncing}><Text style={s.primaryText}>{syncing?'Sincronizando...':'Enviar fila agora'}</Text></Pressable><Pressable style={[s.secondaryButton,(!online||syncing)&&s.disabled]} onPress={onRefresh} disabled={!online||syncing}><Text style={s.secondaryButtonText}>Atualizar dados empresariais</Text></Pressable>{errors.length > 0 && <View style={s.warningCard}><Text style={s.warningTitle}>Atenção na última carga</Text>{errors.slice(0,4).map((e,i)=><Text key={i} style={s.warningText}>• {e}</Text>)}</View>}</ScrollView>;
+}
+
+function Settings({ session, data, prefs, setPrefs, logout }: { session: Session; data: BootstrapData | null; prefs: Preferences; setPrefs: (p: Preferences) => void; logout: () => void }) {
+  const name = nameOf(session,data);
+  const rows: Array<{title:string;sub:string;value:boolean;key:keyof Preferences}> = [
+    { title:'Sincronização automática', sub:'Enviar a fila quando houver internet', value:prefs.autoSync, key:'autoSync' },
+    { title:'Modo offline', sub:'Manter registros locais sem conexão', value:prefs.offlineMode, key:'offlineMode' },
+    { title:'Notificações', sub:'Exibir alertas operacionais no app', value:prefs.notifications, key:'notifications' },
+  ];
+  const change = async (key: keyof Preferences, value: boolean) => { const next = { ...prefs, [key]: value }; setPrefs(next); await savePrefs(next); };
+  return <ScrollView contentContainerStyle={s.content}><View style={s.profileCard}><View style={s.avatarBig}><Text style={s.avatarText}>{initials(name)}</Text></View><View style={{flex:1}}><Text style={s.profileName}>{name}</Text><Text style={s.sub}>{session.user.email||''}</Text><Text style={s.muted}>{roleOf(data)}{data?.directory?.branch_name?` · ${data.directory.branch_name}`:''}</Text></View></View>{rows.map(r => <View style={s.setting} key={r.key}><View style={{flex:1}}><Text style={s.rowTitle}>{r.title}</Text><Text style={s.sub}>{r.sub}</Text></View><Switch value={r.value} onValueChange={v => change(r.key,v)}/></View>)}<View style={s.aboutCard}><Text style={s.rowTitle}>Movvant Enterprise</Text><Text style={s.sub}>Mobile RC11 Final · versão 1.1.0</Text><Text style={s.sub}>Dados locais protegidos e acesso autenticado.</Text></View><Pressable style={s.logout} onPress={logout}><Text style={s.logoutText}>Sair da conta</Text></Pressable></ScrollView>;
+}
+
+function More({ page, setPage, data, local, session, prefs, setPrefs, online, pending, syncing, onSync, onRefresh, onRead, logout }: { page: MorePage; setPage: (p: MorePage) => void; data: BootstrapData | null; local: LocalState; session: Session; prefs: Preferences; setPrefs: (p: Preferences) => void; online: boolean; pending: number; syncing: boolean; onSync: () => Promise<void>; onRefresh: () => Promise<void>; onRead: (id: string) => Promise<void>; logout: () => void }) {
+  if (page === 'lojas') return <Stores customers={data?.customers || []} branchId={data?.branchId || null} branchScoped={data?.directory?.scope_level === 'branch'}/>;
+  if (page === 'relatorios') return <Reports data={data} local={local}/>;
+  if (page === 'notificacoes') return <Notifications rows={prefs.notifications ? (data?.notifications || []) : []} onRead={onRead}/>;
+  if (page === 'sincronizacao') return <SyncPage online={online} pending={pending} lastLoaded={data?.loadedAt} errors={data?.errors || []} syncing={syncing} onSync={onSync} onRefresh={onRefresh}/>;
+  if (page === 'configuracoes') return <Settings session={session} data={data} prefs={prefs} setPrefs={setPrefs} logout={logout}/>;
+  return <ScrollView contentContainerStyle={s.content}><Hero title="Operação completa" text="Acesse rapidamente os módulos do seu dia."/><Row icon="▦" title="Lojas" sub={`${data?.customers.length || 0} loja(s) disponíveis`} onPress={() => setPage('lojas')}/><Row icon="↗" title="Relatórios" sub="Indicadores reais da operação" onPress={() => setPage('relatorios')}/><Row icon="↻" title="Sincronização" sub={pending ? `${pending} item(ns) pendente(s)` : online ? 'Tudo sincronizado' : 'Modo offline'} onPress={() => setPage('sincronizacao')}/><Row icon="●" title="Notificações" sub={`${(data?.notifications || []).filter(x => !x.read_at).length} não lida(s)`} onPress={() => setPage('notificacoes')}/><Row icon="⚙" title="Configurações" sub="Perfil, sessão e preferências" onPress={() => setPage('configuracoes')}/></ScrollView>;
+}
+
+function Drawer({ visible, close, setTab, setMore, session, data, logout }: { visible: boolean; close: () => void; setTab: (t: Tab) => void; setMore: (p: MorePage) => void; session: Session; data: BootstrapData | null; logout: () => void }) {
+  if (!visible) return null;
+  const go = (t: Tab,p?: MorePage) => { setTab(t); if (p) setMore(p); close(); };
+  const name = nameOf(session,data);
+  const entries: Array<[string,string,()=>void]> = [['⌂','Home',()=>go('home')],['▣','Agenda',()=>go('agenda')],['▦','Lojas',()=>go('mais','lojas')],['◎','KM',()=>go('km')],['⌖','Deslocamento',()=>go('mapa')],['↗','Relatórios',()=>go('mais','relatorios')],['●','Notificações',()=>go('mais','notificacoes')],['⚙','Configurações',()=>go('mais','configuracoes')]];
+  return <View style={s.drawerOverlay}><Pressable style={s.scrim} onPress={close}/><SafeAreaView style={s.drawer}><View style={s.drawerBrandRow}><View style={s.logoSmall}><Text style={s.logoSmallText}>M</Text></View><View><Text style={s.drawerBrand}>Movvant</Text><Text style={s.drawerEnt}>ENTERPRISE</Text></View></View><View style={s.drawerProfile}><View style={s.avatar}><Text style={s.avatarText}>{initials(name)}</Text></View><View><Text style={s.drawerName}>{name}</Text><Text style={s.drawerRole}>{roleOf(data)}</Text></View></View>{entries.map(([i,l,a]) => <Pressable key={l} style={s.drawerItem} onPress={a}><Text style={s.drawerItemIcon}>{i}</Text><Text style={s.drawerItemText}>{l}</Text></Pressable>)}<View style={{flex:1}}/><Pressable style={s.drawerExit} onPress={logout}><Text style={s.drawerExitText}>Sair</Text></Pressable></SafeAreaView></View>;
+}
+
+export default function AppRC11Final() {
+  const [session,setSession] = useState<Session|null>(null); const [boot,setBoot] = useState(true); const [data,setData] = useState<BootstrapData|null>(null); const [local,setLocal] = useState<LocalState>({ appointments:[],km:[],trips:[] }); const [online,setOnline] = useState(true); const [pending,setPending] = useState(0); const [syncing,setSyncing] = useState(false); const [prefs,setPrefs] = useState<Preferences>(DEFAULT_PREFS); const [tab,setTab] = useState<Tab>('home'); const [more,setMore] = useState<MorePage>('menu'); const [drawer,setDrawer] = useState(false);
+
+  const reloadLocal = useCallback(async () => { setLocal(await readLocalState()); setPending((await readQueue()).length); }, []);
+  const refresh = useCallback(async (activeSession?: Session | null) => {
+    const ss = activeSession || session; if (!ss) return;
+    try { const remote = await loadBootstrap(ss); setData(remote); await saveBootstrap(ss.user.id,remote); } catch (e) { const cached = await readBootstrap(ss.user.id); if (cached) setData({ ...cached, errors:[...(cached.errors||[]),`Atualização: ${e instanceof Error ? e.message : 'sem conexão'}`] }); }
+  }, [session]);
+  const sync = useCallback(async () => {
+    if (!session || !data?.companyId || !online || syncing) return;
+    setSyncing(true);
+    try { const result = await syncPending(session,data.companyId); await reloadLocal(); if (result.errors.length) Alert.alert('Sincronização parcial',`${result.sent} enviado(s), ${result.pending} pendente(s).`); }
+    finally { setSyncing(false); }
+  }, [session,data?.companyId,online,syncing,reloadLocal]);
+
+  useEffect(() => {
+    Promise.all([AsyncStorage.getItem(SESSION_KEY),readPrefs(),readLocalState(),readQueue(),NetInfo.fetch()]).then(async ([raw,p,l,q,net]) => {
+      setPrefs(p); setLocal(l); setPending(q.length); setOnline(Boolean(net.isConnected));
+      if (raw) {
+        try {
+          let ss = JSON.parse(raw) as Session;
+          if (ss.refresh_token && ss.expires_at && ss.expires_at * 1000 < Date.now() + 60000 && net.isConnected) {
+            try { ss = await refreshSession(ss); await AsyncStorage.setItem(SESSION_KEY,JSON.stringify(ss)); } catch {}
+          }
+          setSession(ss); const cached = await readBootstrap(ss.user.id); if (cached) setData(cached); if (net.isConnected) await refresh(ss);
+        } catch { await AsyncStorage.removeItem(SESSION_KEY); }
+      }
+    }).finally(() => setBoot(false));
+  }, []);
+
+  useEffect(() => NetInfo.addEventListener(state => setOnline(Boolean(state.isConnected))), []);
+  useEffect(() => { if (online && prefs.autoSync && session && data?.companyId && pending > 0) sync(); }, [online,prefs.autoSync,session,data?.companyId,pending]);
+
+  const customersById = useMemo(() => new Map((data?.customers || []).map(c => [c.id,c])), [data?.customers]);
+  const remoteAppointments = useMemo<Appointment[]>(() => (data?.visits || []).filter(v => v.scheduled_start).map(v => { const d = new Date(v.scheduled_start!); const c = customersById.get(v.customer_id); return { id:v.id,date:isoDate(d),time:`${pad(d.getHours())}:${pad(d.getMinutes())}`,title:v.purpose||'Visita',store:customerName(c),type:'Visita',customerId:v.customer_id,status:v.status }; }), [data?.visits,customersById]);
+  const appointments = useMemo(() => [...remoteAppointments,...local.appointments.map(x => ({ ...x, local:!x.synced }))], [remoteAppointments,local.appointments]);
+  const assignedVehicleIds = useMemo(() => new Set((data?.assignments || []).filter(a => !a.ends_at || new Date(a.ends_at).getTime() > Date.now()).map(a => a.vehicle_id)), [data?.assignments]);
+  const assignedVehicles = useMemo(() => { const all = data?.vehicles || []; const scoped = all.filter(v => assignedVehicleIds.has(v.id)); return scoped.length ? scoped : all; }, [data?.vehicles,assignedVehicleIds]);
+
+  const saveAppointment = async (item: LocalAppointment) => { await saveAppointmentLocal(item); await enqueue({ entity:'appointment',action:'insert',payload:{ localId:item.id,date:item.date,time:item.time,title:item.title,customerId:item.customerId,store:item.store } }); await reloadLocal(); };
+  const saveKm = async (item: LocalKmRecord) => { await saveKmLocal(item); await enqueue({ entity:'km',action:'insert',payload:{ localId:item.id,vehicleId:item.vehicleId,vehicle:item.vehicle,start:item.start,end:item.end,total:item.total,reason:item.reason,photoUri:item.photoUri,createdAt:item.createdAt } }); await reloadLocal(); };
+  const readNotification = async (id: string) => { if (!session || !online) return Alert.alert('Offline','Conecte-se para confirmar a leitura desta notificação.'); try { await markNotificationRead(session,id); setData(prev => prev ? { ...prev,notifications:prev.notifications.map(n => n.id===id?{...n,read_at:new Date().toISOString()}:n) } : prev); } catch (e) { Alert.alert('Notificação',e instanceof Error?e.message:'Não foi possível atualizar.'); } };
+  const logout = async () => { await AsyncStorage.removeItem(SESSION_KEY); setSession(null); setData(null); setTab('home'); setMore('menu'); setDrawer(false); };
+  const setMain = (t: Tab) => { setTab(t); if (t !== 'mais') setMore('menu'); };
+  const doLogin = async (ss: Session) => { setSession(ss); setBoot(true); const cached = await readBootstrap(ss.user.id); if (cached) setData(cached); await reloadLocal(); await refresh(ss); setBoot(false); };
+
+  if (boot) return <SafeAreaView style={s.boot}><Text style={s.bootBrand}>Movvant</Text><Text style={s.bootEnt}>ENTERPRISE</Text><Text style={s.bootSub}>Preparando sua operação...</Text></SafeAreaView>;
+  if (!session) return <Login onLogin={doLogin}/>;
+
+  const unread = prefs.notifications ? (data?.notifications || []).filter(x => !x.read_at).length : 0;
+  const title = tab==='home'?'Movvant':tab==='agenda'?'Agenda':tab==='km'?'Controle de KM':tab==='mapa'?'Deslocamento':more==='lojas'?'Lojas':more==='relatorios'?'Relatórios':more==='notificacoes'?'Notificações':more==='sincronizacao'?'Sincronização':more==='configuracoes'?'Configurações':'Mais';
+  const back = tab === 'mais' && more !== 'menu' ? () => setMore('menu') : undefined;
+
+  return <SafeAreaView style={s.screen}><StatusBar barStyle="light-content" backgroundColor={NAVY}/><Header title={title} onMenu={() => setDrawer(true)} onBack={back} unread={unread}/><View style={s.body}>{tab==='home'&&<Home session={session} data={data} local={local} appointments={appointments} online={online} pending={pending} goAgenda={()=>setMain('agenda')} goMap={()=>setMain('mapa')}/>} {tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment}/>} {tab==='km'&&<Km vehicles={assignedVehicles} history={local.km} onSave={saveKm}/>} {tab==='mapa'&&<RouteScreen onSaved={reloadLocal}/>} {tab==='mais'&&<More page={more} setPage={setMore} data={data} local={local} session={session} prefs={prefs} setPrefs={setPrefs} online={online} pending={pending} syncing={syncing} onSync={sync} onRefresh={()=>refresh()} onRead={readNotification} logout={logout}/>}</View><Bottom tab={tab} setTab={setMain}/><Drawer visible={drawer} close={()=>setDrawer(false)} setTab={setMain} setMore={setMore} session={session} data={data} logout={logout}/></SafeAreaView>;
+}
+
+const s = StyleSheet.create({
+  screen:{flex:1,backgroundColor:BG},body:{flex:1},content:{padding:18,paddingBottom:30,gap:12},boot:{flex:1,backgroundColor:NAVY,alignItems:'center',justifyContent:'center'},bootBrand:{fontSize:35,fontWeight:'900',color:'#fff'},bootEnt:{fontSize:10,letterSpacing:5,color:'#AFC7DB'},bootSub:{color:'#D2DEE8',fontSize:12,marginTop:18},header:{height:60,backgroundColor:NAVY,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:12},headerBtn:{width:42,height:42,alignItems:'center',justifyContent:'center'},headerBtnText:{color:'#fff',fontSize:24,fontWeight:'700'},headerTitle:{color:'#fff',fontSize:17,fontWeight:'900'},headerRight:{width:42,alignItems:'center',justifyContent:'center'},headerBell:{color:'#B7CCDE',fontSize:10},unreadBadge:{position:'absolute',right:0,top:1,minWidth:18,height:18,borderRadius:9,backgroundColor:RED,alignItems:'center',justifyContent:'center',zIndex:2,paddingHorizontal:3},unreadText:{color:'#fff',fontSize:8,fontWeight:'900'},bottom:{height:68,borderTopWidth:1,borderTopColor:BORDER,backgroundColor:'#fff',flexDirection:'row'},bottomItem:{flex:1,alignItems:'center',justifyContent:'center'},bottomIcon:{fontSize:18,color:'#778797'},bottomLabel:{fontSize:10,color:'#778797',marginTop:3},active:{color:BLUE,fontWeight:'900'},
+  login:{flex:1,backgroundColor:BG},loginHero:{height:'37%',backgroundColor:NAVY,alignItems:'center',justifyContent:'center'},logo:{width:64,height:64,borderRadius:18,backgroundColor:BLUE,alignItems:'center',justifyContent:'center',transform:[{rotate:'-8deg'}]},logoText:{fontSize:38,fontWeight:'900',color:'#fff'},brand:{fontSize:34,fontWeight:'900',color:'#fff',marginTop:12},enterprise:{fontSize:10,letterSpacing:5,color:'#B8CCDC'},tag:{fontSize:13,color:'#D7E2EA',marginTop:14},loginCard:{flex:1,marginTop:-26,marginHorizontal:18,backgroundColor:'#fff',borderRadius:26,padding:22,gap:10,elevation:4},loginTitle:{fontSize:24,fontWeight:'900',color:NAVY},loginSub:{fontSize:13,color:MUTED,marginBottom:8},loginFoot:{textAlign:'center',fontSize:11,color:MUTED,marginTop:8},version:{textAlign:'center',fontSize:10,color:'#A4B0BC'},disabled:{opacity:.55},field:{gap:6},label:{fontSize:11,fontWeight:'800',color:TEXT},input:{minHeight:52,borderRadius:14,borderWidth:1,borderColor:BORDER,backgroundColor:'#fff',paddingHorizontal:14,fontSize:14,color:TEXT},inputOff:{backgroundColor:'#F0F3F7',color:MUTED},inputButton:{minHeight:52,borderRadius:14,borderWidth:1,borderColor:BORDER,backgroundColor:'#fff',paddingHorizontal:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},inputButtonText:{fontSize:14,color:TEXT,fontWeight:'700'},inputPlaceholder:{fontSize:14,color:'#9CA8B4'},primary:{minHeight:54,backgroundColor:BLUE,borderRadius:15,alignItems:'center',justifyContent:'center',paddingHorizontal:14},primaryText:{color:'#fff',fontSize:14,fontWeight:'900'},secondaryButton:{minHeight:50,borderRadius:14,borderWidth:1,borderColor:BORDER,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},secondaryButtonText:{fontSize:13,color:NAVY,fontWeight:'900'},
+  profile:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:46,height:46,borderRadius:23,backgroundColor:'#DDEBFA',alignItems:'center',justifyContent:'center'},avatarBig:{width:58,height:58,borderRadius:29,backgroundColor:'#DDEBFA',alignItems:'center',justifyContent:'center'},avatarText:{fontWeight:'900',color:NAVY},hello:{fontSize:20,fontWeight:'900',color:TEXT},muted:{fontSize:12,color:MUTED},dateText:{fontSize:11,color:MUTED,marginTop:2},metricRow:{flexDirection:'row',gap:10},metric:{flex:1,minHeight:112,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:18,padding:12},metricIcon:{width:30,height:30,borderRadius:10,alignItems:'center',justifyContent:'center',marginBottom:8},metricValue:{fontSize:20,fontWeight:'900',color:TEXT},metricLabel:{fontSize:10,color:MUTED,marginTop:2},sectionHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:6},sectionTitle:{fontSize:16,fontWeight:'900',color:TEXT},link:{fontSize:12,fontWeight:'900',color:BLUE},agendaRow:{minHeight:78,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:12},time:{width:52,fontSize:13,fontWeight:'900',color:TEXT},greenLine:{width:4,height:44,borderRadius:2,backgroundColor:GREEN},store:{fontSize:13,fontWeight:'900',color:TEXT},sub:{fontSize:11,color:MUTED,marginTop:3,lineHeight:16},syncCard:{backgroundColor:'#EAF7F1',borderRadius:16,padding:14,flexDirection:'row',alignItems:'center',gap:10},syncCheck:{width:34,height:34,borderRadius:17,backgroundColor:'#D7F0E4',alignItems:'center',justifyContent:'center'},syncCheckText:{color:GREEN,fontSize:18,fontWeight:'900'},syncTitle:{fontSize:12,fontWeight:'900',color:TEXT},onlineDot:{width:10,height:10,borderRadius:5,backgroundColor:GREEN},empty:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:18},emptyTitle:{fontSize:14,fontWeight:'900',color:TEXT},
+  calendar:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:20,padding:14},monthHead:{height:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},monthTitle:{fontSize:15,fontWeight:'900',color:TEXT},arrow:{fontSize:25,color:NAVY,fontWeight:'700',paddingHorizontal:8},week:{flexDirection:'row',paddingVertical:8},weekText:{width:'14.285%',textAlign:'center',fontSize:10,color:MUTED,fontWeight:'700'},days:{flexDirection:'row',flexWrap:'wrap'},dayCell:{width:'14.285%',height:48,alignItems:'center',justifyContent:'center'},dayCircle:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center'},daySelected:{backgroundColor:BLUE},dayText:{fontSize:12,color:TEXT},dayTextSelected:{color:'#fff',fontWeight:'900'},dayDot:{width:5,height:5,borderRadius:3,backgroundColor:GREEN,marginTop:-3},segment:{backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:BORDER,padding:4,flexDirection:'row'},segmentTab:{flex:1,minHeight:40,borderRadius:12,alignItems:'center',justifyContent:'center'},segmentOn:{backgroundColor:'#EAF2FE'},segmentText:{fontSize:11,color:MUTED,fontWeight:'700'},segmentTextOn:{color:BLUE,fontWeight:'900'},
+  total:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:15,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},totalHint:{fontSize:10,color:'#A0ACB8'},totalValue:{fontSize:20,fontWeight:'900',color:TEXT},attach:{backgroundColor:'#fff',borderWidth:1,borderStyle:'dashed',borderColor:'#C9D3DD',borderRadius:16,padding:15,flexDirection:'row',alignItems:'center',gap:12},attachDone:{backgroundColor:'#EAF7F1',borderColor:'#9FD9BE'},attachIcon:{fontSize:22,color:BLUE},historyCard:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:15,gap:4},historyHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},historyKm:{fontSize:24,fontWeight:'900',color:NAVY},statusPill:{fontSize:9,fontWeight:'900',color:ORANGE,backgroundColor:'#FFF3E5',paddingHorizontal:8,paddingVertical:4,borderRadius:8},statusPillOk:{color:GREEN,backgroundColor:'#E7F7F0'},
+  hero:{backgroundColor:NAVY,borderRadius:20,padding:18},heroTop:{fontSize:9,letterSpacing:2,color:'#AFC7DB',fontWeight:'900'},heroTitle:{fontSize:20,color:'#fff',fontWeight:'900',marginTop:5},heroText:{fontSize:11,color:'#D0DCE6',marginTop:5},row:{minHeight:70,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:13,flexDirection:'row',alignItems:'center',gap:11},rowIcon:{width:38,height:38,borderRadius:12,backgroundColor:'#EEF4FB',alignItems:'center',justifyContent:'center'},rowIconText:{color:BLUE,fontWeight:'900'},rowTitle:{fontSize:13,fontWeight:'900',color:TEXT},rowArrow:{fontSize:22,color:'#A4B0BC'},search:{height:50,borderRadius:14,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,flexDirection:'row',alignItems:'center',paddingHorizontal:14,gap:9},searchIcon:{fontSize:18,color:MUTED},searchTextInput:{flex:1,fontSize:13,color:TEXT},listCount:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},storeCard:{minHeight:68,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:12,flexDirection:'row',alignItems:'center',gap:11},storeBadge:{width:38,height:38,borderRadius:12,backgroundColor:'#EAF2FE',alignItems:'center',justifyContent:'center'},storeBadgeText:{color:BLUE,fontWeight:'900'},
+  reportGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},reportCard:{width:'48%',minHeight:112,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:13},reportIcon:{color:BLUE,fontWeight:'900',fontSize:17},reportValue:{fontSize:20,fontWeight:'900',color:NAVY,marginTop:10},reportWide:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:15,gap:10},reportLine:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},reportLineValue:{fontSize:13,fontWeight:'900',color:TEXT},notification:{minHeight:82,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:13,flexDirection:'row',gap:10,alignItems:'flex-start'},notificationUnread:{borderColor:'#B7D3F7',backgroundColor:'#F8FBFF'},notifDot:{width:8,height:8,borderRadius:4,backgroundColor:BLUE,marginTop:5},notifTime:{fontSize:9,color:'#A2ADB9',marginTop:5},newText:{fontSize:9,color:BLUE,fontWeight:'900'},
+  syncHero:{alignItems:'center',paddingVertical:18},syncBig:{width:74,height:74,borderRadius:37,backgroundColor:'#E2F5EC',alignItems:'center',justifyContent:'center'},syncBigText:{fontSize:32,color:GREEN,fontWeight:'900'},syncHeroTitle:{fontSize:19,color:TEXT,fontWeight:'900',marginTop:12},syncHeroText:{fontSize:12,color:MUTED,textAlign:'center',lineHeight:18,marginTop:6,maxWidth:320},checkRow:{backgroundColor:'#fff',borderRadius:14,borderWidth:1,borderColor:BORDER,padding:14,flexDirection:'row',alignItems:'center',gap:11},check:{color:GREEN,fontWeight:'900'},warn:{color:ORANGE,fontWeight:'900'},warningCard:{backgroundColor:'#FFF9ED',borderWidth:1,borderColor:'#F2D7A1',borderRadius:14,padding:14},warningTitle:{fontSize:12,color:'#8A5C00',fontWeight:'900'},warningText:{fontSize:10,color:'#8A6A2F',marginTop:4},profileCard:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:18,padding:16,flexDirection:'row',alignItems:'center',gap:12},profileName:{fontSize:16,fontWeight:'900',color:TEXT},setting:{minHeight:72,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:14,flexDirection:'row',alignItems:'center'},aboutCard:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:16,padding:15,gap:3},logout:{height:50,borderRadius:14,backgroundColor:'#FFF0F0',borderWidth:1,borderColor:'#F5C8CA',alignItems:'center',justifyContent:'center'},logoutText:{color:RED,fontWeight:'900'},
+  modalHeader:{height:58,backgroundColor:NAVY,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14},modalBack:{color:'#fff',fontSize:28,fontWeight:'700'},modalTitle:{color:'#fff',fontSize:16,fontWeight:'900'},modalSearch:{padding:14,backgroundColor:BG},searchInput:{height:50,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:14,paddingHorizontal:14,color:TEXT},modalList:{padding:14,gap:8},selectRow:{minHeight:66,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:14,padding:13,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},selectRowOn:{borderColor:'#AFCFF8',backgroundColor:'#F5F9FF'},
+  drawerOverlay:{position:'absolute',top:0,right:0,bottom:0,left:0,zIndex:99,flexDirection:'row'},scrim:{flex:1,backgroundColor:'rgba(3,20,34,.45)'},drawer:{position:'absolute',left:0,top:0,bottom:0,width:'82%',maxWidth:330,backgroundColor:NAVY,paddingTop:26,paddingHorizontal:18,paddingBottom:18},drawerBrandRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:22},logoSmall:{width:36,height:36,borderRadius:10,backgroundColor:BLUE,alignItems:'center',justifyContent:'center',transform:[{rotate:'-8deg'}]},logoSmallText:{color:'#fff',fontSize:21,fontWeight:'900'},drawerBrand:{fontSize:21,fontWeight:'900',color:'#fff'},drawerEnt:{fontSize:8,letterSpacing:3,color:'#AFC7DB'},drawerProfile:{flexDirection:'row',alignItems:'center',gap:10,paddingBottom:16,marginBottom:8,borderBottomWidth:1,borderBottomColor:'rgba(255,255,255,.12)'},drawerName:{color:'#fff',fontSize:13,fontWeight:'900'},drawerRole:{color:'#AFC7DB',fontSize:10},drawerItem:{height:48,flexDirection:'row',alignItems:'center',gap:14,borderRadius:12,paddingHorizontal:10},drawerItemIcon:{width:24,color:'#AFC7DB',fontSize:16,textAlign:'center'},drawerItemText:{color:'#F4F8FB',fontSize:13,fontWeight:'700'},drawerExit:{height:48,borderTopWidth:1,borderTopColor:'rgba(255,255,255,.12)',alignItems:'center',justifyContent:'center'},drawerExitText:{color:'#FFB7B7',fontWeight:'900'}
+});
