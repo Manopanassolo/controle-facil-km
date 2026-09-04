@@ -1,4 +1,5 @@
 name: RC11.2 Google auth fix
+# trigger-2026-09-04-2
 on:
   push:
     branches: [movvant-mobile-rc11]
@@ -25,7 +26,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           api = Path('mobile-rc11/src/api.ts')
           text = api.read_text()
           if "expo-web-browser" not in text:
@@ -49,7 +49,6 @@ jobs:
   const errorDescription = hashParams.get('error_description') || callback.searchParams.get('error_description');
   if (errorDescription) throw new Error(errorDescription);
   if (!accessToken) throw new Error('Google autenticou, mas a sessão não retornou ao Movvant. Verifique o redirecionamento OAuth.');
-
   const userResponse = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey: key, Authorization: `Bearer ${accessToken}` },
   });
@@ -71,12 +70,8 @@ jobs:
 
           app = Path('mobile-rc11/AppRC11Final.tsx')
           text = app.read_text()
-          old_import = "import { BootstrapData, CustomerRow, NotificationRow, Session, VehicleRow, loadBootstrap, markNotificationRead, refreshSession, signIn } from './src/api';"
-          new_import = "import { BootstrapData, CustomerRow, NotificationRow, Session, VehicleRow, loadBootstrap, markNotificationRead, refreshSession, signIn, signInWithGoogle } from './src/api';"
-          text = text.replace(old_import, new_import)
-          old_state = "const [email,setEmail] = useState(''); const [password,setPassword] = useState(''); const [loading,setLoading] = useState(false);"
-          new_state = "const [email,setEmail] = useState(''); const [password,setPassword] = useState(''); const [loading,setLoading] = useState(false); const [googleLoading,setGoogleLoading] = useState(false);"
-          text = text.replace(old_state, new_state)
+          text = text.replace("import { BootstrapData, CustomerRow, NotificationRow, Session, VehicleRow, loadBootstrap, markNotificationRead, refreshSession, signIn } from './src/api';", "import { BootstrapData, CustomerRow, NotificationRow, Session, VehicleRow, loadBootstrap, markNotificationRead, refreshSession, signIn, signInWithGoogle } from './src/api';")
+          text = text.replace("const [email,setEmail] = useState(''); const [password,setPassword] = useState(''); const [loading,setLoading] = useState(false);", "const [email,setEmail] = useState(''); const [password,setPassword] = useState(''); const [loading,setLoading] = useState(false); const [googleLoading,setGoogleLoading] = useState(false);")
           old_submit_end = "finally { setLoading(false); }\n  };\n  return <SafeAreaView"
           new_submit_end = "finally { setLoading(false); }\n  };\n  const submitGoogle = async () => {\n    setGoogleLoading(true);\n    try {\n      const session = await signInWithGoogle();\n      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));\n      onLogin(session);\n    } catch (e) { Alert.alert('Não foi possível entrar com Google', e instanceof Error ? e.message : 'Tente novamente.'); }\n    finally { setGoogleLoading(false); }\n  };\n  return <SafeAreaView"
           if old_submit_end not in text:
@@ -95,7 +90,8 @@ jobs:
           text = text.replace("version: '1.1.0',", "version: '1.1.1',")
           if "scheme: 'movvant'" not in text:
               text = text.replace("owner: 'movant',", "owner: 'movant',\n    scheme: 'movvant',")
-          text = text.replace("plugins: [", "plugins: [\n      ['expo-web-browser', { experimentalLauncherActivity: false }],", 1)
+          if "expo-web-browser" not in text:
+              text = text.replace("plugins: [", "plugins: [\n      ['expo-web-browser', { experimentalLauncherActivity: false }],", 1)
           text = text.replace('versionCode: 25', 'versionCode: 26')
           text = text.replace("releaseChannel: 'rc11-final'", "releaseChannel: 'rc11.2-google-auth'")
           cfg.write_text(text)
