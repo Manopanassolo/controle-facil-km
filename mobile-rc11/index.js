@@ -1,4 +1,4 @@
 import { registerRootComponent } from 'expo';
-import AppRC11Final from './AppRC11Final';
+import AppRC11GoogleGate from './AppRC11GoogleGate';
 
-registerRootComponent(AppRC11Final);
+registerRootComponent(AppRC11GoogleGate);
