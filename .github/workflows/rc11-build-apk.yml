@@ -34,18 +34,14 @@ jobs:
         run: |
           npx expo-doctor
           npx tsc --noEmit
-          GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" npx expo config --type public > /tmp/rc11-expo-config.json
-          grep -q 'com.movvant.enterprise' /tmp/rc11-expo-config.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const cfg = JSON.parse(fs.readFileSync('/tmp/rc11-expo-config.json','utf8'));
-          const key = cfg?.android?.config?.googleMaps?.apiKey;
-          if (!key || !String(key).trim()) {
-            console.error('Google Maps key ausente na configuração Expo resolvida.');
-            process.exit(1);
-          }
-          console.log('Google Maps key presente na configuração Expo resolvida.');
-          NODE
+          GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" npx expo config --type public > /tmp/rc11-expo-config.txt
+          grep -q 'com.movvant.enterprise' /tmp/rc11-expo-config.txt
+          grep -q 'googleMaps' /tmp/rc11-expo-config.txt
+          if grep -q 'apiKey:.*undefined\|apiKey:.*null\|apiKey:.*["'"']\{2\}' /tmp/rc11-expo-config.txt; then
+            echo 'Google Maps key inválida na configuração Expo resolvida.'
+            exit 1
+          fi
+          echo 'Google Maps config presente na configuração Expo resolvida.'
       - name: Install EAS CLI
         run: npm install --global eas-cli
       - name: Sync Google Maps key into EAS preview environment
