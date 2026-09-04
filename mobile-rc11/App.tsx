@@ -1,387 +1,59 @@
 import React, { useMemo, useState } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Modal,
-  StatusBar,
-} from 'react-native';
+import { SafeAreaView, View, Text, Pressable, StyleSheet, ScrollView, TextInput, Modal, StatusBar, Switch } from 'react-native';
 
 type Tab = 'home' | 'agenda' | 'km' | 'mapa' | 'mais';
+type MorePage = 'menu' | 'relatorios' | 'configuracoes';
+type Appointment = { id:string; day:number; time:string; title:string; store:string; type:string; };
 
-type Appointment = {
-  id: string;
-  day: number;
-  time: string;
-  title: string;
-  store: string;
-  type: string;
-};
-
-const appointmentsSeed: Appointment[] = [
-  { id: '1', day: 14, time: '09:00', title: 'Visita comercial', store: 'Loja Centro', type: 'Visita' },
-  { id: '2', day: 14, time: '11:00', title: 'Reunião de equipe', store: 'Loja Avenida', type: 'Reunião' },
-  { id: '3', day: 14, time: '14:00', title: 'Acompanhamento', store: 'Loja Shopping', type: 'Visita' },
-  { id: '4', day: 14, time: '16:00', title: 'Check-in / Relatório', store: 'Loja Industrial', type: 'Relatório' },
+const BLUE='#0B63E5', NAVY='#07365B', BG='#F4F7FB', TEXT='#17324D', MUTED='#75859A', BORDER='#DFE6EF';
+const seed: Appointment[] = [
+  {id:'1',day:14,time:'09:00',title:'Visita comercial',store:'Loja Centro',type:'Visita'},
+  {id:'2',day:14,time:'11:00',title:'Reunião de equipe',store:'Loja Avenida',type:'Reunião'},
+  {id:'3',day:14,time:'14:00',title:'Acompanhamento',store:'Loja Shopping',type:'Visita'},
+  {id:'4',day:14,time:'16:00',title:'Check-in / Relatório',store:'Loja Industrial',type:'Relatório'},
 ];
+const monthDays=Array.from({length:30},(_,i)=>i+1);
 
-const monthDays = Array.from({ length: 30 }, (_, i) => i + 1);
+function Header({title,onMenu,onBack}:{title:string;onMenu?:()=>void;onBack?:()=>void}){
+  return <View style={s.header}><Pressable style={s.headerBtn} onPress={onBack||onMenu}><Text style={s.headerBtnText}>{onBack?'‹':'☰'}</Text></Pressable><Text style={s.headerTitle}>{title}</Text><View style={s.headerBtn}><Text style={s.headerBtnText}>●</Text></View></View>;
+}
+function BottomNav({tab,setTab}:{tab:Tab;setTab:(t:Tab)=>void}){
+  const items:Array<[Tab,string,string]>=[['home','⌂','Home'],['agenda','▣','Agenda'],['km','◎','KM'],['mapa','⌖','Mapa'],['mais','•••','Mais']];
+  return <View style={s.bottomNav}>{items.map(([k,i,l])=><Pressable key={k} style={s.bottomItem} onPress={()=>setTab(k)}><Text style={[s.bottomIcon,tab===k&&s.active]}>{i}</Text><Text style={[s.bottomLabel,tab===k&&s.active]}>{l}</Text></Pressable>)}</View>;
+}
+function Kpi({value,label}:{value:string;label:string}){return <View style={s.kpi}><Text style={s.kpiValue}>{value}</Text><Text style={s.kpiLabel}>{label}</Text></View>}
+function AgendaRow({item}:{item:Appointment}){return <View style={s.agendaRow}><Text style={s.time}>{item.time}</Text><View style={s.line}/><View style={{flex:1}}><Text style={s.store}>{item.store}</Text><Text style={s.sub}>{item.title}</Text></View></View>}
+function Field({label,value,onChangeText,editable=true}:{label:string;value:string;onChangeText:(v:string)=>void;editable?:boolean}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput style={s.input} value={value} onChangeText={onChangeText} editable={editable}/></View>}
 
-function Header({ title, onMenu, onBack }: { title: string; onMenu?: () => void; onBack?: () => void }) {
-  return (
-    <View style={styles.header}>
-      <Pressable style={styles.headerIcon} onPress={onBack || onMenu}>
-        <Text style={styles.headerIconText}>{onBack ? '‹' : '☰'}</Text>
-      </Pressable>
-      <Text style={styles.headerTitle}>{title}</Text>
-      <View style={styles.headerIcon}><Text style={styles.headerIconText}>●</Text></View>
-    </View>
-  );
+function Home({goAgenda,goMap}:{goAgenda:()=>void;goMap:()=>void}){
+  return <ScrollView contentContainerStyle={s.content}><View style={s.profile}><View style={s.avatar}><Text style={s.avatarText}>CS</Text></View><View><Text style={s.hello}>Olá, Carlos</Text><Text style={s.muted}>Supervisor</Text></View></View><View style={s.kpiRow}><Kpi value="12" label="Lojas hoje"/><Kpi value="5" label="Compromissos"/><Kpi value="120 km" label="Percorridos"/></View><View style={s.sectionHead}><Text style={s.sectionTitle}>Agenda de hoje</Text><Pressable onPress={goAgenda}><Text style={s.link}>Ver todos</Text></Pressable></View>{seed.map(x=><AgendaRow key={x.id} item={x}/>)}<Pressable style={s.primary} onPress={goMap}><Text style={s.primaryText}>Iniciar deslocamento</Text></Pressable><View style={s.syncCard}><View><Text style={s.syncTitle}>Sincronização</Text><Text style={s.sub}>Dados locais prontos para envio ao servidor</Text></View><View style={s.statusDot}/></View></ScrollView>
 }
 
-function BottomNav({ tab, setTab }: { tab: Tab; setTab: (tab: Tab) => void }) {
-  const items: Array<[Tab, string, string]> = [
-    ['home', '⌂', 'Home'],
-    ['agenda', '▣', 'Agenda'],
-    ['km', '◎', 'KM'],
-    ['mapa', '⌖', 'Mapa'],
-    ['mais', '•••', 'Mais'],
-  ];
-  return (
-    <View style={styles.bottomNav}>
-      {items.map(([key, icon, label]) => (
-        <Pressable key={key} style={styles.bottomItem} onPress={() => setTab(key)}>
-          <Text style={[styles.bottomIcon, tab === key && styles.activeBlue]}>{icon}</Text>
-          <Text style={[styles.bottomLabel, tab === key && styles.activeBlue]}>{label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
+function Agenda(){
+  const [day,setDay]=useState(14),[items,setItems]=useState(seed),[open,setOpen]=useState(false),[title,setTitle]=useState('Visita comercial'),[store,setStore]=useState('Loja Centro'),[time,setTime]=useState('09:00');
+  const selected=useMemo(()=>items.filter(x=>x.day===day).sort((a,b)=>a.time.localeCompare(b.time)),[items,day]);
+  const save=()=>{setItems(p=>[...p,{id:String(Date.now()),day,time,title,store,type:'Visita'}]);setOpen(false)};
+  return <ScrollView contentContainerStyle={s.content}><View style={s.calendar}><View style={s.monthHead}><Text style={s.monthArrow}>‹</Text><Text style={s.monthTitle}>Novembro 2026</Text><Text style={s.monthArrow}>›</Text></View><View style={s.week}>{['D','S','T','Q','Q','S','S'].map((d,i)=><Text key={i} style={s.weekText}>{d}</Text>)}</View><View style={s.days}>{monthDays.map(d=>{const has=items.some(x=>x.day===d);return <Pressable key={d} style={s.dayCell} onPress={()=>setDay(d)}><View style={[s.dayCircle,day===d&&s.daySelected]}><Text style={[s.dayText,day===d&&s.daySelectedText]}>{d}</Text></View>{has&&<View style={s.dayDot}/>}</Pressable>})}</View></View><View style={s.sectionHead}><Text style={s.sectionTitle}>Dia {day}</Text><Pressable onPress={()=>setOpen(true)}><Text style={s.link}>+ Novo</Text></Pressable></View>{selected.length?selected.map(x=><AgendaRow key={x.id} item={x}/>):<Text style={s.empty}>Nenhum compromisso neste dia.</Text>}<Modal visible={open} animationType="slide" onRequestClose={()=>setOpen(false)}><SafeAreaView style={s.screen}><Header title="Novo compromisso" onBack={()=>setOpen(false)}/><ScrollView contentContainerStyle={s.content}><Field label="Título" value={title} onChangeText={setTitle}/><Field label="Data" value={`Novembro ${day}, 2026`} onChangeText={()=>{}} editable={false}/><Field label="Horário" value={time} onChangeText={setTime}/><Field label="Loja" value={store} onChangeText={setStore}/><Field label="Descrição" value="Verificar estoque e alinhamento da campanha." onChangeText={()=>{}}/><Pressable style={s.primary} onPress={save}><Text style={s.primaryText}>Salvar compromisso</Text></Pressable></ScrollView></SafeAreaView></Modal></ScrollView>
 }
 
-function Home({ goAgenda, goMap }: { goAgenda: () => void; goMap: () => void }) {
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.profileRow}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>CS</Text></View>
-        <View>
-          <Text style={styles.hello}>Olá, Carlos</Text>
-          <Text style={styles.muted}>Supervisor</Text>
-        </View>
-      </View>
+function Km(){const [start,setStart]=useState('12340'),[end,setEnd]=useState('12520');const total=Math.max(0,Number(end||0)-Number(start||0));return <ScrollView contentContainerStyle={s.content}><View style={s.segment}><Text style={s.segmentActive}>Registrar</Text><Text style={s.segmentItem}>Histórico</Text></View><Field label="Veículo" value="Fiat Strada · ABC1D23" onChangeText={()=>{}} editable={false}/><Field label="KM inicial" value={start} onChangeText={setStart}/><Field label="KM final" value={end} onChangeText={setEnd}/><View style={s.totalCard}><Text style={s.muted}>Total calculado</Text><Text style={s.totalValue}>{total} km</Text></View><Field label="Motivo" value="Visita a lojas" onChangeText={()=>{}}/><Pressable style={s.primary}><Text style={s.primaryText}>Salvar registro</Text></Pressable></ScrollView>}
 
-      <View style={styles.kpiRow}>
-        <Kpi value="12" label="Lojas hoje" />
-        <Kpi value="5" label="Compromissos" />
-        <Kpi value="120 km" label="Percorridos" />
-      </View>
+function MapScreen(){const [running,setRunning]=useState(false),[paused,setPaused]=useState(false);return <View style={s.mapScreen}><View style={s.fakeMap}><View style={[s.route,{transform:[{rotate:'-20deg'}],left:45,top:185,width:120}]}/><View style={[s.route,{transform:[{rotate:'35deg'}],left:135,top:145,width:130}]}/><View style={[s.routeOrange,{transform:[{rotate:'8deg'}],left:220,top:205,width:95}]}/><View style={[s.pin,{left:36,top:190}]}><Text style={s.pinText}>A</Text></View><View style={[s.pinRed,{right:28,top:178}]}><Text style={s.pinText}>B</Text></View><View style={s.mapBadge}><Text style={s.mapBadgeText}>Rota ativa · GPS</Text></View></View><View style={s.tripPanel}><Text style={s.tripTitle}>{running?(paused?'Deslocamento pausado':'Em deslocamento'):'Pronto para iniciar'}</Text><View style={s.metrics}><View><Text style={s.metricValue}>{running?'00:42:15':'00:00:00'}</Text><Text style={s.muted}>Tempo</Text></View><View><Text style={s.metricValue}>{running?'12,4 km':'0 km'}</Text><Text style={s.muted}>Distância</Text></View></View>{!running?<Pressable style={s.primary} onPress={()=>setRunning(true)}><Text style={s.primaryText}>Iniciar deslocamento</Text></Pressable>:<View style={s.actions}><Pressable style={s.secondary} onPress={()=>setPaused(v=>!v)}><Text style={s.secondaryText}>{paused?'Continuar':'Pausar'}</Text></Pressable><Pressable style={s.danger} onPress={()=>{setRunning(false);setPaused(false)}}><Text style={s.dangerText}>Finalizar</Text></Pressable></View>}</View></View>}
 
-      <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>Agenda de hoje</Text>
-        <Pressable onPress={goAgenda}><Text style={styles.link}>Ver todos</Text></Pressable>
-      </View>
-
-      {appointmentsSeed.map(item => <AgendaRow key={item.id} item={item} />)}
-
-      <Pressable style={styles.primaryButton} onPress={goMap}>
-        <Text style={styles.primaryButtonText}>Iniciar deslocamento</Text>
-      </Pressable>
-    </ScrollView>
-  );
+function Reports(){
+  const rows=[['Visitas realizadas','46','+12%'],['KM percorrido','1.248 km','+8%'],['Tempo em deslocamento','38h 20m','-4%'],['Lojas visitadas','18','+3']];
+  return <ScrollView contentContainerStyle={s.content}><Text style={s.sectionTitle}>Resumo do período</Text><View style={s.reportGrid}>{rows.map(([l,v,d])=><View style={s.reportCard} key={l}><Text style={s.reportLabel}>{l}</Text><Text style={s.reportValue}>{v}</Text><Text style={s.reportDelta}>{d}</Text></View>)}</View><Text style={s.sectionTitle}>Produtividade</Text>{[['Carlos Silva','980 km · 12 visitas'],['Ana Souza','750 km · 9 visitas'],['Bruno Lima','620 km · 8 visitas'],['Mariana Costa','410 km · 6 visitas']].map(([a,b])=><View style={s.moreRow} key={a}><View><Text style={s.moreTitle}>{a}</Text><Text style={s.sub}>{b}</Text></View><Text style={s.moreArrow}>›</Text></View>)}<Pressable style={s.primary}><Text style={s.primaryText}>Exportar relatório</Text></Pressable></ScrollView>
 }
 
-function Kpi({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.kpiCard}>
-      <Text style={styles.kpiValue}>{value}</Text>
-      <Text style={styles.kpiLabel}>{label}</Text>
-    </View>
-  );
-}
+function Settings(){const [offline,setOffline]=useState(true),[notify,setNotify]=useState(true),[auto,setAuto]=useState(true);return <ScrollView contentContainerStyle={s.content}><View style={s.profile}><View style={s.avatar}><Text style={s.avatarText}>CS</Text></View><View><Text style={s.hello}>Carlos Silva</Text><Text style={s.muted}>Supervisor · Movvant Enterprise</Text></View></View><SettingRow title="Sincronização automática" subtitle="Enviar dados quando houver internet" value={auto} setValue={setAuto}/><SettingRow title="Modo offline" subtitle="Continuar trabalhando sem conexão" value={offline} setValue={setOffline}/><SettingRow title="Notificações" subtitle="Agenda, rotas e alertas operacionais" value={notify} setValue={setNotify}/><View style={s.infoCard}><Text style={s.infoTitle}>Status do dispositivo</Text><Text style={s.sub}>Dados locais: sincronizados</Text><Text style={s.sub}>Última sincronização: agora</Text><Text style={s.sub}>Versão: RC11</Text></View></ScrollView>}
+function SettingRow({title,subtitle,value,setValue}:{title:string;subtitle:string;value:boolean;setValue:(v:boolean)=>void}){return <View style={s.settingRow}><View style={{flex:1}}><Text style={s.moreTitle}>{title}</Text><Text style={s.sub}>{subtitle}</Text></View><Switch value={value} onValueChange={setValue}/></View>}
 
-function AgendaRow({ item }: { item: Appointment }) {
-  return (
-    <View style={styles.agendaRow}>
-      <Text style={styles.agendaTime}>{item.time}</Text>
-      <View style={styles.timeline} />
-      <View style={styles.flex1}>
-        <Text style={styles.agendaStore}>{item.store}</Text>
-        <Text style={styles.agendaTitle}>{item.title}</Text>
-      </View>
-    </View>
-  );
-}
+function More({page,setPage}:{page:MorePage;setPage:(p:MorePage)=>void}){if(page==='relatorios')return <Reports/>;if(page==='configuracoes')return <Settings/>;return <ScrollView contentContainerStyle={s.content}>{[['Lojas','menu'],['Relatórios','relatorios'],['Sincronização','menu'],['Configurações','configuracoes'],['Notificações','menu'],['Sobre','menu']].map(([label,p])=><Pressable key={label} style={s.moreRow} onPress={()=>setPage(p as MorePage)}><Text style={s.moreTitle}>{label}</Text><Text style={s.moreArrow}>›</Text></Pressable>)}</ScrollView>}
 
-function Agenda() {
-  const [selectedDay, setSelectedDay] = useState(14);
-  const [appointments, setAppointments] = useState(appointmentsSeed);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [title, setTitle] = useState('Visita comercial');
-  const [store, setStore] = useState('Loja Centro');
-  const [time, setTime] = useState('09:00');
+function Drawer({visible,close,setTab,setMore}:{visible:boolean;close:()=>void;setTab:(t:Tab)=>void;setMore:(p:MorePage)=>void}){if(!visible)return null;const go=(t:Tab,p?:MorePage)=>{setTab(t);if(p)setMore(p);close()};return <View style={s.drawerOverlay}><Pressable style={s.scrim} onPress={close}/><View style={s.drawer}><Text style={s.drawerBrand}>Movvant</Text><Text style={s.drawerEnterprise}>ENTERPRISE</Text><View style={s.drawerProfile}><View style={s.avatar}><Text style={s.avatarText}>CS</Text></View><View><Text style={s.drawerName}>Carlos Silva</Text><Text style={s.drawerRole}>Supervisor</Text></View></View>{[['Home',()=>go('home')],['Agenda',()=>go('agenda')],['Lojas',()=>go('mais','menu')],['KM',()=>go('km')],['Deslocamento',()=>go('mapa')],['Mapa',()=>go('mapa')],['Relatórios',()=>go('mais','relatorios')],['Sincronização',()=>go('mais','menu')],['Configurações',()=>go('mais','configuracoes')]].map(([l,f])=><Pressable key={l as string} style={s.drawerItem} onPress={f as ()=>void}><Text style={s.drawerItemText}>{l as string}</Text></Pressable>)}<View style={{flex:1}}/><Pressable style={s.drawerExit}><Text style={s.drawerItemText}>Sair</Text></Pressable></View></View>}
 
-  const selected = useMemo(
-    () => appointments.filter(a => a.day === selectedDay).sort((a, b) => a.time.localeCompare(b.time)),
-    [appointments, selectedDay],
-  );
+export default function App(){const [tab,setTab]=useState<Tab>('home'),[drawer,setDrawer]=useState(false),[more,setMore]=useState<MorePage>('menu');const title=tab==='home'?'Movvant':tab==='agenda'?'Agenda':tab==='km'?'KM':tab==='mapa'?'Deslocamento':more==='relatorios'?'Relatórios':more==='configuracoes'?'Configurações':'Mais';const setMain=(t:Tab)=>{setTab(t);if(t!=='mais')setMore('menu')};return <SafeAreaView style={s.screen}><StatusBar barStyle="light-content" backgroundColor={NAVY}/><Header title={title} onMenu={()=>setDrawer(true)}/><View style={s.body}>{tab==='home'&&<Home goAgenda={()=>setMain('agenda')} goMap={()=>setMain('mapa')}/>} {tab==='agenda'&&<Agenda/>}{tab==='km'&&<Km/>}{tab==='mapa'&&<MapScreen/>}{tab==='mais'&&<More page={more} setPage={setMore}/>}</View><BottomNav tab={tab} setTab={setMain}/><Drawer visible={drawer} close={()=>setDrawer(false)} setTab={setMain} setMore={setMore}/></SafeAreaView>}
 
-  const save = () => {
-    setAppointments(prev => [
-      ...prev,
-      { id: String(Date.now()), day: selectedDay, time, title, store, type: 'Visita' },
-    ]);
-    setEditorOpen(false);
-  };
-
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.calendarCard}>
-        <View style={styles.monthHeader}>
-          <Text style={styles.monthArrow}>‹</Text>
-          <Text style={styles.monthTitle}>Novembro 2026</Text>
-          <Text style={styles.monthArrow}>›</Text>
-        </View>
-        <View style={styles.weekHeader}>
-          {['D','S','T','Q','Q','S','S'].map((d, i) => <Text key={i} style={styles.weekText}>{d}</Text>)}
-        </View>
-        <View style={styles.daysGrid}>
-          {monthDays.map(day => {
-            const has = appointments.some(a => a.day === day);
-            return (
-              <Pressable key={day} style={styles.dayCell} onPress={() => setSelectedDay(day)}>
-                <View style={[styles.dayCircle, selectedDay === day && styles.daySelected]}>
-                  <Text style={[styles.dayText, selectedDay === day && styles.daySelectedText]}>{day}</Text>
-                </View>
-                {has && <View style={styles.dayDot} />}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>Dia {selectedDay}</Text>
-        <Pressable onPress={() => setEditorOpen(true)}><Text style={styles.link}>+ Novo</Text></Pressable>
-      </View>
-      {selected.length ? selected.map(item => <AgendaRow key={item.id} item={item} />) : <Text style={styles.empty}>Nenhum compromisso neste dia.</Text>}
-
-      <Modal visible={editorOpen} animationType="slide" onRequestClose={() => setEditorOpen(false)}>
-        <SafeAreaView style={styles.screen}>
-          <Header title="Novo compromisso" onBack={() => setEditorOpen(false)} />
-          <ScrollView contentContainerStyle={styles.content}>
-            <Field label="Título" value={title} onChangeText={setTitle} />
-            <Field label="Data" value={`Novembro ${selectedDay}, 2026`} onChangeText={() => {}} editable={false} />
-            <Field label="Horário" value={time} onChangeText={setTime} />
-            <Field label="Loja" value={store} onChangeText={setStore} />
-            <Field label="Descrição" value="Verificar estoque e alinhamento da campanha." onChangeText={() => {}} />
-            <Pressable style={styles.primaryButton} onPress={save}><Text style={styles.primaryButtonText}>Salvar compromisso</Text></Pressable>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-    </ScrollView>
-  );
-}
-
-function Field({ label, value, onChangeText, editable = true }: { label: string; value: string; onChangeText: (v: string) => void; editable?: boolean }) {
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput style={styles.input} value={value} onChangeText={onChangeText} editable={editable} />
-    </View>
-  );
-}
-
-function Km() {
-  const [start, setStart] = useState('12340');
-  const [end, setEnd] = useState('12520');
-  const total = Math.max(0, Number(end || 0) - Number(start || 0));
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.segment}><Text style={styles.segmentActive}>Registrar</Text><Text style={styles.segmentItem}>Histórico</Text></View>
-      <Field label="Veículo" value="Fiat Strada · ABC1D23" onChangeText={() => {}} editable={false} />
-      <Field label="KM inicial" value={start} onChangeText={setStart} />
-      <Field label="KM final" value={end} onChangeText={setEnd} />
-      <View style={styles.totalCard}><Text style={styles.muted}>Total calculado</Text><Text style={styles.totalValue}>{total} km</Text></View>
-      <Field label="Motivo" value="Visita a lojas" onChangeText={() => {}} />
-      <Pressable style={styles.primaryButton}><Text style={styles.primaryButtonText}>Salvar registro</Text></Pressable>
-    </ScrollView>
-  );
-}
-
-function MapScreen() {
-  const [running, setRunning] = useState(false);
-  const [paused, setPaused] = useState(false);
-  return (
-    <View style={styles.mapScreen}>
-      <View style={styles.fakeMap}>
-        <View style={[styles.routeSegment, { transform: [{ rotate: '-20deg' }], left: 45, top: 185, width: 120 }]} />
-        <View style={[styles.routeSegment, { transform: [{ rotate: '35deg' }], left: 135, top: 145, width: 130 }]} />
-        <View style={[styles.routeSegmentOrange, { transform: [{ rotate: '8deg' }], left: 220, top: 205, width: 95 }]} />
-        <View style={[styles.pin, { left: 36, top: 190 }]}><Text style={styles.pinText}>A</Text></View>
-        <View style={[styles.pinRed, { right: 28, top: 178 }]}><Text style={styles.pinText}>B</Text></View>
-        <View style={styles.mapBadge}><Text style={styles.mapBadgeText}>Rota ativa · GPS</Text></View>
-      </View>
-      <View style={styles.tripPanel}>
-        <Text style={styles.tripTitle}>{running ? (paused ? 'Deslocamento pausado' : 'Em deslocamento') : 'Pronto para iniciar'}</Text>
-        <View style={styles.tripMetrics}>
-          <View><Text style={styles.metricValue}>{running ? '00:42:15' : '00:00:00'}</Text><Text style={styles.muted}>Tempo</Text></View>
-          <View><Text style={styles.metricValue}>{running ? '12,4 km' : '0 km'}</Text><Text style={styles.muted}>Distância</Text></View>
-        </View>
-        {!running ? (
-          <Pressable style={styles.primaryButton} onPress={() => setRunning(true)}><Text style={styles.primaryButtonText}>Iniciar deslocamento</Text></Pressable>
-        ) : (
-          <View style={styles.actionRow}>
-            <Pressable style={styles.secondaryButton} onPress={() => setPaused(v => !v)}><Text style={styles.secondaryButtonText}>{paused ? 'Continuar' : 'Pausar'}</Text></Pressable>
-            <Pressable style={styles.dangerButton} onPress={() => { setRunning(false); setPaused(false); }}><Text style={styles.dangerButtonText}>Finalizar</Text></Pressable>
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function More() {
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      {['Lojas', 'Relatórios', 'Sincronização', 'Configurações', 'Notificações', 'Sobre'].map(item => (
-        <View key={item} style={styles.moreRow}><Text style={styles.moreTitle}>{item}</Text><Text style={styles.moreArrow}>›</Text></View>
-      ))}
-    </ScrollView>
-  );
-}
-
-function Drawer({ visible, close, setTab }: { visible: boolean; close: () => void; setTab: (tab: Tab) => void }) {
-  if (!visible) return null;
-  const go = (tab: Tab) => { setTab(tab); close(); };
-  return (
-    <View style={styles.drawerOverlay}>
-      <Pressable style={styles.drawerScrim} onPress={close} />
-      <View style={styles.drawer}>
-        <Text style={styles.drawerBrand}>Movvant</Text>
-        <Text style={styles.drawerEnterprise}>ENTERPRISE</Text>
-        <View style={styles.drawerProfile}><View style={styles.avatar}><Text style={styles.avatarText}>CS</Text></View><View><Text style={styles.drawerName}>Carlos Silva</Text><Text style={styles.drawerRole}>Supervisor</Text></View></View>
-        {[
-          ['home','Home'],['agenda','Agenda'],['mais','Lojas'],['km','KM'],['mapa','Deslocamento'],['mapa','Mapa'],['mais','Relatórios'],['mais','Sincronização'],['mais','Configurações']
-        ].map(([key, label]) => (
-          <Pressable key={`${key}-${label}`} style={styles.drawerItem} onPress={() => go(key as Tab)}><Text style={styles.drawerItemText}>{label}</Text></Pressable>
-        ))}
-        <View style={styles.flex1} />
-        <Pressable style={styles.drawerExit}><Text style={styles.drawerItemText}>Sair</Text></Pressable>
-      </View>
-    </View>
-  );
-}
-
-export default function App() {
-  const [tab, setTab] = useState<Tab>('home');
-  const [drawer, setDrawer] = useState(false);
-  const title = tab === 'home' ? 'Movvant' : tab === 'agenda' ? 'Agenda' : tab === 'km' ? 'KM' : tab === 'mapa' ? 'Deslocamento' : 'Mais';
-  return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#07365b" />
-      <Header title={title} onMenu={() => setDrawer(true)} />
-      <View style={styles.body}>
-        {tab === 'home' && <Home goAgenda={() => setTab('agenda')} goMap={() => setTab('mapa')} />}
-        {tab === 'agenda' && <Agenda />}
-        {tab === 'km' && <Km />}
-        {tab === 'mapa' && <MapScreen />}
-        {tab === 'mais' && <More />}
-      </View>
-      <BottomNav tab={tab} setTab={setTab} />
-      <Drawer visible={drawer} close={() => setDrawer(false)} setTab={setTab} />
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f5f7fb' },
-  body: { flex: 1 },
-  flex1: { flex: 1 },
-  header: { height: 58, backgroundColor: '#07365b', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  headerIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerIconText: { color: '#fff', fontSize: 22 },
-  content: { padding: 16, paddingBottom: 28 },
-  profileRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 16 },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#0b78e3', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontWeight: '800' },
-  hello: { fontSize: 20, fontWeight: '800', color: '#172438' },
-  muted: { color: '#7e8b9a', fontSize: 12 },
-  kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  kpiCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 10, alignItems: 'center', borderWidth: 1, borderColor: '#e6ebf2' },
-  kpiValue: { fontSize: 20, fontWeight: '800', color: '#0c7a42' },
-  kpiLabel: { marginTop: 4, fontSize: 11, color: '#596779', textAlign: 'center' },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#1c2b40' },
-  link: { color: '#0877e8', fontSize: 13, fontWeight: '700' },
-  agendaRow: { minHeight: 62, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#edf0f4', paddingHorizontal: 12 },
-  agendaTime: { width: 48, color: '#27405e', fontSize: 12, fontWeight: '700' },
-  timeline: { width: 3, alignSelf: 'stretch', backgroundColor: '#19b96b', marginRight: 12, marginVertical: 8, borderRadius: 2 },
-  agendaStore: { color: '#1d2d42', fontSize: 13, fontWeight: '800' },
-  agendaTitle: { color: '#7a8796', fontSize: 11, marginTop: 2 },
-  primaryButton: { backgroundColor: '#0877e8', minHeight: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
-  primaryButtonText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  bottomNav: { height: 62, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#dfe5ec', flexDirection: 'row' },
-  bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  bottomIcon: { fontSize: 19, color: '#68788a' },
-  bottomLabel: { fontSize: 10, color: '#68788a', marginTop: 2 },
-  activeBlue: { color: '#0877e8', fontWeight: '800' },
-  calendarCard: { backgroundColor: '#fff', borderRadius: 15, padding: 12, borderWidth: 1, borderColor: '#e5eaf1' },
-  monthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  monthTitle: { fontSize: 16, fontWeight: '800', color: '#1d2b3f' },
-  monthArrow: { fontSize: 28, color: '#234f7d' },
-  weekHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  weekText: { width: '14.28%', textAlign: 'center', color: '#738092', fontSize: 10, fontWeight: '700' },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: { width: '14.28%', height: 43, alignItems: 'center', justifyContent: 'center' },
-  dayCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  daySelected: { backgroundColor: '#0877e8' },
-  dayText: { color: '#3e4e62', fontSize: 12 },
-  daySelectedText: { color: '#fff', fontWeight: '800' },
-  dayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#14a95f', marginTop: 1 },
-  empty: { padding: 18, color: '#8894a2', textAlign: 'center' },
-  fieldWrap: { marginBottom: 14 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: '#42536a', marginBottom: 6 },
-  input: { minHeight: 48, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#dfe5ed', paddingHorizontal: 12, color: '#1e2c3f' },
-  segment: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 10, marginBottom: 16, borderWidth: 1, borderColor: '#e4e9ef' },
-  segmentActive: { flex: 1, textAlign: 'center', padding: 13, color: '#0877e8', fontWeight: '800', borderBottomWidth: 2, borderBottomColor: '#0877e8' },
-  segmentItem: { flex: 1, textAlign: 'center', padding: 13, color: '#647386' },
-  totalCard: { backgroundColor: '#edf5ff', padding: 14, borderRadius: 12, marginBottom: 14 },
-  totalValue: { fontSize: 22, color: '#0877e8', fontWeight: '800', marginTop: 3 },
-  mapScreen: { flex: 1, backgroundColor: '#eef3f7' },
-  fakeMap: { flex: 1, minHeight: 360, backgroundColor: '#dfeadf', position: 'relative', overflow: 'hidden' },
-  routeSegment: { position: 'absolute', height: 5, backgroundColor: '#1479ee', borderRadius: 4 },
-  routeSegmentOrange: { position: 'absolute', height: 5, backgroundColor: '#ff8b24', borderRadius: 4 },
-  pin: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: '#18a95f', alignItems: 'center', justifyContent: 'center' },
-  pinRed: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: '#e44848', alignItems: 'center', justifyContent: 'center' },
-  pinText: { color: '#fff', fontWeight: '900' },
-  mapBadge: { position: 'absolute', top: 14, left: 14, backgroundColor: 'rgba(255,255,255,.95)', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
-  mapBadgeText: { color: '#24405d', fontSize: 11, fontWeight: '800' },
-  tripPanel: { backgroundColor: '#fff', padding: 16, borderTopLeftRadius: 18, borderTopRightRadius: 18, marginTop: -16 },
-  tripTitle: { fontSize: 17, fontWeight: '800', color: '#1d2b3f' },
-  tripMetrics: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 16 },
-  metricValue: { fontSize: 18, fontWeight: '800', color: '#24374e' },
-  actionRow: { flexDirection: 'row', gap: 10 },
-  secondaryButton: { flex: 1, minHeight: 48, borderRadius: 10, backgroundColor: '#dce2e8', alignItems: 'center', justifyContent: 'center' },
-  secondaryButtonText: { color: '#27384c', fontWeight: '800' },
-  dangerButton: { flex: 1, minHeight: 48, borderRadius: 10, backgroundColor: '#ef4343', alignItems: 'center', justifyContent: 'center' },
-  dangerButtonText: { color: '#fff', fontWeight: '800' },
-  moreRow: { minHeight: 58, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e7ebf0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14 },
-  moreTitle: { color: '#22334a', fontSize: 14, fontWeight: '700' },
-  moreArrow: { color: '#7f8b99', fontSize: 22 },
-  drawerOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 20, flexDirection: 'row' },
-  drawerScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,.45)' },
-  drawer: { width: '82%', maxWidth: 340, backgroundColor: '#07365b', paddingTop: 54, paddingHorizontal: 18, paddingBottom: 22 },
-  drawerBrand: { fontSize: 28, color: '#fff', fontWeight: '900' },
-  drawerEnterprise: { color: '#bcd7ef', letterSpacing: 4, fontSize: 10, marginTop: 2 },
-  drawerProfile: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 22, marginBottom: 4 },
-  drawerName: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  drawerRole: { color: '#a8c3dc', fontSize: 11, marginTop: 2 },
-  drawerItem: { minHeight: 44, justifyContent: 'center', borderRadius: 8, paddingHorizontal: 10 },
-  drawerItemText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  drawerExit: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,.15)', paddingTop: 16, marginTop: 14 },
+const s=StyleSheet.create({
+ screen:{flex:1,backgroundColor:BG},body:{flex:1},content:{padding:16,paddingBottom:28,gap:10},header:{height:58,backgroundColor:NAVY,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:10},headerBtn:{width:38,height:38,alignItems:'center',justifyContent:'center'},headerBtnText:{color:'#fff',fontSize:22,fontWeight:'700'},headerTitle:{color:'#fff',fontSize:16,fontWeight:'800'},bottomNav:{height:66,borderTopWidth:1,borderTopColor:BORDER,backgroundColor:'#fff',flexDirection:'row'},bottomItem:{flex:1,alignItems:'center',justifyContent:'center'},bottomIcon:{fontSize:18,color:'#6B7B8D'},bottomLabel:{fontSize:10,color:'#6B7B8D',marginTop:2},active:{color:BLUE,fontWeight:'800'},profile:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:4},avatar:{width:42,height:42,borderRadius:21,backgroundColor:'#DCEBFA',alignItems:'center',justifyContent:'center'},avatarText:{fontWeight:'900',color:NAVY},hello:{fontSize:17,fontWeight:'800',color:TEXT},muted:{fontSize:12,color:MUTED},kpiRow:{flexDirection:'row',gap:8},kpi:{flex:1,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:14,padding:12},kpiValue:{fontSize:19,fontWeight:'900',color:TEXT},kpiLabel:{fontSize:10,color:MUTED,marginTop:3},sectionHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8},sectionTitle:{fontSize:15,fontWeight:'900',color:TEXT},link:{color:BLUE,fontWeight:'800',fontSize:12},agendaRow:{minHeight:56,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:12,flexDirection:'row',alignItems:'center',padding:10},time:{width:50,fontSize:12,fontWeight:'800',color:TEXT},line:{width:3,height:34,backgroundColor:'#20B26B',borderRadius:4,marginRight:10},store:{fontSize:13,fontWeight:'800',color:TEXT},sub:{fontSize:11,color:MUTED,marginTop:2},primary:{backgroundColor:BLUE,borderRadius:10,minHeight:46,alignItems:'center',justifyContent:'center',marginTop:6},primaryText:{color:'#fff',fontWeight:'900'},syncCard:{backgroundColor:'#EAF5EF',borderRadius:12,padding:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},syncTitle:{fontSize:13,fontWeight:'800',color:TEXT},statusDot:{width:10,height:10,borderRadius:5,backgroundColor:'#20B26B'},calendar:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:14,padding:12},monthHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},monthArrow:{fontSize:24,color:NAVY},monthTitle:{fontWeight:'900',color:TEXT},week:{flexDirection:'row',marginTop:12},weekText:{width:'14.285%',textAlign:'center',fontSize:10,fontWeight:'800',color:MUTED},days:{flexDirection:'row',flexWrap:'wrap',marginTop:4},dayCell:{width:'14.285%',alignItems:'center',height:42},dayCircle:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center'},daySelected:{backgroundColor:BLUE},dayText:{fontSize:12,color:TEXT},daySelectedText:{color:'#fff',fontWeight:'900'},dayDot:{width:4,height:4,borderRadius:2,backgroundColor:'#20B26B',marginTop:1},empty:{backgroundColor:'#fff',padding:16,borderRadius:12,color:MUTED},field:{gap:5},label:{fontSize:11,fontWeight:'800',color:TEXT},input:{minHeight:44,borderWidth:1,borderColor:BORDER,borderRadius:10,paddingHorizontal:12,backgroundColor:'#fff',color:TEXT},segment:{height:42,backgroundColor:'#fff',borderRadius:10,flexDirection:'row',alignItems:'center',justifyContent:'space-around',borderWidth:1,borderColor:BORDER},segmentActive:{color:BLUE,fontWeight:'900'},segmentItem:{color:MUTED},totalCard:{backgroundColor:'#fff',borderRadius:12,borderWidth:1,borderColor:BORDER,padding:14,flexDirection:'row',justifyContent:'space-between'},totalValue:{fontSize:16,fontWeight:'900',color:TEXT},mapScreen:{flex:1},fakeMap:{flex:1,backgroundColor:'#DCE9D8',position:'relative',overflow:'hidden'},route:{position:'absolute',height:5,backgroundColor:BLUE,borderRadius:5},routeOrange:{position:'absolute',height:5,backgroundColor:'#F39A2B',borderRadius:5},pin:{position:'absolute',width:32,height:32,borderRadius:16,backgroundColor:'#18A85E',alignItems:'center',justifyContent:'center'},pinRed:{position:'absolute',width:32,height:32,borderRadius:16,backgroundColor:'#EB4545',alignItems:'center',justifyContent:'center'},pinText:{color:'#fff',fontWeight:'900'},mapBadge:{position:'absolute',left:14,top:14,backgroundColor:'#fff',borderRadius:14,paddingHorizontal:12,paddingVertical:8},mapBadgeText:{fontSize:11,fontWeight:'800',color:TEXT},tripPanel:{backgroundColor:'#fff',padding:16,borderTopLeftRadius:18,borderTopRightRadius:18},tripTitle:{fontSize:16,fontWeight:'900',color:TEXT},metrics:{flexDirection:'row',justifyContent:'space-between',paddingVertical:14},metricValue:{fontSize:18,fontWeight:'900',color:TEXT},actions:{flexDirection:'row',gap:10},secondary:{flex:1,minHeight:46,borderRadius:10,backgroundColor:'#E9EEF5',alignItems:'center',justifyContent:'center'},secondaryText:{fontWeight:'800',color:TEXT},danger:{flex:1,minHeight:46,borderRadius:10,backgroundColor:'#FF4A4A',alignItems:'center',justifyContent:'center'},dangerText:{fontWeight:'900',color:'#fff'},moreRow:{minHeight:60,backgroundColor:'#fff',borderRadius:12,borderWidth:1,borderColor:BORDER,padding:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},moreTitle:{fontSize:13,fontWeight:'800',color:TEXT},moreArrow:{fontSize:22,color:MUTED},reportGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},reportCard:{width:'48.7%',backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:12,padding:12},reportLabel:{fontSize:10,color:MUTED},reportValue:{fontSize:17,fontWeight:'900',color:TEXT,marginTop:4},reportDelta:{fontSize:10,color:'#20A464',marginTop:3,fontWeight:'800'},settingRow:{minHeight:66,backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:12,padding:12,flexDirection:'row',alignItems:'center',gap:10},infoCard:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:12,padding:14,gap:5},infoTitle:{fontSize:14,fontWeight:'900',color:TEXT},drawerOverlay:{...StyleSheet.absoluteFillObject,zIndex:20,flexDirection:'row'},scrim:{flex:1,backgroundColor:'rgba(0,0,0,.35)'},drawer:{position:'absolute',left:0,top:0,bottom:0,width:'78%',maxWidth:330,backgroundColor:'#062E4E',padding:20,paddingTop:36},drawerBrand:{fontSize:27,fontWeight:'900',color:'#fff'},drawerEnterprise:{fontSize:10,letterSpacing:4,color:'#B8D1E6',marginBottom:18},drawerProfile:{flexDirection:'row',gap:10,alignItems:'center',marginBottom:16},drawerName:{color:'#fff',fontWeight:'900'},drawerRole:{color:'#B8D1E6',fontSize:11},drawerItem:{minHeight:44,justifyContent:'center',borderBottomWidth:1,borderBottomColor:'rgba(255,255,255,.08)'},drawerItemText:{color:'#fff',fontSize:13,fontWeight:'700'},drawerExit:{minHeight:48,justifyContent:'center',borderTopWidth:1,borderTopColor:'rgba(255,255,255,.15)'}
 });
