@@ -1,0 +1,37 @@
+name: Movvant RC11 mobile quality gate
+
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - 'mobile-rc11/**'
+      - '.github/workflows/rc11-mobile-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-rc11
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Expo doctor
+        run: npx expo-doctor
+      - name: TypeScript check
+        run: npx tsc --noEmit --jsx react-jsx --allowJs false App.tsx
+      - name: Validate Expo config
+        run: npx expo config --type public > /tmp/rc11-expo-config.json
+      - name: Verify RC11 Android identifiers
+        run: |
+          grep -q 'com.movvant.enterprise' app.json
+          grep -q 'ACCESS_FINE_LOCATION' app.json
+          grep -q 'buildType' eas.json
