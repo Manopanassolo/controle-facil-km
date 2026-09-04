@@ -1,15 +1,18 @@
-const base = require('./app.json').expo;
-
 module.exports = {
   expo: {
-    ...base,
+    name: 'Movvant Enterprise',
+    slug: 'movvant-mobile-rc11',
+    version: '1.0.0',
+    orientation: 'portrait',
+    userInterfaceStyle: 'light',
     plugins: [
       ['expo-location', {
-        locationWhenInUsePermission: 'Permitir que o Movvant use sua localização durante os deslocamentos.'
+        locationWhenInUsePermission: 'Permita que o Movvant use sua localização para registrar deslocamentos e rotas.'
       }]
     ],
     android: {
-      ...base.android,
+      package: 'com.movvant.enterprise',
+      versionCode: 23,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
       config: {
         googleMaps: {
@@ -18,7 +21,7 @@ module.exports = {
       }
     },
     extra: {
-      ...base.extra,
+      releaseChannel: 'rc11',
       mapsConfiguredFromEnv: Boolean(process.env.GOOGLE_MAPS_API_KEY)
     }
   }
