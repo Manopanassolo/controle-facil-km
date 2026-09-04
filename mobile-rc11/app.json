@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Movvant Enterprise",
+    "slug": "movvant-mobile-rc11",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.movvant.enterprise",
+      "versionCode": 22
+    },
+    "extra": {
+      "releaseChannel": "rc11"
+    }
+  }
+}
