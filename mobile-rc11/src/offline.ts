@@ -139,7 +139,34 @@ function toIso(date: string, time: string) {
   return d.toISOString();
 }
 
-function mapMutation(item: SyncItem, session: Session): RemoteMutation {
+async function uploadKmPhoto(session: Session, companyId: string, item: SyncItem): Promise<string | null> {
+  const uri = typeof item.payload.photoUri === 'string' ? item.payload.photoUri : '';
+  if (!uri) return null;
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+  const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error('Supabase não configurado nesta instalação.');
+  const source = await fetch(uri);
+  if (!source.ok) throw new Error('Não foi possível ler a foto do registro de KM.');
+  const blob = await source.blob();
+  const path = `${companyId}/${session.user.id}/odometer/${item.id}.jpg`;
+  const upload = await fetch(`${url}/storage/v1/object/fleet-documents/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': blob.type || 'image/jpeg',
+      'x-upsert': 'true',
+    },
+    body: blob,
+  });
+  if (!upload.ok) {
+    const message = await upload.text();
+    throw new Error(message || `Falha ao enviar foto HTTP ${upload.status}`);
+  }
+  return path;
+}
+
+async function mapMutation(item: SyncItem, session: Session, companyId: string): Promise<RemoteMutation> {
   if (item.entity === 'appointment') {
     const customerId = typeof item.payload.customerId === 'string' ? item.payload.customerId : '';
     if (!customerId) throw new Error('Compromisso sem loja vinculada permanece somente no aparelho.');
@@ -166,7 +193,8 @@ function mapMutation(item: SyncItem, session: Session): RemoteMutation {
   if (item.entity === 'km') {
     const vehicleId = typeof item.payload.vehicleId === 'string' ? item.payload.vehicleId : '';
     if (!vehicleId) throw new Error('Registro de KM sem veículo vinculado.');
-    const hasPhoto = typeof item.payload.photoUri === 'string' && item.payload.photoUri.length > 0;
+    const photoPath = await uploadKmPhoto(session, companyId, item);
+    const hasPhoto = Boolean(photoPath);
     return {
       id: item.id,
       entity: 'odometer_reading',
@@ -176,7 +204,7 @@ function mapMutation(item: SyncItem, session: Session): RemoteMutation {
         vehicle_id: vehicleId,
         reading_type: 'end',
         odometer_km: Number(item.payload.end || 0),
-        photo_path: hasPhoto ? `mobile-pending/${item.id}` : 'not_provided',
+        photo_path: photoPath || 'not_provided',
         captured_at: String(item.payload.createdAt || item.createdAt),
         metadata: {
           source: 'movvant_mobile',
@@ -241,7 +269,7 @@ async function findExistingRemote(session: Session, mutationId: string): Promise
 }
 
 async function pushAndApply(session: Session, companyId: string, item: SyncItem) {
-  const mutation = mapMutation(item, session);
+  const mutation = await mapMutation(item, session, companyId);
   let row = await findExistingRemote(session, item.id);
   if (row?.status === 'synced') return;
   if (row?.status === 'processing') throw new Error('Registro já está sendo processado no servidor.');
