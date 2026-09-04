@@ -27,7 +27,7 @@ jobs:
       - name: Expo doctor
         run: npx expo-doctor
       - name: TypeScript check
-        run: npx tsc --noEmit --jsx react-jsx --allowJs false App.tsx src/location.ts src/offline.ts
+        run: npx tsc --noEmit
       - name: Validate Expo config
         run: npx expo config --type public > /tmp/rc11-expo-config.json
       - name: Verify RC11 Android identifiers
