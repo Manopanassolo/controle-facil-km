@@ -3,10 +3,12 @@ module.exports = {
     name: 'Movvant Enterprise',
     slug: 'movvant-enterprise',
     owner: 'movant',
-    version: '1.1.0',
+    scheme: 'movvant',
+    version: '1.1.1',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     plugins: [
+      ['expo-web-browser', { experimentalLauncherActivity: false }],
       ['expo-location', {
         locationWhenInUsePermission: 'Permita que o Movvant use sua localização para registrar deslocamentos e rotas.'
       }],
@@ -18,7 +20,7 @@ module.exports = {
     ],
     android: {
       package: 'com.movvant.enterprise',
-      versionCode: 25,
+      versionCode: 26,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
       config: {
         googleMaps: {
@@ -27,7 +29,7 @@ module.exports = {
       }
     },
     extra: {
-      releaseChannel: 'rc11-final',
+      releaseChannel: 'rc11.2-google-auth',
       mapsConfiguredFromEnv: Boolean(process.env.GOOGLE_MAPS_API_KEY),
       eas: {
         projectId: '445d022e-f19a-44cd-bb5f-826d603bb70f'
