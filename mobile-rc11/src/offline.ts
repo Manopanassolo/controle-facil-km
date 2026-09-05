@@ -3,6 +3,9 @@ import { enqueueRemote, restSelect, Session } from './api';
 
 const QUEUE_KEY = 'movvant.rc11.syncQueue';
 const STATE_KEY = 'movvant.rc11.localState';
+const ACTIVE_TRIP_KEY = 'movvant.rc11.activeTrip';
+const LAST_SYNC_REPORT_KEY = 'movvant.rc11.lastSyncReport';
+const MAX_REMOTE_GPS_POINTS = 1200;
 
 export type SyncItem = {
   id: string;
@@ -55,6 +58,14 @@ export type LocalTripRecord = {
   synced?: boolean;
 };
 
+export type ActiveTripDraft = {
+  startedAt: number;
+  elapsedMs: number;
+  returnStart: number | null;
+  points: LocalTripPoint[];
+  savedAt: number;
+};
+
 export type LocalState = {
   appointments: LocalAppointment[];
   km: LocalKmRecord[];
@@ -82,6 +93,20 @@ export type SyncDiagnostics = {
   km: number;
   trip: number;
   localOnlyAppointments: number;
+};
+
+export type SyncIssue = {
+  entity: SyncItem['entity'];
+  localId: string | null;
+  message: string;
+};
+
+export type SyncReport = {
+  attemptedAt: string;
+  sent: number;
+  pending: number;
+  skippedLocalOnly: number;
+  issues: SyncIssue[];
 };
 
 const EMPTY_STATE: LocalState = { appointments: [], km: [], trips: [] };
@@ -126,6 +151,30 @@ export async function saveKmLocal(item: LocalKmRecord) {
 
 export async function saveTripLocal(item: LocalTripRecord) {
   return mutateLocal(state => ({ ...state, trips: [item, ...state.trips.filter(x => x.id !== item.id)].slice(0, 300) }));
+}
+
+export async function saveActiveTripDraft(draft: Omit<ActiveTripDraft, 'savedAt'>) {
+  await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify({ ...draft, savedAt: Date.now() }));
+}
+
+export async function readActiveTripDraft(): Promise<ActiveTripDraft | null> {
+  const raw = await AsyncStorage.getItem(ACTIVE_TRIP_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as ActiveTripDraft;
+    if (!parsed.startedAt || !Array.isArray(parsed.points) || !parsed.points.length) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+export async function clearActiveTripDraft() {
+  await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+}
+
+export async function readLastSyncReport(): Promise<SyncReport | null> {
+  const raw = await AsyncStorage.getItem(LAST_SYNC_REPORT_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as SyncReport; } catch { return null; }
 }
 
 export async function readQueue(): Promise<SyncItem[]> {
@@ -174,7 +223,7 @@ export async function removeQueued(ids: string[]): Promise<SyncItem[]> {
 }
 
 function isLocalOnlyAppointment(item: SyncItem) {
-  return item.entity === 'appointment' && typeof item.payload.customerId !== 'string';
+  return item.entity === 'appointment' && (typeof item.payload.customerId !== 'string' || !item.payload.customerId);
 }
 
 export async function readSyncDiagnostics(): Promise<SyncDiagnostics> {
@@ -192,6 +241,16 @@ function toIso(date: string, time: string) {
   const d = new Date(`${date}T${time}:00`);
   if (Number.isNaN(d.getTime())) throw new Error('Data ou horário inválido para sincronização.');
   return d.toISOString();
+}
+
+function sampleGpsPoints(value: unknown): LocalTripPoint[] {
+  if (!Array.isArray(value)) return [];
+  const points = value.filter((p): p is LocalTripPoint => Boolean(p) && Number.isFinite(Number((p as LocalTripPoint).latitude)) && Number.isFinite(Number((p as LocalTripPoint).longitude)));
+  if (points.length <= MAX_REMOTE_GPS_POINTS) return points;
+  const result: LocalTripPoint[] = [];
+  const step = (points.length - 1) / (MAX_REMOTE_GPS_POINTS - 1);
+  for (let i = 0; i < MAX_REMOTE_GPS_POINTS; i += 1) result.push(points[Math.round(i * step)]);
+  return result;
 }
 
 async function uploadKmPhoto(session: Session, companyId: string, item: SyncItem): Promise<string | null> {
@@ -275,6 +334,8 @@ async function mapMutation(item: SyncItem, session: Session, companyId: string):
   const started = Number(item.payload.startedAt || Date.now());
   const finished = Number(item.payload.finishedAt || Date.now());
   const date = new Date(started);
+  const originalPoints = Array.isArray(item.payload.points) ? item.payload.points.length : 0;
+  const remotePoints = sampleGpsPoints(item.payload.points);
   return {
     id: item.id,
     entity: 'route_plan',
@@ -292,7 +353,9 @@ async function mapMutation(item: SyncItem, session: Session, companyId: string):
       metadata: {
         source: 'movvant_mobile',
         return_start_index: item.payload.returnStart ?? null,
-        gps_points: Array.isArray(item.payload.points) ? item.payload.points : [],
+        gps_points: remotePoints,
+        gps_points_original_count: originalPoints,
+        gps_points_sampled: originalPoints > remotePoints.length,
       },
     },
   };
@@ -323,6 +386,11 @@ async function findExistingRemote(session: Session, mutationId: string): Promise
   return rows[0] || null;
 }
 
+async function findRemoteById(session: Session, id: string): Promise<RemoteQueueRow | null> {
+  const rows = await restSelect<RemoteQueueRow>(session, 'sync_queue', `select=id,status,server_entity_id,error_message&id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`);
+  return rows[0] || null;
+}
+
 async function pushAndApply(session: Session, companyId: string, item: SyncItem) {
   const mutation = await mapMutation(item, session, companyId);
   let row = await findExistingRemote(session, item.id);
@@ -335,12 +403,19 @@ async function pushAndApply(session: Session, companyId: string, item: SyncItem)
     row = created[0] || null;
   }
   if (!row?.id) throw new Error('Servidor não retornou o identificador da fila.');
+
   try {
     await applyRemoteQueue(session, row.id, row.status === 'failed' || row.status === 'conflict');
   } catch (e) {
+    const latest = await findRemoteById(session, row.id).catch(() => null);
     const base = e instanceof Error ? e.message : 'Falha ao aplicar registro no servidor.';
-    throw new Error(row.error_message ? `${base} · servidor: ${row.error_message}` : base);
+    const serverMessage = latest?.error_message || row.error_message;
+    throw new Error(serverMessage ? `${base} · servidor: ${serverMessage}` : base);
   }
+
+  const latest = await findRemoteById(session, row.id).catch(() => null);
+  if (latest?.status === 'failed' || latest?.status === 'conflict') throw new Error(latest.error_message || `Servidor retornou status ${latest.status}.`);
+  if (latest?.status === 'cancelled') throw new Error('Registro foi cancelado no servidor.');
 }
 
 async function markLocalSynced(sent: SyncItem[]) {
@@ -357,9 +432,13 @@ async function markLocalSynced(sent: SyncItem[]) {
   }));
 }
 
-export async function syncPending(session: Session, companyId: string): Promise<{ sent: number; pending: number; errors: string[] }> {
+export async function syncPending(session: Session, companyId: string): Promise<{ sent: number; pending: number; errors: string[]; issues: SyncIssue[]; skippedLocalOnly: number }> {
   const queue = await readQueue();
-  if (!queue.length) return { sent: 0, pending: 0, errors: [] };
+  if (!queue.length) {
+    const empty: SyncReport = { attemptedAt: new Date().toISOString(), sent: 0, pending: 0, skippedLocalOnly: 0, issues: [] };
+    await AsyncStorage.setItem(LAST_SYNC_REPORT_KEY, JSON.stringify(empty));
+    return { sent: 0, pending: 0, errors: [], issues: [], skippedLocalOnly: 0 };
+  }
 
   const localOnlyIds = queue.filter(isLocalOnlyAppointment).map(x => x.id);
   if (localOnlyIds.length) await removeQueued(localOnlyIds);
@@ -367,7 +446,7 @@ export async function syncPending(session: Session, companyId: string): Promise<
   const candidates = queue.filter(item => !localOnlyIds.includes(item.id));
   const sentIds: string[] = [];
   const sentItems: SyncItem[] = [];
-  const errors: string[] = [];
+  const issues: SyncIssue[] = [];
 
   for (const item of candidates) {
     try {
@@ -376,8 +455,7 @@ export async function syncPending(session: Session, companyId: string): Promise<
       sentItems.push(item);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Falha ao sincronizar registro.';
-      const label = item.entity === 'appointment' ? 'agenda' : item.entity === 'km' ? 'km' : 'deslocamento';
-      errors.push(`${label}: ${message}`);
+      issues.push({ entity: item.entity, localId: typeof item.payload.localId === 'string' ? item.payload.localId : null, message });
     }
   }
 
@@ -387,5 +465,15 @@ export async function syncPending(session: Session, companyId: string): Promise<
   }
 
   const pending = (await readQueue()).length;
-  return { sent: sentIds.length, pending, errors: [...new Set(errors)] };
+  const labels = { appointment: 'agenda', km: 'km', trip: 'deslocamento' } as const;
+  const errors = [...new Set(issues.map(issue => `${labels[issue.entity]}: ${issue.message}`))];
+  const report: SyncReport = {
+    attemptedAt: new Date().toISOString(),
+    sent: sentIds.length,
+    pending,
+    skippedLocalOnly: localOnlyIds.length,
+    issues,
+  };
+  await AsyncStorage.setItem(LAST_SYNC_REPORT_KEY, JSON.stringify(report));
+  return { sent: sentIds.length, pending, errors, issues, skippedLocalOnly: localOnlyIds.length };
 }
