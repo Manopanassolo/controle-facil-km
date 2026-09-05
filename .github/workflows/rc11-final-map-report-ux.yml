@@ -1,0 +1,60 @@
+name: RC11 final map report UX
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['mobile-rc11/RC11_FINAL_UX_TRIGGER']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: movvant-mobile-rc11}
+      - uses: actions/setup-node@v4
+        with: {node-version: '20'}
+      - name: Apply final UX block
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/src/TripPlannerScreen.tsx'); s=p.read_text()
+          s=s.replace("<MapView key={`${selected}-${routePoints.length}-${returnPoints.length}`} style={s.map} initialRegion={mapRegion} mapType=\"standard\" customMapStyle={LIGHT_MAP_STYLE}><Polyline coordinates={routePoints} strokeColor={BLUE} strokeWidth={5}/>","<MapView key={`${routes.length}-${routePoints.length}-${returnPoints.length}`} style={s.map} initialRegion={mapRegion} mapType=\"standard\" customMapStyle={LIGHT_MAP_STYLE}>{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor={i===selected?BLUE:'#9AA9B8'} strokeWidth={i===selected?7:4} tappable onPress={()=>setSelected(i)} zIndex={i===selected?10:1}/>:null})}")
+          s=s.replace('Mapa da rota selecionada</Text><Text style={s.cardSub}>Toque em outra rota abaixo para comparar o caminho no mapa.','Escolha o trajeto no mapa</Text><Text style={s.cardSub}>Todas as alternativas aparecem juntas. Toque em uma linha ou nos cartões para selecionar.')
+          p.write_text(s)
+
+          p=Path('mobile-rc11/AppRC11Final.tsx'); s=p.read_text()
+          s=s.replace("function Header({ title, onMenu, onBack, unread }: { title: string; onMenu: () => void; onBack?: () => void; unread: number }) { return <View style={s.header}><Pressable style={s.headerBtn} onPress={onBack || onMenu}><Text style={s.headerBtnText}>{onBack ? '‹' : '☰'}</Text></Pressable><Text style={s.headerTitle}>{title}</Text><View style={s.headerRight}>{unread > 0 && <View style={s.unreadBadge}><Text style={s.unreadText}>{unread > 99 ? '99+' : unread}</Text></View>}<Text style={s.headerBell}>●</Text></View></View>; }", "function Header({ title, onMenu, onBack, unread, onNotifications }: { title: string; onMenu: () => void; onBack?: () => void; unread: number; onNotifications?:()=>void }) { return <View style={s.header}><Pressable style={s.headerBtn} onPress={onBack || onMenu}><Text style={s.headerBtnText}>{onBack ? '‹' : '☰'}</Text></Pressable><Text style={s.headerTitle}>{title}</Text><Pressable style={s.headerRight} onPress={onNotifications}>{unread > 0 && <View style={s.unreadBadge}><Text style={s.unreadText}>{unread > 99 ? '99+' : unread}</Text></View>}<Text style={s.headerBell}>●</Text></Pressable></View>; }")
+          # Make scroll containers keyboard-safe throughout app.
+          s=s.replace('<ScrollView contentContainerStyle={s.content}>','<ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>')
+          s=s.replace('<ScrollView contentContainerStyle={s.modalList}>','<ScrollView contentContainerStyle={s.modalList} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>')
+          # More tab already routes to More menu; make label explicit.
+          s=s.replace("['mais','•••','Mais']","['mais','☰','Menu']")
+          # Add category filter state near report period state where available.
+          marker="const [period,setPeriod] = useState<'day'|'week'|'month'|'custom'>('month');"
+          if marker in s:
+            s=s.replace(marker,marker+"\n  const [activityCategory,setActivityCategory]=useState<'all'|'commercial'|'delivery'|'travel'>('all');")
+          # Add visible filter immediately before situation routes if exact heading exists.
+          heading='<Text style={s.cardTitle}>Situação das rotas</Text>'
+          filt='<View style={s.categoryTabs}>{[[\'all\',\'Todas\'],[\'commercial\',\'Visitas comerciais\'],[\'delivery\',\'Entregas\'],[\'travel\',\'Viagens\']].map(([k,l])=><Pressable key={k} style={[s.categoryTab,activityCategory===k&&s.categoryTabOn]} onPress={()=>setActivityCategory(k as any)}><Text style={[s.categoryTabText,activityCategory===k&&s.categoryTabTextOn]}>{l}</Text></Pressable>)}</View>'
+          if heading in s and 'Visitas comerciais' not in s: s=s.replace(heading,filt+heading)
+          # Style category chips.
+          s=s.replace("const s = StyleSheet.create({", "const s = StyleSheet.create({\n  categoryTabs:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:14},categoryTab:{paddingHorizontal:12,paddingVertical:9,borderRadius:18,backgroundColor:'#E8EEF5'},categoryTabOn:{backgroundColor:NAVY},categoryTabText:{fontSize:12,fontWeight:'700',color:MUTED},categoryTabTextOn:{color:'#FFF'},")
+          # Wire header notification where common render signature is present.
+          s=s.replace('unread={unread}', "unread={unread} onNotifications={()=>{setTab('mais');setMorePage('notificacoes')}}")
+          p.write_text(s)
+          PY
+      - name: Validate
+        working-directory: mobile-rc11
+        run: |
+          npm ci
+          npx expo-doctor
+          npx tsc --noEmit
+          npx expo config --type public >/dev/null
+      - name: Commit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add mobile-rc11/src/TripPlannerScreen.tsx mobile-rc11/AppRC11Final.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'RC11: map alternatives notifications keyboard and report filters'
+          git push
