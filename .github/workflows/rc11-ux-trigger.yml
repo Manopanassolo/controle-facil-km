@@ -1,0 +1,16 @@
+name: RC11 UX trigger
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: [mobile-rc11/RC11_UX_TRIGGER]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch UX correction block
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run rc11-ux-routes-fixes.yml --repo ${{ github.repository }} --ref movvant-mobile-rc11
