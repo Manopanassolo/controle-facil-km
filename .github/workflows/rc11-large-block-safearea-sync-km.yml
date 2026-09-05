@@ -1,0 +1,54 @@
+name: RC11 large block safe area sync KM
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-large-block-safearea-sync-km.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply large mobile block
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) System bar safe spacing + company KM rules in main app
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          s=s.replace("import { LocalAppointment, LocalKmRecord, LocalState, enqueue, enqueueReplacingLocal, readLocalState, readQueue, removeAppointmentLocal, removeQueuedForLocal, saveAppointmentLocal, saveKmLocal, syncPending } from './src/offline';", "import { LocalAppointment, LocalKmRecord, LocalState, enqueue, enqueueReplacingLocal, readLocalState, readQueue, removeAppointmentLocal, removeQueuedForLocal, saveAppointmentLocal, saveKmLocal, syncPending } from './src/offline';\nimport { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './src/adminSettings';")
+          s=s.replace("function Km({ vehicles, history, onSave }: { vehicles: VehicleRow[]; history: LocalKmRecord[]; onSave: (item: LocalKmRecord) => Promise<void> }) {", "function Km({ vehicles, history, onSave, companyId }: { vehicles: VehicleRow[]; history: LocalKmRecord[]; onSave: (item: LocalKmRecord) => Promise<void>; companyId?: string | null }) {")
+          s=s.replace("const [tab,setTab] = useState<'register'|'history'>('register'); const [vehicle,setVehicle] = useState<VehicleRow | null>(vehicles[0] || null); const [start,setStart] = useState(''); const [end,setEnd] = useState(''); const [reason,setReason] = useState(''); const [photo,setPhoto] = useState<string | null>(null); const [picker,setPicker] = useState(false);", "const [tab,setTab] = useState<'register'|'history'>('register'); const [vehicle,setVehicle] = useState<VehicleRow | null>(vehicles[0] || null); const [start,setStart] = useState(''); const [end,setEnd] = useState(''); const [reason,setReason] = useState(''); const [photo,setPhoto] = useState<string | null>(null); const [picker,setPicker] = useState(false); const [kmSettings,setKmSettings] = useState<EnterpriseSettings['km']>(DEFAULT_ENTERPRISE_SETTINGS.km);")
+          s=s.replace("useEffect(() => { if (!vehicle && vehicles[0]) setVehicle(vehicles[0]); }, [vehicles,vehicle]);", "useEffect(() => { if (!vehicle && vehicles[0]) setVehicle(vehicles[0]); }, [vehicles,vehicle]);\n  useEffect(() => { readEnterpriseSettings(companyId).then(x => setKmSettings(x.km)).catch(() => setKmSettings(DEFAULT_ENTERPRISE_SETTINGS.km)); }, [companyId]);")
+          s=s.replace("if (!vehicle) return Alert.alert('Veículo', 'Selecione um veículo.');\n    if (!start || !end)", "if (!kmSettings.allowManualKm) return Alert.alert('Registro de KM', 'O lançamento manual está desativado nas regras desta empresa.');\n    if (kmSettings.requireVehicle && !vehicle) return Alert.alert('Veículo', 'Selecione um veículo.');\n    if (!vehicle) return Alert.alert('Veículo', 'O registro sem veículo ainda não pode ser sincronizado.');\n    if (kmSettings.requirePhoto && !photo) return Alert.alert('Foto obrigatória', 'Anexe a foto do painel antes de salvar o registro.');\n    if (!start || !end)")
+          s=s.replace("{tab === 'register' ? <><View style={s.field}", "{tab === 'register' ? <>{!kmSettings.allowManualKm&&<Empty title=\"Lançamento manual desativado\" text=\"As regras da empresa bloqueiam registros manuais de KM neste aparelho.\"/>}<View style={s.field}")
+          s=s.replace("<Text style={s.sub}>{photo ? 'Toque para substituir' : 'Opcional · comprovante ou painel'}</Text>", "<Text style={s.sub}>{photo ? 'Toque para substituir' : kmSettings.requirePhoto ? 'Obrigatória pelas regras da empresa' : 'Opcional · comprovante ou painel'}</Text>")
+          s=s.replace("{tab==='km'&&<Km vehicles={assignedVehicles} history={local.km} onSave={saveKm}/>} ", "{tab==='km'&&<Km vehicles={assignedVehicles} history={local.km} onSave={saveKm} companyId={data?.companyId}/>} ")
+          s=s.replace("header:{height:66,backgroundColor:NAVY", "header:{height:66+(StatusBar.currentHeight||0),paddingTop:StatusBar.currentHeight||0,backgroundColor:NAVY")
+          s=s.replace("modalHeader:{height:62,", "modalHeader:{height:62+(StatusBar.currentHeight||0),paddingTop:StatusBar.currentHeight||0,")
+          s=s.replace("drawer:{", "drawer:{paddingTop:StatusBar.currentHeight||0,")
+          p.write_text(s)
+
+          # 2) Branded sync diagnostics + top safe spacing in operational layer
+          p=Path('mobile-rc11/src/OperationalLayerV2.tsx')
+          s=p.read_text()
+          s=s.replace("import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';", "import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';")
+          s=s.replace("import { clearVisitLocal, enqueueReplacingLocal, readLocalState, saveVisitLocal, syncPending } from './offline';", "import { clearVisitLocal, enqueueReplacingLocal, readLastSyncReport, readLocalState, readSyncDiagnostics, saveVisitLocal, syncPending } from './offline';")
+          old="if(String(title)==='Sincronização parcial'){setSyncNotice({title:'Sincronização parcial',message:String(message||'Há registros aguardando envio.')});return}"
+          new="if(String(title)==='Sincronização parcial'){Promise.all([readSyncDiagnostics(),readLastSyncReport()]).then(([d,r])=>{const parts=[`Pendentes: ${d.total}`,d.visit?`visitas ${d.visit}`:'',d.km?`KM ${d.km}`:'',d.trip?`rotas ${d.trip}`:'',d.appointment?`agenda ${d.appointment}`:''].filter(Boolean).join(' · ');const issue=r?.issues?.[0]?.message?`\\n\\nMotivo: ${r.issues[0].message}`:'';setSyncNotice({title:'Sincronização parcial',message:`${parts}${issue}`})}).catch(()=>setSyncNotice({title:'Sincronização parcial',message:String(message||'Há registros aguardando envio.')}));return}"
+          if old not in s:
+              raise SystemExit('sync alert interception not found')
+          s=s.replace(old,new,1)
+          s=s.replace("notice:{position:'absolute',zIndex:60,top:76,", "notice:{position:'absolute',zIndex:60,top:76+(StatusBar.currentHeight||0),")
+          s=s.replace("modal:{flex:1,backgroundColor:BG},header:{height:70,backgroundColor:NAVY", "modal:{flex:1,backgroundColor:BG},header:{height:70+(StatusBar.currentHeight||0),paddingTop:StatusBar.currentHeight||0,backgroundColor:NAVY")
+          p.write_text(s)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/AppRC11Final.tsx mobile-rc11/src/OperationalLayerV2.tsx
+          git commit -m 'RC11: safe top spacing sync diagnostics and KM enterprise rules'
+          git push
