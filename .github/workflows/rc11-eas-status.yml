@@ -31,4 +31,4 @@ jobs:
       - name: Read EAS build status
         run: |
           echo "BUILD_ID=$BUILD_ID"
-          eas build:view "$BUILD_ID" --json --non-interactive
+          eas build:view "$BUILD_ID" --json
