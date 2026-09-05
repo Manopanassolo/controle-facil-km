@@ -1,0 +1,46 @@
+name: RC11 apply configurable tracking
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-apply-tracking-settings.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply route/company tracking settings
+        run: |
+          python3 - <<'PY'
+          p='mobile-rc11/src/RouteScreen.tsx'
+          s=open(p).read()
+          s=s.replace("import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';", "import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';\nimport { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './adminSettings';")
+          s=s.replace("type Props = { onSaved?: () => void };", "type Props = { onSaved?: () => void; companyId?: string | null };")
+          s=s.replace("const MIN_TRACK_STEP_METERS = 2;\nconst MAX_TRACK_STEP_METERS = 300;", "const MIN_TRACK_STEP_METERS = 2;\nconst MAX_TRACK_STEP_METERS = 300;")
+          s=s.replace("export default function RouteScreen({ onSaved }: Props) {", "export default function RouteScreen({ onSaved, companyId }: Props) {")
+          anchor="  const [mapReady, setMapReady] = useState(false);"
+          s=s.replace(anchor, anchor+"\n  const [trackingSettings, setTrackingSettings] = useState<EnterpriseSettings['tracking']>(DEFAULT_ENTERPRISE_SETTINGS.tracking);")
+          anchor2="  useEffect(() => {\n    mapReadyRef.current = mapReady;\n  }, [mapReady]);"
+          s=s.replace(anchor2, anchor2+"\n\n  useEffect(() => {\n    let active = true;\n    readEnterpriseSettings(companyId).then(v => { if (active) setTrackingSettings(v.tracking); }).catch(() => {});\n    return () => { active = false; };\n  }, [companyId]);")
+          s=s.replace("if (step < MIN_TRACK_STEP_METERS || step > MAX_TRACK_STEP_METERS) return previous;", "if (step < Math.max(1, trackingSettings.minimumTrackStepMeters || MIN_TRACK_STEP_METERS) || step > Math.max(10, trackingSettings.maximumTrackStepMeters || MAX_TRACK_STEP_METERS)) return previous;")
+          s=s.replace("subscription.current = await watchRoute(point => {", "subscription.current = await watchRoute(point => {")
+          old="        followPoint(point);\n      });"
+          new="        followPoint(point);\n      }, { distanceIntervalMeters: trackingSettings.gpsDistanceIntervalMeters, timeIntervalSeconds: trackingSettings.gpsTimeIntervalSeconds });"
+          if old not in s: raise SystemExit('watchRoute closing anchor not found')
+          s=s.replace(old,new,1)
+          open(p,'w').write(s)
+
+          p='mobile-rc11/AppRC11Final.tsx'
+          s=open(p).read()
+          old="<RouteScreen onSaved={reloadLocal}/>"
+          new="<RouteScreen onSaved={reloadLocal} companyId={data?.companyId}/>"
+          if old not in s: raise SystemExit('RouteScreen usage not found')
+          open(p,'w').write(s.replace(old,new,1))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/src/RouteScreen.tsx mobile-rc11/AppRC11Final.tsx
+          git commit -m 'RC11: wire company tracking settings into GPS route'
+          git push
