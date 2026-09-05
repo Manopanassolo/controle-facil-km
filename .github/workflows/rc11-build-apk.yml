@@ -56,9 +56,10 @@ jobs:
           test -s "$APK"
           APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -x "$APKSIGNER" || (echo 'apksigner nao encontrado no Android SDK' && exit 1)
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
-          ACTUAL_SHA1="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' | head -1 | tr -d ':\r' | tr '[:lower:]' '[:upper:]')"
-          EXPECTED_SHA1="$(printf '%s' "$EXPECTED_ANDROID_SHA1" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          CERT_OUTPUT="$("$APKSIGNER" verify --verbose --print-certs "$APK")"
+          printf '%s\n' "$CERT_OUTPUT"
+          ACTUAL_SHA1="$(printf '%s\n' "$CERT_OUTPUT" | sed -nE 's/^(Signer #1|V[0-9]+ Signer) certificate SHA-1 digest: //p' | head -1 | tr -d ':\r ' | tr '[:lower:]' '[:upper:]')"
+          EXPECTED_SHA1="$(printf '%s' "$EXPECTED_ANDROID_SHA1" | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
           echo "APK gerado: $(du -h "$APK" | cut -f1)"
           echo "Certificado SHA-1 normalizado: $ACTUAL_SHA1"
           test -n "$ACTUAL_SHA1" || (echo 'Nao foi possivel ler a assinatura moderna do APK' && exit 1)
