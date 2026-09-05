@@ -76,6 +76,14 @@ type RemoteMutation = {
   createdAt: string;
 };
 
+export type SyncDiagnostics = {
+  total: number;
+  appointment: number;
+  km: number;
+  trip: number;
+  localOnlyAppointments: number;
+};
+
 const EMPTY_STATE: LocalState = { appointments: [], km: [], trips: [] };
 
 export async function loadLocalState<T>(fallback: T): Promise<T> {
@@ -163,6 +171,21 @@ export async function removeQueued(ids: string[]): Promise<SyncItem[]> {
   const updated = queue.filter(item => !ids.includes(item.id));
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
   return updated;
+}
+
+function isLocalOnlyAppointment(item: SyncItem) {
+  return item.entity === 'appointment' && typeof item.payload.customerId !== 'string';
+}
+
+export async function readSyncDiagnostics(): Promise<SyncDiagnostics> {
+  const queue = await readQueue();
+  return {
+    total: queue.length,
+    appointment: queue.filter(x => x.entity === 'appointment').length,
+    km: queue.filter(x => x.entity === 'km').length,
+    trip: queue.filter(x => x.entity === 'trip').length,
+    localOnlyAppointments: queue.filter(isLocalOnlyAppointment).length,
+  };
 }
 
 function toIso(date: string, time: string) {
@@ -312,7 +335,12 @@ async function pushAndApply(session: Session, companyId: string, item: SyncItem)
     row = created[0] || null;
   }
   if (!row?.id) throw new Error('Servidor não retornou o identificador da fila.');
-  await applyRemoteQueue(session, row.id, row.status === 'failed' || row.status === 'conflict');
+  try {
+    await applyRemoteQueue(session, row.id, row.status === 'failed' || row.status === 'conflict');
+  } catch (e) {
+    const base = e instanceof Error ? e.message : 'Falha ao aplicar registro no servidor.';
+    throw new Error(row.error_message ? `${base} · servidor: ${row.error_message}` : base);
+  }
 }
 
 async function markLocalSynced(sent: SyncItem[]) {
@@ -332,23 +360,32 @@ async function markLocalSynced(sent: SyncItem[]) {
 export async function syncPending(session: Session, companyId: string): Promise<{ sent: number; pending: number; errors: string[] }> {
   const queue = await readQueue();
   if (!queue.length) return { sent: 0, pending: 0, errors: [] };
+
+  const localOnlyIds = queue.filter(isLocalOnlyAppointment).map(x => x.id);
+  if (localOnlyIds.length) await removeQueued(localOnlyIds);
+
+  const candidates = queue.filter(item => !localOnlyIds.includes(item.id));
   const sentIds: string[] = [];
   const sentItems: SyncItem[] = [];
   const errors: string[] = [];
-  for (const item of queue) {
+
+  for (const item of candidates) {
     try {
       await pushAndApply(session, companyId, item);
       sentIds.push(item.id);
       sentItems.push(item);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Falha ao sincronizar registro.';
-      errors.push(`${item.entity}: ${message}`);
+      const label = item.entity === 'appointment' ? 'agenda' : item.entity === 'km' ? 'km' : 'deslocamento';
+      errors.push(`${label}: ${message}`);
     }
   }
+
   if (sentIds.length) {
     await removeQueued(sentIds);
     await markLocalSynced(sentItems);
   }
+
   const pending = (await readQueue()).length;
-  return { sent: sentIds.length, pending, errors };
+  return { sent: sentIds.length, pending, errors: [...new Set(errors)] };
 }
