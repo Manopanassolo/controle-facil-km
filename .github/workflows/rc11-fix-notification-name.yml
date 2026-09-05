@@ -1,0 +1,30 @@
+name: RC11 fix notification name
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - mobile-rc11/FIX_NOTIFICATION_NAME
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Rename local Notifications component
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          s=s.replace('function Notifications({ rows, onRead }:', 'function NotificationCenter({ rows, onRead }:')
+          s=s.replace("return <Notifications rows={prefs.notifications ? (data?.notifications || []) : []} onRead={onRead}/>","return <NotificationCenter rows={prefs.notifications ? (data?.notifications || []) : []} onRead={onRead}/>")
+          p.write_text(s)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/AppRC11Final.tsx
+          git commit -m "RC11: avoid notifications symbol conflict"
+          git push origin movvant-mobile-rc11
