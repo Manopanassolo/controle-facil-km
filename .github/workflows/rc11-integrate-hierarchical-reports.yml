@@ -1,0 +1,48 @@
+name: Movvant RC11 integrate hierarchical reports
+
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - mobile-rc11/INTEGRATE_RC11_REPORTS
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Integrate hierarchical reports screen
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('mobile-rc11/AppRC11Final.tsx')
+          s = p.read_text()
+          imp = "import ReportsHierarchicalScreen from './src/ReportsHierarchicalScreen';"
+          anchor = "import DatePickerField from './src/DatePickerField';"
+          if imp not in s:
+              s = s.replace(anchor, anchor + "\n" + imp)
+          old = "if (page === 'relatorios') return <Reports data={data} local={local}/>;"
+          new = "if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;"
+          if old in s:
+              s = s.replace(old, new)
+          elif new not in s:
+              raise SystemExit('Relatórios anchor not found')
+          p.write_text(s)
+          PY
+      - name: Commit integration
+        run: |
+          if git diff --quiet; then
+            echo "Already integrated"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile-rc11/AppRC11Final.tsx
+          git commit -m "RC11.3: integrate hierarchical reports into mobile navigation"
+          git push origin HEAD:movvant-mobile-rc11
