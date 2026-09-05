@@ -14,6 +14,22 @@ const NAVY = '#0B3558';
 const MUTED = '#7A899A';
 const RED = '#E5484D';
 
+const LIGHT_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#F2F5F8' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#4C5B69' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#C9D2DA' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#F5F7F9' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#E9EEF2' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#E4F0E7' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#D5DDE4' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#F8E7B0' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#E6EBEF' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#CFE6F4' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#607D8B' }] },
+];
+
 export default function RouteScreen({ onSaved }: Props) {
   const [status, setStatus] = useState<RouteStatus>('idle');
   const [points, setPoints] = useState<Point[]>([]);
@@ -160,7 +176,7 @@ export default function RouteScreen({ onSaved }: Props) {
 
   return <View style={styles.screen}>
     {region ? <>
-      <MapView ref={mapRef} provider={PROVIDER_GOOGLE} style={StyleSheet.absoluteFill} initialRegion={region} showsUserLocation showsMyLocationButton={false} showsCompass toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onMapLoaded={() => setMapReady(true)}>
+      <MapView ref={mapRef} provider={PROVIDER_GOOGLE} style={StyleSheet.absoluteFill} initialRegion={region} mapType="standard" customMapStyle={LIGHT_MAP_STYLE} showsUserLocation showsMyLocationButton={false} showsCompass toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onMapLoaded={() => setMapReady(true)}>
         {points[0] && <Marker coordinate={points[0]} title="Início" pinColor="#22B77A"/>}
         {points.length > 1 && <Marker coordinate={points[points.length - 1]} title="Posição atual"/>}
         {outbound.length > 1 && <Polyline coordinates={outbound} strokeWidth={5} strokeColor={BLUE}/>} 
