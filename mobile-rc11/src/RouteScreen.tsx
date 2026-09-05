@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import type { LocationSubscription } from 'expo-location';
 import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';
-import { enqueue, saveTripLocal } from './offline';
+import { clearActiveTripDraft, enqueue, readActiveTripDraft, saveActiveTripDraft, saveTripLocal } from './offline';
 
 type RouteStatus = 'idle' | 'starting' | 'running' | 'paused' | 'finished';
 type Props = { onSaved?: () => void };
@@ -15,6 +15,8 @@ const MUTED = '#7A899A';
 const RED = '#E5484D';
 const MIN_TRACK_STEP_METERS = 2;
 const MAX_TRACK_STEP_METERS = 300;
+const DRAFT_SAVE_INTERVAL_MS = 5000;
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const LIGHT_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#F2F5F8' }] },
@@ -45,10 +47,38 @@ export default function RouteScreen({ onSaved }: Props) {
   const mapReadyRef = useRef(false);
   const lastElapsedBase = useRef(0);
   const resumeStartedAt = useRef<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+  const returnStartRef = useRef<number | null>(null);
+  const lastDraftSave = useRef(0);
 
   useEffect(() => {
     mapReadyRef.current = mapReady;
   }, [mapReady]);
+
+  useEffect(() => {
+    let active = true;
+    readActiveTripDraft().then(async draft => {
+      if (!active || !draft) return;
+      if (Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) {
+        await clearActiveTripDraft();
+        return;
+      }
+      const recoveredPoints = draft.points as Point[];
+      const last = recoveredPoints[recoveredPoints.length - 1];
+      startedAtRef.current = draft.startedAt;
+      returnStartRef.current = draft.returnStart;
+      lastElapsedBase.current = Math.max(0, draft.elapsedMs || 0);
+      resumeStartedAt.current = null;
+      setStartedAt(draft.startedAt);
+      setReturnStart(draft.returnStart);
+      setPoints(recoveredPoints);
+      setElapsed(lastElapsedBase.current);
+      if (last) setRegion({ latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.006, longitudeDelta: 0.006 });
+      setStatus('paused');
+      Alert.alert('Deslocamento recuperado', 'O Movvant encontrou um deslocamento que estava em andamento. Ele foi recuperado pausado para você decidir quando continuar.');
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (status !== 'running') return;
@@ -74,6 +104,17 @@ export default function RouteScreen({ onSaved }: Props) {
   const outbound = returnStart == null ? points : points.slice(0, returnStart + 1);
   const returning = returnStart == null ? [] : points.slice(returnStart);
 
+  const currentElapsed = () => lastElapsedBase.current + (resumeStartedAt.current ? Date.now() - resumeStartedAt.current : 0);
+
+  const persistDraft = (routePoints: Point[], force = false) => {
+    const started = startedAtRef.current;
+    if (!started || !routePoints.length) return;
+    const now = Date.now();
+    if (!force && now - lastDraftSave.current < DRAFT_SAVE_INTERVAL_MS) return;
+    lastDraftSave.current = now;
+    void saveActiveTripDraft({ startedAt: started, elapsedMs: currentElapsed(), returnStart: returnStartRef.current, points: routePoints });
+  };
+
   const followPoint = (point: Point) => {
     if (!mapReadyRef.current) return;
     mapRef.current?.animateToRegion({ latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0.006, longitudeDelta: 0.006 }, 450);
@@ -97,7 +138,9 @@ export default function RouteScreen({ onSaved }: Props) {
             const step = distanceMeters(last, point);
             if (step < MIN_TRACK_STEP_METERS || step > MAX_TRACK_STEP_METERS) return previous;
           }
-          return [...previous, point];
+          const next = [...previous, point];
+          persistDraft(next);
+          return next;
         });
         followPoint(point);
       });
@@ -120,15 +163,21 @@ export default function RouteScreen({ onSaved }: Props) {
         Alert.alert('Localização necessária', result.reason);
         return;
       }
+      await clearActiveTripDraft();
       const first = result.point;
+      const now = Date.now();
+      startedAtRef.current = now;
+      returnStartRef.current = null;
       setPoints([first]);
       setReturnStart(null);
-      setStartedAt(Date.now());
+      setStartedAt(now);
       lastElapsedBase.current = 0;
-      resumeStartedAt.current = Date.now();
+      resumeStartedAt.current = now;
+      lastDraftSave.current = 0;
       setElapsed(0);
       setRegion({ latitude: first.latitude, longitude: first.longitude, latitudeDelta: 0.006, longitudeDelta: 0.006 });
       setStatus('running');
+      persistDraft([first], true);
       await beginWatcher();
     } catch {
       setStatus('idle');
@@ -143,18 +192,23 @@ export default function RouteScreen({ onSaved }: Props) {
     resumeStartedAt.current = null;
     setElapsed(lastElapsedBase.current);
     setStatus('paused');
+    persistDraft(points, true);
   };
 
   const resume = async () => {
     resumeStartedAt.current = Date.now();
     setStatus('running');
+    persistDraft(points, true);
     await beginWatcher();
   };
 
   const markReturn = () => {
-    if (returnStart != null) return;
+    if (returnStartRef.current != null) return;
     if (points.length > 1) {
-      setReturnStart(points.length - 1);
+      const index = points.length - 1;
+      returnStartRef.current = index;
+      setReturnStart(index);
+      persistDraft(points, true);
       Alert.alert('Retorno marcado', 'A partir deste ponto, o trajeto será destacado em laranja.');
       return;
     }
@@ -177,10 +231,14 @@ export default function RouteScreen({ onSaved }: Props) {
       fitCompletedRoute(points);
       await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, synced: false });
       await enqueue({ entity: 'trip', action: 'finish', payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points } });
+      await clearActiveTripDraft();
+      startedAtRef.current = null;
+      returnStartRef.current = null;
       onSaved?.();
       Alert.alert('Deslocamento salvo', `Rota salva com ${Math.round(distance)} m registrados e enviada para a fila de sincronização.`);
     } catch {
-      Alert.alert('Falha ao salvar', 'A rota foi finalizada, mas não foi possível gravar o registro local.');
+      persistDraft(points, true);
+      Alert.alert('Falha ao salvar', 'A rota foi finalizada, mas não foi possível gravar o registro local. O rascunho do percurso foi mantido para recuperação.');
     }
   };
 
