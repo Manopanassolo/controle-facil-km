@@ -36,6 +36,13 @@ export type LocalKmRecord = {
   synced?: boolean;
 };
 
+export type LocalTripPoint = {
+  latitude: number;
+  longitude: number;
+  timestamp?: number;
+  accuracy?: number | null;
+};
+
 export type LocalTripRecord = {
   id: string;
   startedAt: number | null;
@@ -44,6 +51,7 @@ export type LocalTripRecord = {
   distanceMeters: number;
   returnStart: number | null;
   pointsCount: number;
+  points?: LocalTripPoint[];
   synced?: boolean;
 };
 
@@ -333,7 +341,8 @@ export async function syncPending(session: Session, companyId: string): Promise<
       sentIds.push(item.id);
       sentItems.push(item);
     } catch (e) {
-      errors.push(e instanceof Error ? e.message : 'Falha ao sincronizar registro.');
+      const message = e instanceof Error ? e.message : 'Falha ao sincronizar registro.';
+      errors.push(`${item.entity}: ${message}`);
     }
   }
   if (sentIds.length) {
