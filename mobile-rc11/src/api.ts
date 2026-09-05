@@ -175,6 +175,25 @@ export async function markNotificationRead(session: Session, id: string) {
   return restPatch<NotificationRow>(session, 'notifications', `id=eq.${enc(id)}`, { read_at: new Date().toISOString() });
 }
 
+export async function checkInVisit(session: Session, id: string, geofenceValid: boolean) {
+  const rows = await restPatch<VisitRow>(session, 'visits', `id=eq.${enc(id)}&seller_user_id=eq.${enc(session.user.id)}&checkout_at=is.null`, {
+    checkin_at: new Date().toISOString(),
+    geofence_valid: geofenceValid,
+    status: 'in_progress',
+  });
+  if (!rows.length) throw new Error('Visita não encontrada ou check-in não autorizado para este usuário.');
+  return rows[0];
+}
+
+export async function checkOutVisit(session: Session, id: string) {
+  const rows = await restPatch<VisitRow>(session, 'visits', `id=eq.${enc(id)}&seller_user_id=eq.${enc(session.user.id)}&checkin_at=not.is.null&checkout_at=is.null`, {
+    checkout_at: new Date().toISOString(),
+    status: 'completed',
+  });
+  if (!rows.length) throw new Error('Visita não encontrada, sem check-in ou já finalizada.');
+  return rows[0];
+}
+
 export async function enqueueRemote(session: Session, companyId: string, item: { id: string; entity: string; action: string; payload: Record<string, unknown>; createdAt: string }) {
   return restInsert(session, 'sync_queue', {
     company_id: companyId,
