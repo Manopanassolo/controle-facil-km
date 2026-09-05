@@ -8,7 +8,7 @@ on:
       - 'mobile-rc11/BUILD_RC11_APK'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -20,6 +20,7 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      EXPECTED_ANDROID_SHA1: '8B:83:5C:BE:A9:3B:3C:71:FC:CC:4A:78:3E:DF:CD:27:E3:9F:7F:27'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -48,13 +49,26 @@ jobs:
         run: |
           mkdir -p dist
           eas env:exec preview "eas build --platform android --profile preview --local --non-interactive --freeze-credentials --output dist/Movvant-RC11-homologacao.apk" --non-interactive
-      - name: Verify APK generated
+      - name: Verify APK and signing certificate
         run: |
           test -s dist/Movvant-RC11-homologacao.apk
-          ls -lh dist/Movvant-RC11-homologacao.apk
-      - name: Upload signed APK for Android installation
+          ACTUAL_SHA1="$(keytool -printcert -jarfile dist/Movvant-RC11-homologacao.apk 2>/dev/null | sed -n 's/.*SHA1: //p' | head -1 | tr -d '\r')"
+          echo "APK gerado: $(du -h dist/Movvant-RC11-homologacao.apk | cut -f1)"
+          echo "Certificado SHA-1: $ACTUAL_SHA1"
+          test -n "$ACTUAL_SHA1" || (echo 'Nao foi possivel ler a assinatura do APK' && exit 1)
+          test "$ACTUAL_SHA1" = "$EXPECTED_ANDROID_SHA1" || (echo 'Assinatura diferente da credencial Android esperada; publicacao bloqueada.' && exit 1)
+          echo 'Assinatura Android validada para Google Maps.'
+      - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Movvant-RC11-APK-SIGNED
           path: mobile-rc11/dist/Movvant-RC11-homologacao.apk
           retention-days: 30
+      - name: Publish direct Android download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='movvant-rc11-homologacao'
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title 'Movvant RC11 — Homologação Android' --notes 'APK assinado para homologação Android. Gerado automaticamente após quality gate e validação da assinatura.'
+          gh release upload "$TAG" dist/Movvant-RC11-homologacao.apk --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Download direto: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Movvant-RC11-homologacao.apk"
