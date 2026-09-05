@@ -16,7 +16,7 @@ export type SyncItem = {
 };
 
 export type TravelMeta = { origin: string; destination: string; stops: string[]; roundTrip: boolean; optimizeStops: boolean; distanceMeters: number; durationSeconds: number; tollBRL: number; routeLabel: string; polyline?: string | null; returnPolyline?: string | null; plannedExpenses?: Array<{category:string;subcategory:string;amount:number;description?:string}> };
-export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean; travel?: TravelMeta };
+export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean; travel?: TravelMeta; routeStatus?: 'planned'|'completed'|'cancelled'; routeStatusAt?: string };
 export type LocalKmRecord = { id: string; vehicleId?: string; vehicle: string; start: number; end: number; total: number; reason: string; photoUri?: string | null; createdAt: string; synced?: boolean };
 export type LocalTripPoint = { latitude: number; longitude: number; timestamp?: number; accuracy?: number | null };
 export type RouteDeviationSummary = { id: string; customerId: string; customerName: string; detectedAt: string; latitude: number; longitude: number; distanceMeters: number; dwellSeconds: number; planned: boolean; classification?: 'detected' | 'confirmed_visit' | 'dismissed' | 'occurrence' };
