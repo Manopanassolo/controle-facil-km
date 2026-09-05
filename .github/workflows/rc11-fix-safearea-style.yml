@@ -1,0 +1,27 @@
+name: RC11 fix safe area style
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-fix-safearea-style.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix safe area style merge
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          s=s.replace("drawer:{paddingTop:StatusBar.currentHeight||0,position:'absolute',left:0,top:0,bottom:0,width:'82%',maxWidth:330,backgroundColor:NAVY,paddingTop:26,paddingHorizontal:18,paddingBottom:18}", "drawer:{position:'absolute',left:0,top:0,bottom:0,width:'82%',maxWidth:330,backgroundColor:NAVY,paddingTop:(StatusBar.currentHeight||0)+26,paddingHorizontal:18,paddingBottom:18}")
+          s=s.replace("modalHeader:{height:58,backgroundColor:NAVY", "modalHeader:{height:58+(StatusBar.currentHeight||0),paddingTop:StatusBar.currentHeight||0,backgroundColor:NAVY")
+          p.write_text(s)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/AppRC11Final.tsx
+          git commit -m 'RC11: fix drawer and modal safe top spacing'
+          git push
