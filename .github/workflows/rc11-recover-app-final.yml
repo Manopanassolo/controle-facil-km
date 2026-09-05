@@ -1,0 +1,32 @@
+name: RC11 recover AppRC11Final
+on:
+  workflow_dispatch:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-recover-app-final.yml']
+permissions:
+  contents: write
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore AppRC11Final and align LocalState
+        run: |
+          git show cce6e20fe84a417dc9f09307f4603cd170ed8c53:mobile-rc11/AppRC11Final.tsx > mobile-rc11/AppRC11Final.tsx
+          python3 - <<'PY'
+          p='mobile-rc11/AppRC11Final.tsx'
+          s=open(p).read()
+          old="useState<LocalState>({ appointments:[],km:[],trips:[] })"
+          new="useState<LocalState>({ appointments:[],km:[],trips:[],visits:[] })"
+          if old not in s:
+              raise SystemExit('LocalState initializer not found')
+          open(p,'w').write(s.replace(old,new,1))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/AppRC11Final.tsx
+          git commit -m 'RC11: restore app and align offline visit state'
+          git push
