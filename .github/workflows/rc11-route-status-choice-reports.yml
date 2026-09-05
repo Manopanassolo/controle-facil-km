@@ -1,0 +1,62 @@
+name: RC11 route status choices reports
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['mobile-rc11/ROUTE_STATUS_RUN']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 24}
+      - name: Patch route choices lifecycle and reports
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/src/TripPlannerScreen.tsx')
+          s=p.read_text()
+          s=s.replace("import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View } from 'react-native';","import { Alert, Linking, Modal, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View } from 'react-native';")
+          s=s.replace("[savedNotice,setSavedNotice]=useState(false),[calendarOpen,setCalendarOpen]=useState(false)","[savedNotice,setSavedNotice]=useState(false),[showReturn,setShowReturn]=useState(true),[calendarOpen,setCalendarOpen]=useState(false)")
+          old="const compute=async()=>{if(!origin.trim()||!destination.trim()){setError('Informe ponto de partida e destino.');return}setLoading(true);setError('');try{const request=async(body:any)=>{const r=await fetch(`${API_BASE}/api/routes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,strategy:'all'})});const j=await r.json();if(!r.ok)throw new Error(j?.error||'Não foi possível calcular a rota.');return (j?.items||[]) as RouteOption[]};let items=await request({origin,destination,stops:stops.filter(Boolean),optimize});if(roundTrip){const back=await request({origin:destination,destination:origin,stops:stops.filter(Boolean).slice().reverse(),optimize:false});items=items.map((x,i)=>{const b=back.find(q=>q.strategy===x.strategy)||back[i]||back[0];return {...x,distanceMeters:x.distanceMeters+(b?.distanceMeters||0),duration:`${seconds(x.duration)+seconds(b?.duration)}s`,tollTotalBRL:(x.tollTotalBRL||0)+(b?.tollTotalBRL||0),returnPolyline:b?.polyline||null}})}setRoutes(items);setSelected(0);if(!items.length)setError('Nenhuma rota disponível para os pontos informados.')}catch(e){setError(e instanceof Error?e.message:'Falha ao calcular rota.')}finally{setLoading(false)}};"
+          new="const compute=async()=>{if(!origin.trim()||!destination.trim()){setError('Informe ponto de partida e destino.');return}setLoading(true);setError('');try{const request=async(body:any,strategy='all')=>{const r=await fetch(`${API_BASE}/api/routes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,strategy})});const j=await r.json();if(!r.ok)throw new Error(j?.error||'Não foi possível calcular a rota.');return (j?.items||[]) as RouteOption[]};let items=await request({origin,destination,stops:stops.filter(Boolean),optimize},'all');if(items.length<2){const variants=[] as RouteOption[];for(const strategy of ['fastest','avoid_tolls','avoid_highways']){try{const got=await request({origin,destination,stops:stops.filter(Boolean),optimize},strategy);if(got[0])variants.push({...got[0],strategy,strategyLabel:strategy==='fastest'?'Mais rápida':strategy==='avoid_tolls'?'Menos pedágios':'Evitar rodovias'})}catch{}}if(variants.length)items=variants}if(roundTrip){const back=await request({origin:destination,destination:origin,stops:[],optimize:false},'all');items=items.map((x,i)=>{const b=back.find(q=>q.strategy===x.strategy)||back[i]||back[0];return {...x,distanceMeters:x.distanceMeters+(b?.distanceMeters||0),duration:`${seconds(x.duration)+seconds(b?.duration)}s`,tollTotalBRL:(x.tollTotalBRL||0)+(b?.tollTotalBRL||0),returnPolyline:b?.polyline||null}})}setRoutes(items);setSelected(0);if(!items.length)setError('Nenhuma rota disponível para os pontos informados.')}catch(e){setError(e instanceof Error?e.message:'Falha ao calcular rota.')}finally{setLoading(false)}};"
+          assert old in s
+          s=s.replace(old,new)
+          s=s.replace("const routePoints=decodePolyline(route?.polyline),returnPoints=decodePolyline(route?.returnPolyline);const mapRegion=regionFor([...routePoints,...returnPoints]);","const routePoints=decodePolyline(route?.polyline),returnPoints=decodePolyline(route?.returnPolyline);const mapRegion=regionFor([...routePoints,...returnPoints]);const openMaps=()=>{const waypoints=stops.filter(Boolean).map(encodeURIComponent).join('%7C');const url=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypoints?`&waypoints=${waypoints}`:''}&travelmode=driving`;Linking.openURL(url).catch(()=>Alert.alert('Google Maps','Não foi possível abrir o trajeto.'))};")
+          s=s.replace("{returnPoints.length>1?<Polyline coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={5}/>:null}","{showReturn&&returnPoints.length>1?<Polyline coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={5}/>:null}")
+          s=s.replace("</MapView><View style={s.sequence}","</MapView>{returnPoints.length>1&&<View style={{flexDirection:'row',gap:8}}><Pressable style={s.addStop} onPress={()=>setShowReturn(v=>!v)}><Text style={s.addStopText}>{showReturn?'Ocultar retorno':'Mostrar retorno'}</Text></Pressable><Pressable style={s.addStop} onPress={openMaps}><Text style={s.addStopText}>Abrir no Google Maps</Text></Pressable></View>}<View style={s.sequence}")
+          s=s.replace("<Text style={s.cardTitle}>Rotas encontradas</Text>","<Text style={s.cardTitle}>Escolha o trajeto</Text><Text style={s.cardSub}>Compare as alternativas antes de salvar. Você pode trocar de rota a qualquer momento.</Text>")
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/offline.ts'); s=p.read_text()
+          s=s.replace("export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean; travel?: TravelMeta };","export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean; travel?: TravelMeta; routeStatus?: 'planned'|'completed'|'cancelled'; routeStatusAt?: string };")
+          p.write_text(s)
+
+          p=Path('mobile-rc11/AppRC11Final.tsx'); s=p.read_text()
+          s=s.replace("type Appointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; local?: boolean; status?: string; travel?: LocalAppointment['travel'] };","type Appointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; local?: boolean; status?: string; travel?: LocalAppointment['travel']; routeStatus?: LocalAppointment['routeStatus']; routeStatusAt?: string };" )
+          s=s.replace("function Agenda({ appointments, customers, onSave, onSaveTravel, onDelete }: { appointments: Appointment[]; customers: CustomerRow[]; onSave: (item: LocalAppointment) => Promise<void>; onSaveTravel: (item: LocalAppointment) => Promise<void>; onDelete: (id: string) => Promise<void> }) {","function Agenda({ appointments, customers, onSave, onSaveTravel, onDelete }: { appointments: Appointment[]; customers: CustomerRow[]; onSave: (item: LocalAppointment) => Promise<void>; onSaveTravel: (item: LocalAppointment) => Promise<void>; onDelete: (id: string) => Promise<void> }) {")
+          s=s.replace("const item:LocalAppointment={id:editingTrip?.id||`${Date.now()}-travel`,date:trip.date,time:trip.time,title:`Viagem · ${trip.origin} → ${trip.destination}`,store:trip.destination,type:'Viagem',synced:false,travel:","const item:LocalAppointment={id:editingTrip?.id||`${Date.now()}-travel`,date:trip.date,time:trip.time,title:`Viagem · ${trip.origin} → ${trip.destination}`,store:trip.destination,type:'Viagem',synced:false,routeStatus:editingTrip?.routeStatus||'planned',routeStatusAt:editingTrip?.routeStatusAt,travel:")
+          marker="  return <ScrollView contentContainerStyle={s.content}>"
+          insert="  const setRouteStatus=async(item:Appointment,status:'completed'|'cancelled')=>{const local=item as LocalAppointment;await onSaveTravel({...local,routeStatus:status,routeStatusAt:new Date().toISOString(),synced:false});};\n"
+          idx=s.index(marker,s.index('function Agenda(')); s=s[:idx]+insert+s[idx:]
+          old="<View style={s.agendaBadges}><View style={[s.agendaState,x.local?s.agendaStatePending:s.agendaStateOk]}><Text style={[s.agendaStateText,x.local?s.agendaStateTextPending:s.agendaStateTextOk]}>{x.local?'Aguardando sincronização':/complete|done|realiz|finish/i.test(x.status||'')?'Realizada':'Sincronizada'}</Text></View>{x.customerId&&<View style={s.agendaSource}><Text style={s.agendaSourceText}>Loja vinculada</Text></View>}</View>"
+          new="<View style={s.agendaBadges}><View style={[s.agendaState,x.routeStatus==='cancelled'?{backgroundColor:'#FCE8E8'}:x.routeStatus==='completed'?s.agendaStateOk:x.local?s.agendaStatePending:s.agendaStateOk]}><Text style={[s.agendaStateText,x.routeStatus==='cancelled'?{color:RED}:x.routeStatus==='completed'?s.agendaStateTextOk:x.local?s.agendaStateTextPending:s.agendaStateTextOk]}>{x.routeStatus==='cancelled'?'Rota cancelada':x.routeStatus==='completed'?'Rota finalizada':x.local?'Aguardando sincronização':/complete|done|realiz|finish/i.test(x.status||'')?'Realizada':'Sincronizada'}</Text></View>{x.customerId&&<View style={s.agendaSource}><Text style={s.agendaSourceText}>Loja vinculada</Text></View>}</View>{x.type==='Viagem'&&x.routeStatus!=='completed'&&x.routeStatus!=='cancelled'&&<View style={{flexDirection:'row',gap:8,marginTop:8}}><Pressable style={s.tripAgendaButton} onPress={(e)=>{e.stopPropagation();setRouteStatus(x,'completed')}}><Text style={s.tripAgendaButtonText}>Finalizar rota</Text></Pressable><Pressable style={s.newAgendaButton} onPress={(e)=>{e.stopPropagation();setRouteStatus(x,'cancelled')}}><Text style={s.newAgendaButtonText}>Cancelar rota</Text></Pressable></View>}"
+          assert old in s
+          s=s.replace(old,new)
+          s=s.replace("const localTrips=local.trips.filter(x=>x.finishedAt>=start&&x.finishedAt<=end);","const localTrips=local.trips.filter(x=>x.finishedAt>=start&&x.finishedAt<=end);const routeAppointments=local.appointments.filter(x=>x.type==='Viagem'&&new Date(`${x.date}T12:00:00`).getTime()>=start&&new Date(`${x.date}T12:00:00`).getTime()<=end);const plannedRoutes=routeAppointments.filter(x=>(x.routeStatus||'planned')==='planned').length,completedRoutes=routeAppointments.filter(x=>x.routeStatus==='completed').length,cancelledRoutes=routeAppointments.filter(x=>x.routeStatus==='cancelled').length;")
+          s=s.replace("<View style={s.reportWide}><Text style={s.reportWideTitle}>O que aconteceu</Text>","<View style={s.reportWide}><Text style={s.reportWideTitle}>Situação das rotas</Text><Text style={s.reportWideSub}>Programadas {plannedRoutes} · Finalizadas {completedRoutes} · Canceladas {cancelledRoutes}</Text></View><View style={s.reportWide}><Text style={s.reportWideTitle}>O que aconteceu</Text>")
+          p.write_text(s)
+          PY
+          cd mobile-rc11
+          npm install --no-audit --no-fund
+          npx tsc --noEmit
+          npx expo-doctor
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11
+          git commit -m "RC11: improve route choice return lifecycle and reports" || exit 0
+          git push
