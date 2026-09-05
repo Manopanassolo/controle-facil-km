@@ -1,0 +1,84 @@
+name: RC11 planned vs actual large block
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-planned-vs-actual-large-block.yml']
+permissions:
+  contents: write
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply planned versus actual intelligence
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path('mobile-rc11/src/offline.ts')
+          s=p.read_text()
+          old="export type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; deviations?: RouteDeviationSummary[]; plannedTripId?: string | null; synced?: boolean };"
+          new="export type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; deviations?: RouteDeviationSummary[]; plannedTripId?: string | null; plannedDistanceMeters?: number; plannedDurationSeconds?: number; plannedTollBRL?: number; distanceVarianceMeters?: number; durationVarianceSeconds?: number; synced?: boolean };"
+          if old not in s: raise SystemExit('LocalTripRecord marker not found')
+          p.write_text(s.replace(old,new,1))
+
+          p=Path('mobile-rc11/src/RouteScreen.tsx')
+          s=p.read_text()
+          old="type Props = { onSaved?: () => void; companyId?: string | null; customers?: CustomerRow[]; plannedCustomerIds?: string[]; plannedTripId?: string | null };"
+          new="type Props = { onSaved?: () => void; companyId?: string | null; customers?: CustomerRow[]; plannedCustomerIds?: string[]; plannedTripId?: string | null; plannedDistanceMeters?: number; plannedDurationSeconds?: number; plannedTollBRL?: number };"
+          if old not in s: raise SystemExit('Route Props marker not found')
+          s=s.replace(old,new,1)
+          old="export default function RouteScreen({ onSaved, companyId, customers = [], plannedCustomerIds = [], plannedTripId = null }: Props) {"
+          new="export default function RouteScreen({ onSaved, companyId, customers = [], plannedCustomerIds = [], plannedTripId = null, plannedDistanceMeters = 0, plannedDurationSeconds = 0, plannedTollBRL = 0 }: Props) {"
+          if old not in s: raise SystemExit('Route signature marker not found')
+          s=s.replace(old,new,1)
+          old="      await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, deviations, plannedTripId, synced: false });\n      await enqueue({ entity: 'trip', action: 'finish', payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points, deviations, plannedTripId } });"
+          new="      const distanceVarianceMeters = plannedDistanceMeters > 0 ? Math.round(distance - plannedDistanceMeters) : undefined;\n      const durationVarianceSeconds = plannedDurationSeconds > 0 ? Math.round(finalElapsed / 1000 - plannedDurationSeconds) : undefined;\n      await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, deviations, plannedTripId, plannedDistanceMeters: plannedDistanceMeters || undefined, plannedDurationSeconds: plannedDurationSeconds || undefined, plannedTollBRL: plannedTollBRL || undefined, distanceVarianceMeters, durationVarianceSeconds, synced: false });\n      await enqueue({ entity: 'trip', action: 'finish', payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points, deviations, plannedTripId, plannedDistanceMeters: plannedDistanceMeters || undefined, plannedDurationSeconds: plannedDurationSeconds || undefined, plannedTollBRL: plannedTollBRL || undefined, distanceVarianceMeters, durationVarianceSeconds } });"
+          if old not in s: raise SystemExit('Route finish marker not found')
+          s=s.replace(old,new,1)
+          old="      <View style={styles.metrics}><View style={styles.metric}><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo ativo</Text></View><View style={styles.metricRight}><Text style={styles.value}>{formatDistance(distance)}</Text><Text style={styles.label}>Distância GPS</Text></View></View>"
+          new="      <View style={styles.metrics}><View style={styles.metric}><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo ativo</Text></View><View style={styles.metricRight}><Text style={styles.value}>{formatDistance(distance)}</Text><Text style={styles.label}>Distância GPS</Text></View></View>{plannedDistanceMeters>0?<View style={styles.planCompare}><View style={{flex:1}}><Text style={styles.planCompareTitle}>Planejado × realizado</Text><Text style={styles.planCompareText}>Planejado: {formatDistance(plannedDistanceMeters)} · {plannedDurationSeconds>0?formatTime(plannedDurationSeconds*1000):'tempo não informado'}</Text><Text style={styles.planCompareText}>Diferença atual: {distance>=plannedDistanceMeters?'+':''}{formatDistance(Math.abs(distance-plannedDistanceMeters))} · {deviations.length} parada(s) extra(s)</Text></View><View style={styles.planBadge}><Text style={styles.planBadgeText}>{Math.round((distance/Math.max(1,plannedDistanceMeters))*100)}%</Text></View></View>:null}"
+          if old not in s: raise SystemExit('Route metrics marker not found')
+          s=s.replace(old,new,1)
+          style_old="  deviationBanner:{marginHorizontal:14,marginBottom:10,borderRadius:16,borderWidth:1,borderColor:'#F1CF8D',backgroundColor:'#FFF8E8',padding:13,flexDirection:'row',alignItems:'center',gap:10},deviationTitle:{fontSize:12,fontWeight:'900',color:'#795300'},deviationText:{fontSize:10,color:'#8B6B31',marginTop:3},deviationClose:{fontSize:22,fontWeight:'800',color:'#A67B31',paddingHorizontal:6}});"
+          style_new="  deviationBanner:{marginHorizontal:14,marginBottom:10,borderRadius:16,borderWidth:1,borderColor:'#F1CF8D',backgroundColor:'#FFF8E8',padding:13,flexDirection:'row',alignItems:'center',gap:10},deviationTitle:{fontSize:12,fontWeight:'900',color:'#795300'},deviationText:{fontSize:10,color:'#8B6B31',marginTop:3},deviationClose:{fontSize:22,fontWeight:'800',color:'#A67B31',paddingHorizontal:6},planCompare:{borderRadius:16,borderWidth:1,borderColor:'#D8E5F2',backgroundColor:'#F5F9FD',padding:12,marginBottom:10,flexDirection:'row',alignItems:'center',gap:10},planCompareTitle:{fontSize:12,fontWeight:'900',color:NAVY},planCompareText:{fontSize:10,color:MUTED,marginTop:3},planBadge:{minWidth:52,height:36,borderRadius:12,backgroundColor:'#E4EEF9',alignItems:'center',justifyContent:'center'},planBadgeText:{fontSize:12,fontWeight:'900',color:NAVY}});"
+          if style_old not in s: raise SystemExit('Route style marker not found')
+          p.write_text(s.replace(style_old,style_new,1))
+
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          old="{tab==='mapa'&&<RouteScreen onSaved={reloadLocal} companyId={data?.companyId} customers={data?.customers||[]} plannedCustomerIds={plannedCustomerIds} plannedTripId={plannedTravel?.id||null}/>}"
+          new="{tab==='mapa'&&<RouteScreen onSaved={reloadLocal} companyId={data?.companyId} customers={data?.customers||[]} plannedCustomerIds={plannedCustomerIds} plannedTripId={plannedTravel?.id||null} plannedDistanceMeters={plannedTravel?.travel?.distanceMeters||0} plannedDurationSeconds={plannedTravel?.travel?.durationSeconds||0} plannedTollBRL={plannedTravel?.travel?.tollBRL||0}/>}"
+          if old not in s: raise SystemExit('App RouteScreen marker not found')
+          s=s.replace(old,new,1)
+          old="  const localKm=localKmRecords.reduce((n,x)=>n+x.total,0),tripKm=localTrips.reduce((n,x)=>n+x.distanceMeters/1000,0),tripMinutes=localTrips.reduce((n,x)=>n+x.elapsedMs/60000,0);"
+          new="  const localKm=localKmRecords.reduce((n,x)=>n+x.total,0),tripKm=localTrips.reduce((n,x)=>n+x.distanceMeters/1000,0),tripMinutes=localTrips.reduce((n,x)=>n+x.elapsedMs/60000,0);\n  const comparedTrips=localTrips.filter(x=>(x.plannedDistanceMeters||0)>0),plannedKm=comparedTrips.reduce((n,x)=>n+(x.plannedDistanceMeters||0)/1000,0),actualComparedKm=comparedTrips.reduce((n,x)=>n+x.distanceMeters/1000,0),extraStops=localTrips.reduce((n,x)=>n+(x.deviations?.length||0),0),distanceVarianceKm=actualComparedKm-plannedKm;"
+          if old not in s: raise SystemExit('Reports metrics marker not found')
+          s=s.replace(old,new,1)
+          old="    <View style={s.reportWide}><Text style={s.reportWideTitle}>Indicadores empresariais · 30 dias</Text>"
+          new="    {comparedTrips.length>0&&<View style={s.reportWide}><Text style={s.reportWideTitle}>Planejado × realizado</Text><Text style={s.reportWideSub}>Comparação das viagens planejadas que já possuem percurso GPS concluído.</Text><View style={s.reportLine}><Text style={s.sub}>KM planejado</Text><Text style={s.reportLineValue}>{plannedKm.toFixed(1)} km</Text></View><View style={s.reportLine}><Text style={s.sub}>KM realizado</Text><Text style={s.reportLineValue}>{actualComparedKm.toFixed(1)} km</Text></View><View style={s.reportLine}><Text style={s.sub}>Desvio de KM</Text><Text style={s.reportLineValue}>{distanceVarianceKm>=0?'+':''}{distanceVarianceKm.toFixed(1)} km</Text></View><View style={s.reportLine}><Text style={s.sub}>Paradas extras detectadas</Text><Text style={s.reportLineValue}>{extraStops}</Text></View></View>}\n    <View style={s.reportWide}><Text style={s.reportWideTitle}>Indicadores empresariais · 30 dias</Text>"
+          if old not in s: raise SystemExit('Reports insertion marker not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Install dependencies
+        working-directory: mobile-rc11
+        run: npm install --no-audit --no-fund
+      - name: Expo doctor
+        working-directory: mobile-rc11
+        run: npx expo-doctor
+      - name: TypeScript check
+        working-directory: mobile-rc11
+        run: npx tsc --noEmit
+      - name: Expo config check
+        working-directory: mobile-rc11
+        run: npx expo config --type public > /tmp/rc11-expo-config.json && grep -q 'com.movvant.enterprise' /tmp/rc11-expo-config.json
+      - name: Commit validated block
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/AppRC11Final.tsx mobile-rc11/src/RouteScreen.tsx mobile-rc11/src/offline.ts
+          git commit -m 'RC11: add planned versus actual route intelligence'
+          git push
