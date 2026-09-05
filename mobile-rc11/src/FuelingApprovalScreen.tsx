@@ -1,7 +1,60 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Alert,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
-import {FuelingRecord,approveFueling,readFuelingAudit,readFuelings,rejectFueling,requestFuelingCorrection} from './fueling';
+import {FuelingRecord,approveFueling,readFuelings,rejectFueling,requestFuelingCorrection} from './fueling';
+
 const NAVY='#0B3558',TEXT='#17324D',MUTED='#78889A',BORDER='#DFE6EE',BG='#F3F6FA';
 const money=(v:number)=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-export default function FuelingApprovalScreen({companyId,managerId,role,allowedVehicleIds}:{companyId:string;managerId:string;role:string;allowedVehicleIds?:string[]}){const [rows,setRows]=useState<FuelingRecord[]>([]),[filter,setFilter]=useState('pending'),[reason,setReason]=useState<Record<string,string>>({});const canManage=/owner|propriet|admin|master|gerente|manager|supervisor/i.test(role);const load=async()=>setRows(await readFuelings(companyId));useEffect(()=>{load()},[companyId]);const visible=useMemo(()=>rows.filter(r=>(!allowedVehicleIds?.length||allowedVehicleIds.includes(r.vehicleId))&&(filter==='all'||(filter==='pending'?['submitted','attention','review','correction_requested'].includes(r.workflowStatus||'review'):r.workflowStatus===filter)),[rows,filter,allowedVehicleIds]);const act=async(r:FuelingRecord,type:'approve'|'reject'|'correct')=>{if(!canManage)return Alert.alert('Sem permissão','Seu perfil não pode revisar abastecimentos.');if(r.userId===managerId&&type==='approve')return Alert.alert('Aprovação bloqueada','O usuário não pode aprovar o próprio abastecimento.');try{if(type==='approve')await approveFueling(companyId,r.id,managerId,role);if(type==='reject')await rejectFueling(companyId,r.id,managerId,reason[r.id]||'',role);if(type==='correct')await requestFuelingCorrection(companyId,r.id,managerId,reason[r.id]||'',role);await load()}catch(e){Alert.alert('Revisão',e instanceof Error?e.message:'Não foi possível concluir.')}};if(!canManage)return <View style={s.empty}><Text style={s.title}>Aprovação de abastecimentos</Text><Text style={s.muted}>Disponível para gerente, supervisor, administrador e proprietário.</Text></View>;return <ScrollView contentContainerStyle={s.page}><Text style={s.title}>Aprovação de abastecimentos</Text><Text style={s.muted}>Pendências críticas primeiro. Registros aprovados passam a alimentar o realizado.</Text><View style={s.tabs}>{['pending','approved','rejected','all'].map(x=><Pressable key={x} onPress={()=>setFilter(x)} style={[s.tab,filter===x&&s.tabOn]}><Text style={[s.tabText,filter===x&&{color:'#fff'}]}>{x==='pending'?'Pendentes':x==='approved'?'Aprovados':x==='rejected'?'Rejeitados':'Todos'}</Text></Pressable>)}</View>{visible.map(r=><View key={r.id} style={s.card}><View style={s.head}><View><Text style={s.plate}>{r.vehiclePlate}</Text><Text style={s.muted}>{new Date(r.occurredAt).toLocaleString('pt-BR')} · {r.stationName}</Text></View><Text style={s.badge}>{(r.workflowStatus||r.status).toUpperCase()}</Text></View><Text style={s.line}>{r.liters.toFixed(2)} L · {money(r.pricePerLiter)}/L · {money(r.totalAmount)}</Text><Text style={s.line}>Odômetro {r.odometerKm.toLocaleString('pt-BR')} km · {r.fullTank?'Tanque cheio':'Parcial'}</Text>{r.alerts.length?<View style={s.warn}>{r.alerts.map((a,i)=><Text key={i} style={s.warnText}>• {a}</Text>)}</View>:null}{['submitted','attention','review','correction_requested'].includes(r.workflowStatus||'review')?<><TextInput style={s.input} value={reason[r.id]||''} onChangeText={v=>setReason(p=>({...p,[r.id]:v}))} placeholder="Motivo obrigatório para rejeitar/devolver"/><View style={s.actions}><Pressable style={s.approve} onPress={()=>act(r,'approve')}><Text style={s.white}>Aprovar</Text></Pressable><Pressable style={s.secondary} onPress={()=>act(r,'correct')}><Text style={s.secondaryText}>Solicitar correção</Text></Pressable><Pressable style={s.reject} onPress={()=>act(r,'reject')}><Text style={s.white}>Rejeitar</Text></Pressable></View></>:null}</View>)}{!visible.length?<View style={s.empty}><Text style={s.muted}>Nenhum abastecimento neste filtro.</Text></View>:null}</ScrollView>}
+const pendingStatuses=['submitted','attention','review','correction_requested'];
+
+type Props={companyId:string;managerId:string;role:string;allowedVehicleIds?:string[]};
+
+export default function FuelingApprovalScreen({companyId,managerId,role,allowedVehicleIds}:Props){
+  const [rows,setRows]=useState<FuelingRecord[]>([]);
+  const [filter,setFilter]=useState('pending');
+  const [reason,setReason]=useState<Record<string,string>>({});
+  const canManage=/owner|propriet|admin|master|gerente|manager|supervisor/i.test(role);
+  const load=async()=>setRows(await readFuelings(companyId));
+  useEffect(()=>{load()},[companyId]);
+
+  const visible=useMemo(()=>rows.filter(r=>{
+    const inScope=!allowedVehicleIds?.length||allowedVehicleIds.includes(r.vehicleId);
+    if(!inScope)return false;
+    const current=r.workflowStatus||'review';
+    if(filter==='all')return true;
+    if(filter==='pending')return pendingStatuses.includes(current);
+    return current===filter;
+  }),[rows,filter,allowedVehicleIds]);
+
+  const act=async(r:FuelingRecord,type:'approve'|'reject'|'correct')=>{
+    if(!canManage){Alert.alert('Sem permissão','Seu perfil não pode revisar abastecimentos.');return;}
+    if(r.userId===managerId&&type==='approve'){Alert.alert('Aprovação bloqueada','O usuário não pode aprovar o próprio abastecimento.');return;}
+    try{
+      if(type==='approve')await approveFueling(companyId,r.id,managerId,role);
+      if(type==='reject')await rejectFueling(companyId,r.id,managerId,reason[r.id]||'',role);
+      if(type==='correct')await requestFuelingCorrection(companyId,r.id,managerId,reason[r.id]||'',role);
+      await load();
+    }catch(e){Alert.alert('Revisão',e instanceof Error?e.message:'Não foi possível concluir.');}
+  };
+
+  if(!canManage)return <View style={s.empty}><Text style={s.title}>Aprovação de abastecimentos</Text><Text style={s.muted}>Disponível para gerente, supervisor, administrador e proprietário.</Text></View>;
+
+  return <ScrollView contentContainerStyle={s.page}>
+    <Text style={s.title}>Aprovação de abastecimentos</Text>
+    <Text style={s.muted}>Pendências críticas primeiro. Registros aprovados passam a alimentar o realizado.</Text>
+    <View style={s.tabs}>{['pending','approved','rejected','all'].map(x=><Pressable key={x} onPress={()=>setFilter(x)} style={[s.tab,filter===x&&s.tabOn]}><Text style={[s.tabText,filter===x&&{color:'#fff'}]}>{x==='pending'?'Pendentes':x==='approved'?'Aprovados':x==='rejected'?'Rejeitados':'Todos'}</Text></Pressable>)}</View>
+    {visible.map(r=>{
+      const current=r.workflowStatus||'review';
+      const isPending=pendingStatuses.includes(current);
+      return <View key={r.id} style={s.card}>
+        <View style={s.head}><View><Text style={s.plate}>{r.vehiclePlate}</Text><Text style={s.muted}>{new Date(r.occurredAt).toLocaleString('pt-BR')} · {r.stationName}</Text></View><Text style={s.badge}>{current.toUpperCase()}</Text></View>
+        <Text style={s.line}>{r.liters.toFixed(2)} L · {money(r.pricePerLiter)}/L · {money(r.totalAmount)}</Text>
+        <Text style={s.line}>Odômetro {r.odometerKm.toLocaleString('pt-BR')} km · {r.fullTank?'Tanque cheio':'Parcial'}</Text>
+        {r.alerts.length?<View style={s.warn}>{r.alerts.map((a,i)=><Text key={i} style={s.warnText}>• {a}</Text>)}</View>:null}
+        {isPending?<><TextInput style={s.input} value={reason[r.id]||''} onChangeText={v=>setReason(p=>({...p,[r.id]:v}))} placeholder="Motivo obrigatório para rejeitar/devolver"/><View style={s.actions}><Pressable style={s.approve} onPress={()=>act(r,'approve')}><Text style={s.white}>Aprovar</Text></Pressable><Pressable style={s.secondary} onPress={()=>act(r,'correct')}><Text style={s.secondaryText}>Solicitar correção</Text></Pressable><Pressable style={s.reject} onPress={()=>act(r,'reject')}><Text style={s.white}>Rejeitar</Text></Pressable></View></>:null}
+      </View>;
+    })}
+    {!visible.length?<View style={s.empty}><Text style={s.muted}>Nenhum abastecimento neste filtro.</Text></View>:null}
+  </ScrollView>;
+}
+
 const s=StyleSheet.create({page:{padding:18,paddingBottom:40,gap:12,backgroundColor:BG},title:{fontSize:22,fontWeight:'900',color:NAVY},muted:{fontSize:11,color:MUTED,lineHeight:16},tabs:{flexDirection:'row',gap:6,flexWrap:'wrap'},tab:{paddingHorizontal:12,paddingVertical:9,borderRadius:12,borderWidth:1,borderColor:BORDER,backgroundColor:'#fff'},tabOn:{backgroundColor:NAVY,borderColor:NAVY},tabText:{fontSize:10,fontWeight:'900',color:TEXT},card:{backgroundColor:'#fff',borderWidth:1,borderColor:BORDER,borderRadius:17,padding:14,gap:8},head:{flexDirection:'row',justifyContent:'space-between',gap:10},plate:{fontSize:16,fontWeight:'900',color:TEXT},badge:{fontSize:9,fontWeight:'900',color:NAVY},line:{fontSize:12,fontWeight:'700',color:TEXT},warn:{padding:10,borderRadius:10,backgroundColor:'#FFF7E8'},warnText:{fontSize:10,color:'#9A5B00'},input:{minHeight:45,borderWidth:1,borderColor:BORDER,borderRadius:11,paddingHorizontal:11,color:TEXT},actions:{gap:7},approve:{minHeight:44,borderRadius:11,backgroundColor:'#198754',alignItems:'center',justifyContent:'center'},reject:{minHeight:44,borderRadius:11,backgroundColor:'#B42318',alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:11,borderWidth:1,borderColor:NAVY,alignItems:'center',justifyContent:'center'},secondaryText:{fontWeight:'900',color:NAVY},white:{fontWeight:'900',color:'#fff'},empty:{margin:18,padding:18,borderRadius:16,borderWidth:1,borderColor:BORDER,backgroundColor:'#fff',gap:6}});
