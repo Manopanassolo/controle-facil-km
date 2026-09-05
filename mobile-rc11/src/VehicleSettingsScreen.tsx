@@ -19,4 +19,4 @@ export default function VehicleSettingsScreen({session,data}:Props){
 }
 
 const s=StyleSheet.create({content:{padding:16,paddingBottom:40,gap:12,backgroundColor:BG},hero:{backgroundColor:'#fff',borderRadius:20,padding:18,borderWidth:1,borderColor:BORDER},eyebrow:{fontSize:10,fontWeight:'900',color:NAVY},title:{fontSize:22,fontWeight:'900',color:TEXT,marginTop:4},text:{fontSize:11,color:MUTED,lineHeight:17,marginTop:6},info:{backgroundColor:'#fff',borderRadius:16,padding:15,borderWidth:1,borderColor:BORDER},infoTitle:{fontSize:13,fontWeight:'900',color:NAVY}});
-// RC11.3: veículo obrigatório no planejamento e referência de combustível fora do relatório.
+// RC11.3: veículo obrigatório em novos planejamentos; viagens legadas sem veículo permanecem compatíveis.
