@@ -32,20 +32,8 @@ export async function getCurrentPoint(): Promise<LocationStartResult> {
   if (!permission.ok) return permission;
 
   try {
-    const last = await Location.getLastKnownPositionAsync({ maxAge: 120000, requiredAccuracy: 500 });
-    if (last) {
-      return {
-        ok: true,
-        point: {
-          latitude: last.coords.latitude,
-          longitude: last.coords.longitude,
-          timestamp: last.timestamp,
-        },
-      };
-    }
-
     const result = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
+      accuracy: Location.Accuracy.High,
       mayShowUserSettingsDialog: true,
     });
 
@@ -58,6 +46,19 @@ export async function getCurrentPoint(): Promise<LocationStartResult> {
       },
     };
   } catch {
+    try {
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 30000, requiredAccuracy: 100 });
+      if (last) {
+        return {
+          ok: true,
+          point: {
+            latitude: last.coords.latitude,
+            longitude: last.coords.longitude,
+            timestamp: last.timestamp,
+          },
+        };
+      }
+    } catch {}
     return { ok: false, reason: 'GPS indisponível no momento. Verifique a localização do aparelho e tente novamente.' };
   }
 }
@@ -69,9 +70,10 @@ export async function watchRoute(onPoint: (point: Point) => void) {
   try {
     return await Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.Balanced,
-        distanceInterval: 10,
-        timeInterval: 5000,
+        accuracy: Location.Accuracy.BestForNavigation,
+        distanceInterval: 5,
+        timeInterval: 2000,
+        mayShowUserSettingsDialog: true,
       },
       result => onPoint({
         latitude: result.coords.latitude,
