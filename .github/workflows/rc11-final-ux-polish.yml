@@ -1,0 +1,60 @@
+name: RC11 final UX polish
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - mobile-rc11/FINAL_UX_POLISH
+permissions:
+  contents: write
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Patch calendars light map and reports clarity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/AppRC11Final.tsx'); s=p.read_text()
+          if "import DatePickerField from './src/DatePickerField';" not in s:
+            s=s.replace("import { readExpenses, summarizeExpenses } from './src/expenses';","import { readExpenses, summarizeExpenses } from './src/expenses';\nimport DatePickerField from './src/DatePickerField';")
+          old="{period==='custom'&&<View style={{flexDirection:'row',gap:8}}><TextInput style={[s.input,{flex:1}]} value={customFrom} onChangeText={setCustomFrom} placeholder=\"AAAA-MM-DD\"/><TextInput style={[s.input,{flex:1}]} value={customTo} onChangeText={setCustomTo} placeholder=\"AAAA-MM-DD\"/></View>}"
+          new="{period==='custom'&&<View style={{flexDirection:'row',gap:8}}><DatePickerField label=\"De\" value={customFrom} onChange={setCustomFrom}/><DatePickerField label=\"Até\" value={customTo} onChange={setCustomTo}/></View>}"
+          assert old in s; s=s.replace(old,new)
+          s=s.replace('<View style={s.reportGrid}><View style={s.reportCard}><Text style={s.reportKicker}>KM NO PERÍODO</Text><Text style={s.reportValue}>{localKm.toFixed(1)} km</Text><Text style={s.metricLabel}>{localKmRecords.length} lançamento(s)</Text></View><View style={s.reportCard}><Text style={s.reportKicker}>DESLOCAMENTOS</Text><Text style={s.reportValue}>{localTrips.length}</Text><Text style={s.metricLabel}>{tripKm.toFixed(1)} km rastreados</Text></View>','<View style={s.reportWide}><Text style={s.reportWideTitle}>O que aconteceu</Text><Text style={s.reportWideSub}>{localTrips.length} deslocamento(s) · {tripKm.toFixed(1)} km por GPS · {Math.round(tripMinutes)} min em rota · {localVisits.length} visita(s).</Text></View><View style={s.reportGrid}><View style={s.reportCard}><Text style={s.reportKicker}>KM LANÇADO</Text><Text style={s.reportValue}>{localKm.toFixed(1)} km</Text><Text style={s.metricLabel}>Odômetro/manual · {localKmRecords.length} lançamento(s)</Text></View><View style={s.reportCard}><Text style={s.reportKicker}>GPS / DESLOCAMENTOS</Text><Text style={s.reportValue}>{localTrips.length}</Text><Text style={s.metricLabel}>{tripKm.toFixed(1)} km rastreados por GPS</Text></View>')
+          s=s.replace('<Text style={s.reportWideTitle}>Despesas & prestação de contas</Text><Text style={s.reportWideSub}>Previsto, realizado e reembolso no período selecionado.</Text>','<Text style={s.reportWideTitle}>Dinheiro da operação</Text><Text style={s.reportWideSub}>Quanto estava previsto, quanto foi gasto e quanto pode precisar de reembolso.</Text>')
+          s=s.replace('<Text style={s.reportWideTitle}>Indicadores empresariais · 30 dias</Text><Text style={s.reportWideSub}>Dados consolidados disponíveis na base empresarial.</Text>','<Text style={s.reportWideTitle}>Visão empresarial · últimos 30 dias</Text><Text style={s.reportWideSub}>Indicadores consolidados da base da empresa. Este bloco não depende do período escolhido acima.</Text>')
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/ExpensesScreen.tsx'); s=p.read_text()
+          if "import DatePickerField from './DatePickerField';" not in s:
+            s=s.replace("import {EXPENSE_CATEGORIES,PAYMENT_METHODS,ExpenseRecord,ensurePlannedTripExpenses,readExpenses,reimbursementFor,submitDraftExpenses,summarizeExpenses,upsertExpense} from './expenses';","import {EXPENSE_CATEGORIES,PAYMENT_METHODS,ExpenseRecord,ensurePlannedTripExpenses,readExpenses,reimbursementFor,submitDraftExpenses,summarizeExpenses,upsertExpense} from './expenses';\nimport DatePickerField from './DatePickerField';")
+          old="{period==='custom'&&<View style={s.range}><TextInput style={s.input} value={from} onChangeText={setFrom} placeholder=\"AAAA-MM-DD\"/><Text style={s.rangeArrow}>→</Text><TextInput style={s.input} value={to} onChangeText={setTo} placeholder=\"AAAA-MM-DD\"/></View>}"
+          new="{period==='custom'&&<View style={s.range}><DatePickerField label=\"De\" value={from} onChange={setFrom}/><Text style={s.rangeArrow}>→</Text><DatePickerField label=\"Até\" value={to} onChange={setTo}/></View>}"
+          assert old in s; s=s.replace(old,new); p.write_text(s)
+
+          p=Path('mobile-rc11/src/TripPlannerScreen.tsx'); s=p.read_text()
+          if 'const LIGHT_MAP_STYLE=' not in s:
+            s=s.replace("const NAVY='#0B3558', BLUE='#1769E0', BG='#F3F6FA', TEXT='#17324D', MUTED='#78889A', BORDER='#DFE6EE', GREEN='#22B77A', ORANGE='#F59E0B';","const NAVY='#0B3558', BLUE='#1769E0', BG='#F3F6FA', TEXT='#17324D', MUTED='#78889A', BORDER='#DFE6EE', GREEN='#22B77A', ORANGE='#F59E0B';\nconst LIGHT_MAP_STYLE=[{elementType:'geometry',stylers:[{color:'#f5f5f5'}]},{elementType:'labels.icon',stylers:[{visibility:'off'}]},{elementType:'labels.text.fill',stylers:[{color:'#52606d'}]},{elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},{featureType:'road.highway',elementType:'geometry',stylers:[{color:'#e7edf3'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#cfe7f6'}]},{featureType:'poi.park',elementType:'geometry',stylers:[{color:'#e4f1e8'}]}];")
+          s=s.replace('initialRegion={mapRegion} mapType="standard">','initialRegion={mapRegion} mapType="standard" customMapStyle={LIGHT_MAP_STYLE}>')
+          p.write_text(s)
+          PY
+      - name: Validate mobile
+        working-directory: mobile-rc11
+        run: |
+          npm ci
+          npx expo-doctor
+          npx tsc --noEmit
+          npx expo config --type public >/dev/null
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11
+          git commit -m "RC11: finish calendars light map and clearer reports"
+          git push origin movvant-mobile-rc11
