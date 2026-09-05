@@ -1,0 +1,34 @@
+name: Movvant RC11 EAS status
+
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - 'mobile-rc11/EAS_STATUS_CHECK'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eas-status:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-rc11
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      BUILD_ID: e7875f17-4038-45fb-af1a-17cccce823bf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Guard Expo token
+        run: test -n "$EXPO_TOKEN"
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Read EAS build status
+        run: |
+          echo "BUILD_ID=$BUILD_ID"
+          eas build:view "$BUILD_ID" --json --non-interactive
