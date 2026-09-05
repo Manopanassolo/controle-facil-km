@@ -1,31 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {FuelingStatus} from './fuelingValidation';
 
-export type FuelingRecord={
- id:string;companyId:string;userId:string;vehicleId:string;vehiclePlate:string;
- occurredAt:string;odometerKm:number;liters:number;totalAmount:number;pricePerLiter:number;
- stationName:string;fuelType?:string|null;fullTank:boolean;partialFueling:boolean;
- receiptUri?:string|null;status:FuelingStatus;alerts:string[];reviewReasons:string[];
- approvedAt?:string|null;approvedBy?:string|null;rejectedAt?:string|null;rejectedBy?:string|null;
- createdAt:string;updatedAt:string;
-};
-
-const key=(companyId:string)=>`movvant.rc11.fuelings.${companyId}`;
-export async function readFuelings(companyId:string):Promise<FuelingRecord[]>{
- const raw=await AsyncStorage.getItem(key(companyId));if(!raw)return[];
- try{const rows=JSON.parse(raw);return Array.isArray(rows)?rows:[]}catch{return[]}
-}
-export async function saveFueling(row:FuelingRecord){
- const rows=await readFuelings(row.companyId);const i=rows.findIndex(x=>x.id===row.id);if(i>=0)rows[i]=row;else rows.push(row);
- rows.sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));await AsyncStorage.setItem(key(row.companyId),JSON.stringify(rows));return row;
-}
-export async function lastFuelingForVehicle(companyId:string,vehicleId:string,before?:string){
- const rows=(await readFuelings(companyId)).filter(x=>x.vehicleId===vehicleId&&x.status!=='review'&&(!before||x.occurredAt<before));
- return rows.sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt))[0]||null;
-}
-export async function approveFueling(companyId:string,id:string,userId:string){
- const rows=await readFuelings(companyId);const row=rows.find(x=>x.id===id);if(!row)return null;row.status='valid';row.approvedAt=new Date().toISOString();row.approvedBy=userId;row.reviewReasons=[];row.updatedAt=new Date().toISOString();await AsyncStorage.setItem(key(companyId),JSON.stringify(rows));return row;
-}
-export async function rejectFueling(companyId:string,id:string,userId:string){
- const rows=await readFuelings(companyId);const row=rows.find(x=>x.id===id);if(!row)return null;row.status='review';row.rejectedAt=new Date().toISOString();row.rejectedBy=userId;row.updatedAt=new Date().toISOString();await AsyncStorage.setItem(key(companyId),JSON.stringify(rows));return row;
-}
+export type FuelingWorkflowStatus='draft'|'submitted'|'attention'|'review'|'approved'|'rejected'|'correction_requested'|'cancelled';
+export type FuelingAuditAction='created'|'edited'|'submitted'|'alerted'|'review_started'|'approved'|'rejected'|'correction_requested'|'resubmitted'|'reopened'|'cancelled';
+export type FuelingAuditEvent={id:string;fuelingId:string;companyId:string;actorId:string;actorRole?:string|null;at:string;action:FuelingAuditAction;fromStatus?:FuelingWorkflowStatus|null;toStatus:FuelingWorkflowStatus;reason?:string|null;changes?:Record<string,{from:unknown;to:unknown}>|null};
+export type FuelingRecord={id:string;companyId:string;userId:string;vehicleId:string;vehiclePlate:string;occurredAt:string;odometerKm:number;liters:number;totalAmount:number;pricePerLiter:number;stationName:string;fuelType?:string|null;fullTank:boolean;partialFueling:boolean;receiptUri?:string|null;status:FuelingStatus;workflowStatus?:FuelingWorkflowStatus;alerts:string[];reviewReasons:string[];approvedAt?:string|null;approvedBy?:string|null;rejectedAt?:string|null;rejectedBy?:string|null;reviewReason?:string|null;createdAt:string;updatedAt:string;};
+const key=(companyId:string)=>`movvant.rc11.fuelings.${companyId}`;const auditKey=(companyId:string)=>`movvant.rc11.fueling.audit.${companyId}`;
+export async function readFuelings(companyId:string):Promise<FuelingRecord[]>{const raw=await AsyncStorage.getItem(key(companyId));if(!raw)return[];try{const rows=JSON.parse(raw);return Array.isArray(rows)?rows:[]}catch{return[]}}
+export async function readFuelingAudit(companyId:string):Promise<FuelingAuditEvent[]>{const raw=await AsyncStorage.getItem(auditKey(companyId));if(!raw)return[];try{const rows=JSON.parse(raw);return Array.isArray(rows)?rows:[]}catch{return[]}}
+async function appendAudit(event:Omit<FuelingAuditEvent,'id'|'at'>){const rows=await readFuelingAudit(event.companyId);rows.unshift({...event,id:`fa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,at:new Date().toISOString()});await AsyncStorage.setItem(auditKey(event.companyId),JSON.stringify(rows));}
+export async function saveFueling(row:FuelingRecord){const rows=await readFuelings(row.companyId);const i=rows.findIndex(x=>x.id===row.id);const existed=i>=0;if(i>=0)rows[i]=row;else rows.push(row);rows.sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));await AsyncStorage.setItem(key(row.companyId),JSON.stringify(rows));if(!existed)await appendAudit({fuelingId:row.id,companyId:row.companyId,actorId:row.userId,action:'created',toStatus:row.workflowStatus||'draft'});return row;}
+export async function lastFuelingForVehicle(companyId:string,vehicleId:string,before?:string){const rows=(await readFuelings(companyId)).filter(x=>x.vehicleId===vehicleId&&(x.workflowStatus==='approved'||(!x.workflowStatus&&x.status!=='review'))&&(!before||x.occurredAt<before));return rows.sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt))[0]||null;}
+async function transition(companyId:string,id:string,actorId:string,toStatus:FuelingWorkflowStatus,action:FuelingAuditAction,reason?:string,actorRole?:string){const rows=await readFuelings(companyId);const row=rows.find(x=>x.id===id);if(!row)return null;const from=row.workflowStatus||'draft';row.workflowStatus=toStatus;row.updatedAt=new Date().toISOString();row.reviewReason=reason||null;if(toStatus==='approved'){row.status='valid';row.approvedAt=row.updatedAt;row.approvedBy=actorId;row.rejectedAt=null;row.rejectedBy=null;}if(toStatus==='rejected'){row.status='review';row.rejectedAt=row.updatedAt;row.rejectedBy=actorId;}if(toStatus==='review'||toStatus==='correction_requested')row.status='review';await AsyncStorage.setItem(key(companyId),JSON.stringify(rows));await appendAudit({fuelingId:id,companyId,actorId,actorRole,action,fromStatus:from,toStatus,reason:reason||null});return row;}
+export const submitFueling=(companyId:string,id:string,userId:string)=>transition(companyId,id,userId,'submitted','submitted');
+export const approveFueling=(companyId:string,id:string,userId:string,actorRole?:string)=>transition(companyId,id,userId,'approved','approved',undefined,actorRole);
+export async function rejectFueling(companyId:string,id:string,userId:string,reason:string,actorRole?:string){if(!reason.trim())throw new Error('Informe o motivo da rejeição.');return transition(companyId,id,userId,'rejected','rejected',reason.trim(),actorRole);}
+export async function requestFuelingCorrection(companyId:string,id:string,userId:string,reason:string,actorRole?:string){if(!reason.trim())throw new Error('Informe o motivo da correção.');return transition(companyId,id,userId,'correction_requested','correction_requested',reason.trim(),actorRole);}
+export const reopenFueling=(companyId:string,id:string,userId:string,reason:string,actorRole?:string)=>transition(companyId,id,userId,'review','reopened',reason,actorRole);
+export function fuelingCountsForReport(rows:FuelingRecord[]){return rows.reduce((a,r)=>{const s=r.workflowStatus||(r.status==='valid'?'approved':'review');if(s==='approved'){a.approvedCount++;a.approvedAmount+=r.totalAmount;}else if(['submitted','attention','review','correction_requested'].includes(s)){a.pendingCount++;a.pendingAmount+=r.totalAmount;}else if(s==='rejected'||s==='cancelled'){a.excludedCount++;}return a;},{approvedCount:0,approvedAmount:0,pendingCount:0,pendingAmount:0,excludedCount:0});}
