@@ -4,10 +4,12 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native
 import type { LocationSubscription } from 'expo-location';
 import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';
 import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './adminSettings';
+import type { CustomerRow } from './api';
+import { RouteDeviationDetector, RouteDeviationEvent } from './routeIntelligence';
 import { clearActiveTripDraft, enqueue, readActiveTripDraft, saveActiveTripDraft, saveTripLocal } from './offline';
 
 type RouteStatus = 'idle' | 'starting' | 'running' | 'paused' | 'finished';
-type Props = { onSaved?: () => void; companyId?: string | null };
+type Props = { onSaved?: () => void; companyId?: string | null; customers?: CustomerRow[]; plannedCustomerIds?: string[]; plannedTripId?: string | null };
 
 const BLUE = '#1769E0';
 const ORANGE = '#F59E0B';
@@ -35,7 +37,7 @@ const LIGHT_MAP_STYLE = [
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#607D8B' }] },
 ];
 
-export default function RouteScreen({ onSaved, companyId }: Props) {
+export default function RouteScreen({ onSaved, companyId, customers = [], plannedCustomerIds = [], plannedTripId = null }: Props) {
   const [status, setStatus] = useState<RouteStatus>('idle');
   const [points, setPoints] = useState<Point[]>([]);
   const [returnStart, setReturnStart] = useState<number | null>(null);
@@ -44,6 +46,10 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
   const [region, setRegion] = useState<Region | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [trackingSettings, setTrackingSettings] = useState<EnterpriseSettings['tracking']>(DEFAULT_ENTERPRISE_SETTINGS.tracking);
+  const [visitSettings, setVisitSettings] = useState<EnterpriseSettings['visit']>(DEFAULT_ENTERPRISE_SETTINGS.visit);
+  const [deviations, setDeviations] = useState<RouteDeviationEvent[]>([]);
+  const [lastDeviation, setLastDeviation] = useState<RouteDeviationEvent | null>(null);
+  const detectorRef = useRef(new RouteDeviationDetector(customers, new Set(plannedCustomerIds)));
   const subscription = useRef<LocationSubscription | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const mapReadyRef = useRef(false);
@@ -58,8 +64,12 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
   }, [mapReady]);
 
   useEffect(() => {
+    detectorRef.current.updateConfig(customers, plannedCustomerIds, Math.min(Math.max(80, visitSettings.geofenceMeters || 160), 300), Math.max(60, (visitSettings.minimumVisitMinutes || 2) * 60));
+  }, [customers, plannedCustomerIds.join('|'), visitSettings.geofenceMeters, visitSettings.minimumVisitMinutes]);
+
+  useEffect(() => {
     let active = true;
-    readEnterpriseSettings(companyId).then(v => { if (active) setTrackingSettings(v.tracking); }).catch(() => {});
+    readEnterpriseSettings(companyId).then(v => { if (active) { setTrackingSettings(v.tracking); setVisitSettings(v.visit); } }).catch(() => {});
     return () => { active = false; };
   }, [companyId]);
 
@@ -150,6 +160,11 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
           persistDraft(next);
           return next;
         });
+        const found = detectorRef.current.push(point);
+        if (found.length) {
+          setDeviations(prev => [...prev, ...found.filter(x => !prev.some(p => p.customerId === x.customerId))]);
+          setLastDeviation(found[0]);
+        }
         followPoint(point);
       }, { distanceIntervalMeters: trackingSettings.gpsDistanceIntervalMeters, timeIntervalSeconds: trackingSettings.gpsTimeIntervalSeconds });
       if (!subscription.current) Alert.alert('GPS', 'A rota iniciou, mas o acompanhamento contínuo não pôde ser ativado.');
@@ -172,6 +187,8 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
         return;
       }
       await clearActiveTripDraft();
+      detectorRef.current.reset();
+      setDeviations([]); setLastDeviation(null);
       const first = result.point;
       const now = Date.now();
       startedAtRef.current = now;
@@ -237,8 +254,8 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
       setElapsed(finalElapsed);
       setStatus('finished');
       fitCompletedRoute(points);
-      await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, synced: false });
-      await enqueue({ entity: 'trip', action: 'finish', payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points } });
+      await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, deviations, plannedTripId, synced: false });
+      await enqueue({ entity: 'trip', action: 'finish', payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points, deviations, plannedTripId } });
       await clearActiveTripDraft();
       startedAtRef.current = null;
       returnStartRef.current = null;
@@ -280,6 +297,7 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
 
     <View style={styles.panel}>
       <View style={styles.statusLine}><View style={[styles.statusDot,status==='running'&&styles.statusDotOn]}/><Text style={styles.title}>{title}</Text></View>
+      {lastDeviation ? <View style={styles.deviationBanner}><View style={{flex:1}}><Text style={styles.deviationTitle}>Parada não planejada detectada</Text><Text style={styles.deviationText}>{lastDeviation.customerName} · permanência {Math.max(1,Math.round(lastDeviation.dwellSeconds/60))} min · {lastDeviation.distanceMeters} m</Text></View><Pressable onPress={()=>setLastDeviation(null)}><Text style={styles.deviationClose}>×</Text></Pressable></View> : null}
       <View style={styles.metrics}><View style={styles.metric}><Text style={styles.value}>{formatTime(elapsed)}</Text><Text style={styles.label}>Tempo ativo</Text></View><View style={styles.metricRight}><Text style={styles.value}>{formatDistance(distance)}</Text><Text style={styles.label}>Distância GPS</Text></View></View>
       {status==='idle'||status==='finished'||status==='starting' ? <Pressable style={[styles.primary,status==='starting'&&styles.disabled]} onPress={start} disabled={status==='starting'}><Text style={styles.primaryText}>{status==='starting'?'Localizando...':status==='finished'?'Iniciar novo deslocamento':'Iniciar deslocamento'}</Text></Pressable> : <View style={styles.actions}>
         <Pressable style={styles.secondary} onPress={status==='paused'?resume:pause}><Text style={styles.secondaryText}>{status==='paused'?'Continuar deslocamento':'Pausar deslocamento'}</Text></Pressable>
@@ -293,4 +311,5 @@ export default function RouteScreen({ onSaved, companyId }: Props) {
 
 const styles = StyleSheet.create({
   screen:{flex:1,backgroundColor:'#E8EEF5'},emptyMap:{flex:1,alignItems:'center',justifyContent:'center',padding:30,backgroundColor:'#EAF0F6'},pinBadge:{width:72,height:72,borderRadius:36,backgroundColor:'#DCEAF8',alignItems:'center',justifyContent:'center',marginBottom:14},pinIcon:{fontSize:30,color:NAVY,fontWeight:'800'},emptyTitle:{fontSize:20,fontWeight:'900',color:NAVY},emptyText:{fontSize:13,color:MUTED,textAlign:'center',marginTop:8,lineHeight:19,maxWidth:320},centerMap:{position:'absolute',right:18,top:18,width:46,height:46,borderRadius:23,backgroundColor:'#fff',alignItems:'center',justifyContent:'center',elevation:6},centerMapText:{fontSize:22,color:NAVY,fontWeight:'900'},mapLoading:{position:'absolute',top:18,left:18,backgroundColor:'#FFFFFFEE',paddingHorizontal:12,paddingVertical:8,borderRadius:12},mapLoadingText:{fontSize:11,color:MUTED,fontWeight:'800'},panel:{backgroundColor:'#fff',paddingHorizontal:20,paddingTop:18,paddingBottom:16,borderTopLeftRadius:30,borderTopRightRadius:30,elevation:10,shadowColor:'#17324D',shadowOpacity:.10,shadowRadius:14},statusLine:{flexDirection:'row',alignItems:'center',gap:8},statusDot:{width:9,height:9,borderRadius:5,backgroundColor:'#B8C4D1'},statusDotOn:{backgroundColor:'#25B979'},title:{fontSize:17,fontWeight:'900',color:NAVY},metrics:{flexDirection:'row',justifyContent:'space-between',paddingVertical:14},metric:{alignItems:'flex-start'},metricRight:{alignItems:'flex-end'},value:{fontSize:22,fontWeight:'900',color:NAVY},label:{fontSize:11,color:MUTED,marginTop:2},actions:{gap:8},primary:{minHeight:58,backgroundColor:BLUE,borderRadius:17,alignItems:'center',justifyContent:'center'},disabled:{opacity:.6},primaryText:{color:'#fff',fontWeight:'900',fontSize:15},secondary:{minHeight:46,backgroundColor:'#EDF2F7',borderRadius:12,alignItems:'center',justifyContent:'center'},secondaryText:{color:NAVY,fontWeight:'800'},returnButton:{minHeight:52,backgroundColor:'#FFF3E4',borderRadius:14,borderWidth:1,borderColor:'#F7D5A5',alignItems:'center',justifyContent:'center'},returnButtonDone:{backgroundColor:'#FFF7EC'},returnText:{color:ORANGE,fontWeight:'900',fontSize:15},returnHelp:{fontSize:11,color:MUTED,textAlign:'center',lineHeight:15,paddingHorizontal:8},finish:{minHeight:46,backgroundColor:'#FFF0F0',borderRadius:12,borderWidth:1,borderColor:'#F7C6C8',alignItems:'center',justifyContent:'center'},finishText:{color:RED,fontWeight:'900'}
-});
+,
+  deviationBanner:{marginHorizontal:14,marginBottom:10,borderRadius:16,borderWidth:1,borderColor:'#F1CF8D',backgroundColor:'#FFF8E8',padding:13,flexDirection:'row',alignItems:'center',gap:10},deviationTitle:{fontSize:12,fontWeight:'900',color:'#795300'},deviationText:{fontSize:10,color:'#8B6B31',marginTop:3},deviationClose:{fontSize:22,fontWeight:'800',color:'#A67B31',paddingHorizontal:6}});
