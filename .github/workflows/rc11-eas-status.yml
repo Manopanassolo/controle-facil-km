@@ -26,6 +26,8 @@ jobs:
           node-version: '24'
       - name: Guard Expo token
         run: test -n "$EXPO_TOKEN"
+      - name: Install project dependencies
+        run: npm install --no-audit --no-fund
       - name: Install EAS CLI
         run: npm install --global eas-cli
       - name: Read EAS build status
