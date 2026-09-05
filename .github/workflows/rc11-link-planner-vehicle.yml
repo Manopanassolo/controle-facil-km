@@ -1,0 +1,104 @@
+name: RC11 link planner vehicle
+on:
+  push:
+    paths:
+      - '.github/workflows/rc11-link-planner-vehicle.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Patch planner vehicle linkage
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p=Path(path); s=p.read_text()
+              if old not in s:
+                  raise SystemExit(f'pattern not found in {path}: {old[:120]}')
+              p.write_text(s.replace(old,new,1))
+
+          # offline travel metadata
+          replace('mobile-rc11/src/offline.ts',
+            "export type TravelMeta = { origin: string; destination: string; stops: string[]; roundTrip: boolean; optimizeStops: boolean; distanceMeters: number; durationSeconds: number; tollBRL: number; routeLabel: string; polyline?: string | null; returnPolyline?: string | null; plannedExpenses?: Array<{category:string;subcategory:string;amount:number;description?:string}> };",
+            "export type TravelMeta = { origin: string; destination: string; stops: string[]; roundTrip: boolean; optimizeStops: boolean; distanceMeters: number; durationSeconds: number; tollBRL: number; routeLabel: string; vehicleId?: string; vehiclePlate?: string; polyline?: string | null; returnPolyline?: string | null; plannedExpenses?: Array<{category:string;subcategory:string;amount:number;description?:string}> };")
+
+          # planner types, props, state, selection, validation and save payload
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "import { CustomerRow } from './api';",
+            "import { CustomerRow, VehicleRow } from './api';")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "export type PlannedTrip={date:string;time:string;origin:string;destination:string;stops:string[];roundTrip:boolean;optimizeStops:boolean;distanceMeters:number;durationSeconds:number;tollBRL:number;routeLabel:string;polyline?:string|null;returnPolyline?:string|null;plannedExpenses?:PlannedExpenseDraft[]};",
+            "export type PlannedTrip={date:string;time:string;origin:string;destination:string;stops:string[];roundTrip:boolean;optimizeStops:boolean;distanceMeters:number;durationSeconds:number;tollBRL:number;routeLabel:string;vehicleId:string;vehiclePlate:string;polyline?:string|null;returnPolyline?:string|null;plannedExpenses?:PlannedExpenseDraft[]};")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "type Props={visible:boolean;customers:CustomerRow[];initialDate:string;initialTrip?:PlannedTrip|null;userId?:string;onClose:()=>void;onSave:(trip:PlannedTrip)=>Promise<void>};",
+            "type Props={visible:boolean;customers:CustomerRow[];vehicles:VehicleRow[];initialDate:string;initialTrip?:PlannedTrip|null;userId?:string;onClose:()=>void;onSave:(trip:PlannedTrip)=>Promise<void>};")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "export default function TripPlannerScreen({visible,customers,initialDate,initialTrip,onClose,onSave}:Props){",
+            "export default function TripPlannerScreen({visible,customers,vehicles,initialDate,initialTrip,onClose,onSave}:Props){")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "  const mapHeight=Math.max(300,Math.min(480,Math.round(screenHeight*0.43)));",
+            "  const mapHeight=Math.max(300,Math.min(480,Math.round(screenHeight*0.43)));\n  const [vehicleId,setVehicleId]=useState(initialTrip?.vehicleId||vehicles[0]?.id||'');")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "setCalendarCursor(new Date((t?.date||initialDate)+'T12:00:00'));setError('')",
+            "setCalendarCursor(new Date((t?.date||initialDate)+'T12:00:00'));setVehicleId(t?.vehicleId||vehicles[0]?.id||'');setError('')")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "  const save=async()=>{if(!route)return setError('Calcule e selecione uma rota antes de salvar.');",
+            "  const save=async()=>{const vehicle=vehicles.find(v=>v.id===vehicleId);if(!vehicle)return setError('Selecione o veículo que será usado neste deslocamento.');if(!route)return setError('Calcule e selecione uma rota antes de salvar.');")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "await onSave({date,time,origin:origin.trim(),destination:destination.trim(),stops:stops.filter(Boolean),roundTrip,optimizeStops:optimize,distanceMeters:route.distanceMeters,durationSeconds:seconds(route.duration),tollBRL:route.tollTotalBRL||0,routeLabel:route.strategyLabel||`Rota ${selected+1}`,polyline:route.polyline,returnPolyline:route.returnPolyline,plannedExpenses});",
+            "await onSave({date,time,origin:origin.trim(),destination:destination.trim(),stops:stops.filter(Boolean),roundTrip,optimizeStops:optimize,distanceMeters:route.distanceMeters,durationSeconds:seconds(route.duration),tollBRL:route.tollTotalBRL||0,routeLabel:route.strategyLabel||`Rota ${selected+1}`,vehicleId:vehicle.id,vehiclePlate:vehicle.plate,polyline:route.polyline,returnPolyline:route.returnPolyline,plannedExpenses});")
+          replace('mobile-rc11/src/TripPlannerScreen.tsx',
+            "    <View style={s.row2}><View style={{flex:1}}><Text style={s.label}>Data</Text>",
+            "    <View><Text style={s.label}>Veículo</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8,marginTop:6}}>{vehicles.map(v=><Pressable key={v.id} onPress={()=>setVehicleId(v.id)} style={{paddingHorizontal:13,paddingVertical:9,borderRadius:999,borderWidth:1,borderColor:vehicleId===v.id?NAVY:BORDER,backgroundColor:vehicleId===v.id?NAVY:'#fff'}}><Text style={{fontSize:11,fontWeight:'900',color:vehicleId===v.id?'#fff':TEXT}}>{v.plate}</Text><Text style={{fontSize:9,color:vehicleId===v.id?'#D8E5EF':MUTED}}>{[v.make,v.model].filter(Boolean).join(' ')||'Veículo'}</Text></Pressable>)}</ScrollView></View>\n    <View style={s.row2}><View style={{flex:1}}><Text style={s.label}>Data</Text>")
+
+          # App: vehicle settings page + planner vehicle props
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "import ReportsHierarchicalScreen from './src/ReportsHierarchicalScreen';",
+            "import ReportsHierarchicalScreen from './src/ReportsHierarchicalScreen';\nimport VehicleSettingsScreen from './src/VehicleSettingsScreen';")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "type MorePage = 'menu' | 'lojas' | 'relatorios' | 'despesas' | 'notificacoes' | 'sincronizacao' | 'configuracoes';",
+            "type MorePage = 'menu' | 'lojas' | 'relatorios' | 'despesas' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "function Agenda({ appointments, customers, userId, onSave, onSaveTravel, onDelete }: { appointments: Appointment[]; customers: CustomerRow[]; userId?:string;",
+            "function Agenda({ appointments, customers, vehicles, userId, onSave, onSaveTravel, onDelete }: { appointments: Appointment[]; customers: CustomerRow[]; vehicles: VehicleRow[]; userId?:string;")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "travel:{origin:trip.origin,destination:trip.destination,stops:trip.stops,roundTrip:trip.roundTrip,optimizeStops:trip.optimizeStops,distanceMeters:trip.distanceMeters,durationSeconds:trip.durationSeconds,tollBRL:trip.tollBRL,routeLabel:trip.routeLabel,polyline:trip.polyline,returnPolyline:trip.returnPolyline,plannedExpenses:trip.plannedExpenses}",
+            "travel:{origin:trip.origin,destination:trip.destination,stops:trip.stops,roundTrip:trip.roundTrip,optimizeStops:trip.optimizeStops,distanceMeters:trip.distanceMeters,durationSeconds:trip.durationSeconds,tollBRL:trip.tollBRL,routeLabel:trip.routeLabel,vehicleId:trip.vehicleId,vehiclePlate:trip.vehiclePlate,polyline:trip.polyline,returnPolyline:trip.returnPolyline,plannedExpenses:trip.plannedExpenses}")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "<TripPlannerScreen visible={tripPlanner} customers={customers}",
+            "<TripPlannerScreen visible={tripPlanner} customers={customers} vehicles={vehicles}")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "if (page === 'despesas') return <ExpensesScreen companyId={data?.companyId} userId={session.user.id} vehicles={data?.vehicles || []} customers={data?.customers || []} appointments={local.appointments}/>;",
+            "if (page === 'despesas') return <ExpensesScreen companyId={data?.companyId} userId={session.user.id} vehicles={data?.vehicles || []} customers={data?.customers || []} appointments={local.appointments}/>;\n  if (page === 'veiculos') return <VehicleSettingsScreen session={session} data={data}/>;")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "<Row icon=\"R$\" title=\"Despesas & Prestação\" sub=\"Gastos, comprovantes e reembolsos\" onPress={() => setPage('despesas')}/>",
+            "<Row icon=\"R$\" title=\"Despesas & Prestação\" sub=\"Gastos, comprovantes e reembolsos\" onPress={() => setPage('despesas')}/><Row icon=\"▣\" title=\"Veículos e combustível\" sub=\"Média km/l, preço de referência e tanque\" onPress={() => setPage('veiculos')}/>")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "['R$','Despesas & Prestação',()=>go('mais','despesas')],",
+            "['R$','Despesas & Prestação',()=>go('mais','despesas')],['▣','Veículos e combustível',()=>go('mais','veiculos')],")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "more==='despesas'?'Despesas & Prestação':more==='notificacoes'?'Notificações'",
+            "more==='despesas'?'Despesas & Prestação':more==='veiculos'?'Veículos':more==='notificacoes'?'Notificações'")
+          replace('mobile-rc11/AppRC11Final.tsx',
+            "<Agenda appointments={appointments} customers={data?.customers||[]} userId={session.user.id}",
+            "<Agenda appointments={appointments} customers={data?.customers||[]} vehicles={assignedVehicles} userId={session.user.id}")
+
+          # report uses explicit planned vehicle when available
+          replace('mobile-rc11/src/ReportsHierarchicalScreen.tsx',
+            "vehicle:defaultVehicle?.plate||'Não vinculado'",
+            "vehicle:vehicleById.get(a.travel?.vehicleId||'')?.plate||a.travel?.vehiclePlate||defaultVehicle?.plate||'Não vinculado'")
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile-rc11/AppRC11Final.tsx mobile-rc11/src/offline.ts mobile-rc11/src/TripPlannerScreen.tsx mobile-rc11/src/ReportsHierarchicalScreen.tsx
+          git commit -m "RC11.3: require vehicle on planned trips" || exit 0
+          git push origin HEAD:movvant-mobile-rc11
