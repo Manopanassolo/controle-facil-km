@@ -12,6 +12,7 @@ import TripPlannerScreen, { PlannedTrip } from './src/TripPlannerScreen';
 import ExpensesScreen from './src/ExpensesScreen';
 import { readExpenses, summarizeExpenses } from './src/expenses';
 import DatePickerField from './src/DatePickerField';
+import ReportsHierarchicalScreen from './src/ReportsHierarchicalScreen';
 
 type Tab = 'home' | 'agenda' | 'km' | 'mapa' | 'mais';
 type MorePage = 'menu' | 'lojas' | 'relatorios' | 'despesas' | 'notificacoes' | 'sincronizacao' | 'configuracoes';
@@ -251,7 +252,7 @@ function Settings({ session, data, prefs, setPrefs, logout }: { session: Session
 
 function More({ page, setPage, data, local, session, prefs, setPrefs, online, pending, syncing, diagnostics, syncReport, onSync, onRefresh, onRead, logout }: { page: MorePage; setPage: (p: MorePage) => void; data: BootstrapData | null; local: LocalState; session: Session; prefs: Preferences; setPrefs: (p: Preferences) => void; online: boolean; pending: number; syncing: boolean; diagnostics: SyncDiagnostics; syncReport: SyncReport | null; onSync: () => Promise<void>; onRefresh: () => Promise<void>; onRead: (id: string) => Promise<void>; logout: () => void }) {
   if (page === 'lojas') return <Stores customers={data?.customers || []} branchId={data?.branchId || null} branchScoped={data?.directory?.scope_level === 'branch'}/>;
-  if (page === 'relatorios') return <Reports data={data} local={local}/>;
+  if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;
   if (page === 'despesas') return <ExpensesScreen companyId={data?.companyId} userId={session.user.id} vehicles={data?.vehicles || []} customers={data?.customers || []} appointments={local.appointments}/>;
   if (page === 'notificacoes') return <NotificationCenter rows={prefs.notifications ? (data?.notifications || []) : []} onRead={onRead}/>;
   if (page === 'sincronizacao') return <SyncPage online={online} pending={pending} lastLoaded={data?.loadedAt} errors={data?.errors || []} syncing={syncing} diagnostics={diagnostics} report={syncReport} onSync={onSync} onRefresh={onRefresh}/>;
