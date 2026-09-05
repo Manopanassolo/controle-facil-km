@@ -1,0 +1,78 @@
+name: RC11 route intelligence large block
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-route-intelligence-large-block.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate route deviation intelligence
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # offline trip metadata
+          p=Path('mobile-rc11/src/offline.ts'); s=p.read_text()
+          old="export type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; synced?: boolean };"
+          new="export type RouteDeviationSummary = { id: string; customerId: string; customerName: string; detectedAt: string; latitude: number; longitude: number; distanceMeters: number; dwellSeconds: number; planned: boolean };\nexport type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; deviations?: RouteDeviationSummary[]; plannedTripId?: string | null; synced?: boolean };"
+          if old in s: s=s.replace(old,new,1)
+          p.write_text(s)
+
+          # RouteScreen: customers + planned route context + detector
+          p=Path('mobile-rc11/src/RouteScreen.tsx'); s=p.read_text()
+          s=s.replace("import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './adminSettings';", "import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './adminSettings';\nimport type { CustomerRow } from './api';\nimport { RouteDeviationDetector, RouteDeviationEvent } from './routeIntelligence';")
+          s=s.replace("type Props = { onSaved?: () => void; companyId?: string | null };", "type Props = { onSaved?: () => void; companyId?: string | null; customers?: CustomerRow[]; plannedCustomerIds?: string[]; plannedTripId?: string | null };" )
+          s=s.replace("export default function RouteScreen({ onSaved, companyId }: Props) {", "export default function RouteScreen({ onSaved, companyId, customers = [], plannedCustomerIds = [], plannedTripId = null }: Props) {")
+          marker="  const [trackingSettings, setTrackingSettings] = useState<EnterpriseSettings['tracking']>(DEFAULT_ENTERPRISE_SETTINGS.tracking);"
+          repl=marker+"\n  const [visitSettings, setVisitSettings] = useState<EnterpriseSettings['visit']>(DEFAULT_ENTERPRISE_SETTINGS.visit);\n  const [deviations, setDeviations] = useState<RouteDeviationEvent[]>([]);\n  const [lastDeviation, setLastDeviation] = useState<RouteDeviationEvent | null>(null);\n  const detectorRef = useRef(new RouteDeviationDetector(customers, new Set(plannedCustomerIds)));"
+          if marker in s: s=s.replace(marker,repl,1)
+          old="    readEnterpriseSettings(companyId).then(v => { if (active) setTrackingSettings(v.tracking); }).catch(() => {});"
+          new="    readEnterpriseSettings(companyId).then(v => { if (active) { setTrackingSettings(v.tracking); setVisitSettings(v.visit); } }).catch(() => {});"
+          if old in s: s=s.replace(old,new,1)
+          hook="  useEffect(() => {\n    mapReadyRef.current = mapReady;\n  }, [mapReady]);"
+          extra=hook+"\n\n  useEffect(() => {\n    detectorRef.current.updateConfig(customers, plannedCustomerIds, Math.min(Math.max(80, visitSettings.geofenceMeters || 160), 300), Math.max(60, (visitSettings.minimumVisitMinutes || 2) * 60));\n  }, [customers, plannedCustomerIds.join('|'), visitSettings.geofenceMeters, visitSettings.minimumVisitMinutes]);"
+          if hook in s: s=s.replace(hook,extra,1)
+          watch="        followPoint(point);"
+          detect="        const found = detectorRef.current.push(point);\n        if (found.length) {\n          setDeviations(prev => [...prev, ...found.filter(x => !prev.some(p => p.customerId === x.customerId))]);\n          setLastDeviation(found[0]);\n        }\n        followPoint(point);"
+          if watch in s: s=s.replace(watch,detect,1)
+          # reset deviations on fresh start
+          s=s.replace("      await clearActiveTripDraft();\n      const first = result.point;", "      await clearActiveTripDraft();\n      detectorRef.current.reset();\n      setDeviations([]); setLastDeviation(null);\n      const first = result.point;",1)
+          oldsave="await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, synced: false });"
+          newsave="await saveTripLocal({ id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, pointsCount: points.length, points, deviations, plannedTripId, synced: false });"
+          if oldsave in s: s=s.replace(oldsave,newsave,1)
+          oldq="payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points }"
+          newq="payload: { localId: id, startedAt, finishedAt, elapsedMs: finalElapsed, distanceMeters: Math.round(distance), returnStart, points, deviations, plannedTripId }"
+          if oldq in s: s=s.replace(oldq,newq,1)
+          # insert deviation banner before map bottom controls where practical
+          marker_ui="  const center = () => {"
+          # no structural UI injection here; add state summary near formatTime through render patch below
+          render_marker="      <View style={styles.metrics}>"
+          banner="      {lastDeviation ? <View style={styles.deviationBanner}><View style={{flex:1}}><Text style={styles.deviationTitle}>Parada não planejada detectada</Text><Text style={styles.deviationText}>{lastDeviation.customerName} · permanência {Math.max(1,Math.round(lastDeviation.dwellSeconds/60))} min · {lastDeviation.distanceMeters} m</Text></View><Pressable onPress={()=>setLastDeviation(null)}><Text style={styles.deviationClose}>×</Text></Pressable></View> : null}\n"
+          if render_marker in s: s=s.replace(render_marker,banner+render_marker,1)
+          # styles before closing StyleSheet
+          idx=s.rfind('});')
+          if idx!=-1 and 'deviationBanner:' not in s:
+            s=s[:idx]+",\n  deviationBanner:{marginHorizontal:14,marginBottom:10,borderRadius:16,borderWidth:1,borderColor:'#F1CF8D',backgroundColor:'#FFF8E8',padding:13,flexDirection:'row',alignItems:'center',gap:10},deviationTitle:{fontSize:12,fontWeight:'900',color:'#795300'},deviationText:{fontSize:10,color:'#8B6B31',marginTop:3},deviationClose:{fontSize:22,fontWeight:'800',color:'#A67B31',paddingHorizontal:6}"+s[idx:]
+          p.write_text(s)
+
+          # App: identify today's planned travel and planned customers by matching client names
+          p=Path('mobile-rc11/AppRC11Final.tsx'); s=p.read_text()
+          needle="  const unread = prefs.notifications ? (data?.notifications || []).filter(x => !x.read_at).length : 0;"
+          addition=needle+"\n  const todayKey=isoDate(new Date());\n  const plannedTravel=local.appointments.filter(x=>x.type==='Viagem'&&x.travel&&x.date===todayKey).sort((a,b)=>a.time.localeCompare(b.time))[0]||null;\n  const normalizeRouteText=(v:string)=>v.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();\n  const plannedRouteText=plannedTravel?.travel?normalizeRouteText([plannedTravel.travel.origin,...plannedTravel.travel.stops,plannedTravel.travel.destination].join(' | ')):'';\n  const plannedCustomerIds=(data?.customers||[]).filter(c=>{const names=[c.trade_name,c.legal_name].filter(Boolean).map(x=>normalizeRouteText(String(x)));return !!plannedRouteText&&names.some(n=>n.length>2&&plannedRouteText.includes(n));}).map(c=>c.id);"
+          if needle in s and 'const plannedTravel=' not in s: s=s.replace(needle,addition,1)
+          old="{tab==='mapa'&&<RouteScreen onSaved={reloadLocal} companyId={data?.companyId}/>}"
+          new="{tab==='mapa'&&<RouteScreen onSaved={reloadLocal} companyId={data?.companyId} customers={data?.customers||[]} plannedCustomerIds={plannedCustomerIds} plannedTripId={plannedTravel?.id||null}/>}"
+          if old in s: s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/src/offline.ts mobile-rc11/src/RouteScreen.tsx mobile-rc11/AppRC11Final.tsx
+          git commit -m 'RC11: detect unplanned customer stops during planned routes'
+          git push
