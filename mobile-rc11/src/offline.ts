@@ -15,7 +15,8 @@ export type SyncItem = {
   createdAt: string;
 };
 
-export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean };
+export type TravelMeta = { origin: string; destination: string; stops: string[]; roundTrip: boolean; optimizeStops: boolean; distanceMeters: number; durationSeconds: number; tollBRL: number; routeLabel: string; polyline?: string | null };
+export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean; travel?: TravelMeta };
 export type LocalKmRecord = { id: string; vehicleId?: string; vehicle: string; start: number; end: number; total: number; reason: string; photoUri?: string | null; createdAt: string; synced?: boolean };
 export type LocalTripPoint = { latitude: number; longitude: number; timestamp?: number; accuracy?: number | null };
 export type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; synced?: boolean };
