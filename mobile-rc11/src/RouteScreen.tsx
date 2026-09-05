@@ -3,10 +3,11 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import type { LocationSubscription } from 'expo-location';
 import { distanceMeters, getCurrentPoint, Point, watchRoute } from './location';
+import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './adminSettings';
 import { clearActiveTripDraft, enqueue, readActiveTripDraft, saveActiveTripDraft, saveTripLocal } from './offline';
 
 type RouteStatus = 'idle' | 'starting' | 'running' | 'paused' | 'finished';
-type Props = { onSaved?: () => void };
+type Props = { onSaved?: () => void; companyId?: string | null };
 
 const BLUE = '#1769E0';
 const ORANGE = '#F59E0B';
@@ -34,7 +35,7 @@ const LIGHT_MAP_STYLE = [
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#607D8B' }] },
 ];
 
-export default function RouteScreen({ onSaved }: Props) {
+export default function RouteScreen({ onSaved, companyId }: Props) {
   const [status, setStatus] = useState<RouteStatus>('idle');
   const [points, setPoints] = useState<Point[]>([]);
   const [returnStart, setReturnStart] = useState<number | null>(null);
@@ -42,6 +43,7 @@ export default function RouteScreen({ onSaved }: Props) {
   const [elapsed, setElapsed] = useState(0);
   const [region, setRegion] = useState<Region | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [trackingSettings, setTrackingSettings] = useState<EnterpriseSettings['tracking']>(DEFAULT_ENTERPRISE_SETTINGS.tracking);
   const subscription = useRef<LocationSubscription | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const mapReadyRef = useRef(false);
@@ -54,6 +56,12 @@ export default function RouteScreen({ onSaved }: Props) {
   useEffect(() => {
     mapReadyRef.current = mapReady;
   }, [mapReady]);
+
+  useEffect(() => {
+    let active = true;
+    readEnterpriseSettings(companyId).then(v => { if (active) setTrackingSettings(v.tracking); }).catch(() => {});
+    return () => { active = false; };
+  }, [companyId]);
 
   useEffect(() => {
     let active = true;
@@ -136,14 +144,14 @@ export default function RouteScreen({ onSaved }: Props) {
           const last = previous[previous.length - 1];
           if (last) {
             const step = distanceMeters(last, point);
-            if (step < MIN_TRACK_STEP_METERS || step > MAX_TRACK_STEP_METERS) return previous;
+            if (step < Math.max(1, trackingSettings.minimumTrackStepMeters || MIN_TRACK_STEP_METERS) || step > Math.max(10, trackingSettings.maximumTrackStepMeters || MAX_TRACK_STEP_METERS)) return previous;
           }
           const next = [...previous, point];
           persistDraft(next);
           return next;
         });
         followPoint(point);
-      });
+      }, { distanceIntervalMeters: trackingSettings.gpsDistanceIntervalMeters, timeIntervalSeconds: trackingSettings.gpsTimeIntervalSeconds });
       if (!subscription.current) Alert.alert('GPS', 'A rota iniciou, mas o acompanhamento contínuo não pôde ser ativado.');
     } catch {
       subscription.current = null;
