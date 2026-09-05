@@ -18,40 +18,48 @@ jobs:
           s=p.read_text()
           old="export type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean };"
           new="export type TravelMeta = { origin: string; destination: string; stops: string[]; roundTrip: boolean; optimizeStops: boolean; distanceMeters: number; durationSeconds: number; tollBRL: number; routeLabel: string; polyline?: string | null };\nexport type LocalAppointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; synced?: boolean; travel?: TravelMeta };"
-          if old not in s: raise SystemExit('LocalAppointment type not found')
-          p.write_text(s.replace(old,new,1))
+          if old in s: s=s.replace(old,new,1)
+          p.write_text(s)
 
           p=Path('mobile-rc11/AppRC11Final.tsx')
           s=p.read_text()
-          s=s.replace("import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './src/adminSettings';", "import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './src/adminSettings';\nimport TripPlannerScreen, { PlannedTrip } from './src/TripPlannerScreen';")
+          if "./src/TripPlannerScreen" not in s:
+            s=s.replace("import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './src/adminSettings';", "import { DEFAULT_ENTERPRISE_SETTINGS, EnterpriseSettings, readEnterpriseSettings } from './src/adminSettings';\nimport TripPlannerScreen, { PlannedTrip } from './src/TripPlannerScreen';")
           s=s.replace("type Appointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; local?: boolean; status?: string };", "type Appointment = { id: string; date: string; time: string; title: string; store: string; type: string; customerId?: string; local?: boolean; status?: string; travel?: LocalAppointment['travel'] };")
           s=s.replace("function Agenda({ appointments, customers, onSave, onDelete }: { appointments: Appointment[]; customers: CustomerRow[]; onSave: (item: LocalAppointment) => Promise<void>; onDelete: (id: string) => Promise<void> }) {", "function Agenda({ appointments, customers, onSave, onSaveTravel, onDelete }: { appointments: Appointment[]; customers: CustomerRow[]; onSave: (item: LocalAppointment) => Promise<void>; onSaveTravel: (item: LocalAppointment) => Promise<void>; onDelete: (id: string) => Promise<void> }) {")
-          s=s.replace("const [picker,setPicker]=useState(false);", "const [picker,setPicker]=useState(false);\n  const [tripPlanner,setTripPlanner]=useState(false);",1)
-          marker="  const statusText=(x:Appointment)=>x.local?'Aguardando sincronização':/complete|done|realiz|finish/i.test(x.status||'')?'Realizada':'Sincronizada';"
-          insert=marker+"\n  const saveTrip=async(trip:PlannedTrip)=>{const item:LocalAppointment={id:`${Date.now()}-travel`,date:trip.date,time:trip.time,title:`Viagem · ${trip.origin} → ${trip.destination}`,store:trip.destination,type:'Viagem',synced:false,travel:{origin:trip.origin,destination:trip.destination,stops:trip.stops,roundTrip:trip.roundTrip,optimizeStops:trip.optimizeStops,distanceMeters:trip.distanceMeters,durationSeconds:trip.durationSeconds,tollBRL:trip.tollBRL,routeLabel:trip.routeLabel,polyline:trip.polyline}};await onSaveTravel(item);setSelected(trip.date);setCursor(new Date(`${trip.date}T12:00:00`));};"
-          if marker not in s: raise SystemExit('status marker not found')
-          s=s.replace(marker,insert,1)
+          agenda_start=s.index('function Agenda(')
+          agenda_end=s.index('\nfunction Km(',agenda_start)
+          block=s[agenda_start:agenda_end]
+          if 'tripPlanner' not in block:
+            block=block.replace("  const [picker,setPicker]=useState(false);", "  const [picker,setPicker]=useState(false);\n  const [tripPlanner,setTripPlanner]=useState(false);")
+          remove_line="  const remove=()=>{if(!editing?.local)return;Alert.alert('Excluir compromisso','Deseja remover este compromisso do aparelho?',[{text:'Cancelar',style:'cancel'},{text:'Excluir',style:'destructive',onPress:async()=>{await onDelete(editing.id);setOpen(false);setEditing(null);}}]);};"
+          if 'const saveTrip=async' not in block:
+            trip_fn="\n  const saveTrip=async(trip:PlannedTrip)=>{const item:LocalAppointment={id:`${Date.now()}-travel`,date:trip.date,time:trip.time,title:`Viagem · ${trip.origin} → ${trip.destination}`,store:trip.destination,type:'Viagem',synced:false,travel:{origin:trip.origin,destination:trip.destination,stops:trip.stops,roundTrip:trip.roundTrip,optimizeStops:trip.optimizeStops,distanceMeters:trip.distanceMeters,durationSeconds:trip.durationSeconds,tollBRL:trip.tollBRL,routeLabel:trip.routeLabel,polyline:trip.polyline}};await onSaveTravel(item);setSelected(trip.date);setCursor(new Date(`${trip.date}T12:00:00`));};"
+            block=block.replace(remove_line,remove_line+trip_fn)
           old="<Pressable style={s.newAgendaButton} onPress={newItem}><Text style={s.newAgendaButtonText}>+ Novo</Text></Pressable>"
           new="<View style={{flexDirection:'row',gap:8}}><Pressable style={s.tripAgendaButton} onPress={()=>setTripPlanner(true)}><Text style={s.tripAgendaButtonText}>+ Viagem</Text></Pressable><Pressable style={s.newAgendaButton} onPress={newItem}><Text style={s.newAgendaButtonText}>+ Novo</Text></Pressable></View>"
-          if old not in s: raise SystemExit('agenda new button not found')
-          s=s.replace(old,new,1)
-          old_modal="    <Modal visible={open} animationType=\"slide\""
-          new_modal="    <TripPlannerScreen visible={tripPlanner} customers={customers} initialDate={selected} onClose={()=>setTripPlanner(false)} onSave={saveTrip}/>\n    <Modal visible={open} animationType=\"slide\""
-          s=s.replace(old_modal,new_modal,1)
-          s=s.replace("<Text style={s.sub}>{x.time}</Text><View style={s.agendaBadges}", "<Text style={s.sub}>{x.time}{x.travel?` · ${(x.travel.distanceMeters/1000).toFixed(1)} km · pedágios ${money(x.travel.tollBRL)}`:''}</Text><View style={s.agendaBadges}",1)
+          block=block.replace(old,new,1)
+          block=block.replace("<Text style={s.sub}>{x.time}</Text><View style={s.agendaBadges}", "<Text style={s.sub}>{x.time}{x.travel?` · ${(x.travel.distanceMeters/1000).toFixed(1)} km · pedágios ${money(x.travel.tollBRL)}`:''}</Text><View style={s.agendaBadges}",1)
+          if '<TripPlannerScreen' not in block:
+            block=block.replace("    <Modal visible={open} animationType=\"slide\"", "    <TripPlannerScreen visible={tripPlanner} customers={customers} initialDate={selected} onClose={()=>setTripPlanner(false)} onSave={saveTrip}/>\n    <Modal visible={open} animationType=\"slide\"",1)
+          s=s[:agenda_start]+block+s[agenda_end:]
           cb="  const saveAppointment = async (item: LocalAppointment) => { await saveAppointmentLocal(item); await enqueueReplacingLocal('appointment',item.id,{ entity:'appointment',action:'insert',payload:{ localId:item.id,date:item.date,time:item.time,title:item.title,customerId:item.customerId,store:item.store } }); await reloadLocal(); };"
-          if cb not in s: raise SystemExit('saveAppointment callback not found')
-          s=s.replace(cb,cb+"\n  const saveTravelAppointment = async (item: LocalAppointment) => { await saveAppointmentLocal(item); await reloadLocal(); };")
-          old_use="{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>}"
-          new_use="{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>}"
-          if old_use not in s: raise SystemExit('Agenda usage not found')
-          s=s.replace(old_use,new_use,1)
-          style_marker="newAgendaButtonText:{fontSize:11,fontWeight:'900',color:'#fff'},"
-          if style_marker in s:
-            s=s.replace(style_marker,style_marker+"tripAgendaButton:{minHeight:38,borderRadius:12,borderWidth:1,borderColor:NAVY,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},tripAgendaButtonText:{fontSize:11,fontWeight:'900',color:NAVY},",1)
-          else:
-            idx=s.rfind('});')
-            s=s[:idx]+",tripAgendaButton:{minHeight:38,borderRadius:12,borderWidth:1,borderColor:NAVY,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},tripAgendaButtonText:{fontSize:11,fontWeight:'900',color:NAVY}"+s[idx:]
+          if 'const saveTravelAppointment' not in s and cb in s:
+            s=s.replace(cb,cb+"\n  const saveTravelAppointment = async (item: LocalAppointment) => { await saveAppointmentLocal(item); await reloadLocal(); };")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>} ", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>} ")
+          # fallback without trailing space
+          s=s.replace("{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onDelete={deleteAppointment}/>}", "{tab==='agenda'&&<Agenda appointments={appointments} customers={data?.customers||[]} onSave={saveAppointment} onSaveTravel={saveTravelAppointment} onDelete={deleteAppointment}/>}")
+          marker="newAgendaButtonText:{fontSize:11,fontWeight:'900',color:'#fff'},"
+          if 'tripAgendaButton:' not in s:
+            if marker in s: s=s.replace(marker,marker+"tripAgendaButton:{minHeight:38,borderRadius:12,borderWidth:1,borderColor:NAVY,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},tripAgendaButtonText:{fontSize:11,fontWeight:'900',color:NAVY},",1)
+            else:
+              idx=s.rfind('});'); s=s[:idx]+",tripAgendaButton:{minHeight:38,borderRadius:12,borderWidth:1,borderColor:NAVY,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},tripAgendaButtonText:{fontSize:11,fontWeight:'900',color:NAVY}"+s[idx:]
           p.write_text(s)
           PY
       - name: Commit changes
