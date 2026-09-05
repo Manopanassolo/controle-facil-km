@@ -1,5 +1,5 @@
 name: RC11 management expense reports large block
-on:
+'on':
   push:
     paths:
       - '.github/workflows/rc11-management-expense-reports-large-block.yml'
