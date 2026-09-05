@@ -1,0 +1,76 @@
+name: RC11 management expense reports large block
+on:
+  push:
+    paths:
+      - '.github/workflows/rc11-management-expense-reports-large-block.yml'
+permissions:
+  contents: write
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Implement management period and expense reporting
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          assert "import ExpensesScreen from './src/ExpensesScreen';" in s
+          s=s.replace("import ExpensesScreen from './src/ExpensesScreen';", "import ExpensesScreen from './src/ExpensesScreen';\nimport { readExpenses, summarizeExpenses } from './src/expenses';")
+          old="""function Reports({ data, local }: { data: BootstrapData | null; local: LocalState }) {
+  const perf=data?.performance;
+  const [period,setPeriod]=useState<'day'|'week'|'month'>('month');
+  const start=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);if(period==='week')d.setDate(d.getDate()-6);if(period==='month')d.setDate(1);return d.getTime()},[period]);
+  const end=Date.now();"""
+          new="""function Reports({ data, local }: { data: BootstrapData | null; local: LocalState }) {
+  const perf=data?.performance;
+  const [period,setPeriod]=useState<'day'|'week'|'month'|'custom'>('month');
+  const [from,setFrom]=useState(isoDate(new Date())),[to,setTo]=useState(isoDate(new Date())),[expenseRows,setExpenseRows]=useState<any[]>([]);
+  useEffect(()=>{readExpenses(data?.companyId||'local').then(setExpenseRows).catch(()=>setExpenseRows([]))},[data?.companyId]);
+  const range=useMemo(()=>{if(period==='custom'){const a=new Date(`${from}T00:00:00`).getTime(),b=new Date(`${to}T23:59:59`).getTime();return [a,b] as const}const d=new Date();d.setHours(0,0,0,0);if(period==='week')d.setDate(d.getDate()-6);if(period==='month')d.setDate(1);return [d.getTime(),Date.now()] as const},[period,from,to]);
+  const start=range[0],end=range[1];"""
+          assert old in s
+          s=s.replace(old,new)
+          old2="""  const periodLabel=period==='day'?'Hoje':period==='week'?'Últimos 7 dias':'Este mês';
+  const share=async()=>{const text=[`Movvant Enterprise — visão gerencial`,`Período local: ${periodLabel}`,`KM registrado: ${localKm.toFixed(1)} km`,`Deslocamentos: ${localTrips.length}`,`Tempo em deslocamento: ${Math.round(tripMinutes)} min`,`Visitas locais: ${localVisits.length}`,`Visitas remotas 30d: ${num(perf?.visits_30d)}`,`Receita remota 30d: ${money(perf?.revenue_30d)}`].join('\\n');await Share.share({message:text,title:'Visão gerencial Movvant'});};"""
+          new2="""  const expenseVisible=expenseRows.filter(x=>{const t=new Date(`${x.date}T12:00:00`).getTime();return t>=start&&t<=end}),expenseSummary=summarizeExpenses(expenseVisible);
+  const periodLabel=period==='day'?'Hoje':period==='week'?'Últimos 7 dias':period==='month'?'Este mês':`${from} → ${to}`;
+  const share=async()=>{const text=[`Movvant Enterprise — visão gerencial`,`Período local: ${periodLabel}`,`KM registrado: ${localKm.toFixed(1)} km`,`Deslocamentos: ${localTrips.length}`,`Tempo em deslocamento: ${Math.round(tripMinutes)} min`,`Visitas locais: ${localVisits.length}`,`Despesas previstas: ${money(expenseSummary.planned)}`,`Despesas realizadas: ${money(expenseSummary.actual)}`,`A reembolsar: ${money(expenseSummary.reimbursement)}`,`Visitas remotas 30d: ${num(perf?.visits_30d)}`,`Receita remota 30d: ${money(perf?.revenue_30d)}`].join('\\n');await Share.share({message:text,title:'Visão gerencial Movvant'});};"""
+          assert old2 in s
+          s=s.replace(old2,new2)
+          old3="""<View style={s.periodTabs}><Pressable style={[s.periodTab,period==='day'&&s.periodTabOn]} onPress={()=>setPeriod('day')}><Text style={[s.periodTabText,period==='day'&&s.periodTabTextOn]}>Dia</Text></Pressable><Pressable style={[s.periodTab,period==='week'&&s.periodTabOn]} onPress={()=>setPeriod('week')}><Text style={[s.periodTabText,period==='week'&&s.periodTabTextOn]}>Semana</Text></Pressable><Pressable style={[s.periodTab,period==='month'&&s.periodTabOn]} onPress={()=>setPeriod('month')}><Text style={[s.periodTabText,period==='month'&&s.periodTabTextOn]}>Mês</Text></Pressable></View>"""
+          new3="""<View style={s.periodTabs}><Pressable style={[s.periodTab,period==='day'&&s.periodTabOn]} onPress={()=>setPeriod('day')}><Text style={[s.periodTabText,period==='day'&&s.periodTabTextOn]}>Dia</Text></Pressable><Pressable style={[s.periodTab,period==='week'&&s.periodTabOn]} onPress={()=>setPeriod('week')}><Text style={[s.periodTabText,period==='week'&&s.periodTabTextOn]}>Semana</Text></Pressable><Pressable style={[s.periodTab,period==='month'&&s.periodTabOn]} onPress={()=>setPeriod('month')}><Text style={[s.periodTabText,period==='month'&&s.periodTabTextOn]}>Mês</Text></Pressable><Pressable style={[s.periodTab,period==='custom'&&s.periodTabOn]} onPress={()=>setPeriod('custom')}><Text style={[s.periodTabText,period==='custom'&&s.periodTabTextOn]}>Período</Text></Pressable></View>{period==='custom'&&<View style={{flexDirection:'row',gap:8}}><TextInput style={[s.input,{flex:1}]} value={from} onChangeText={setFrom} placeholder="AAAA-MM-DD"/><TextInput style={[s.input,{flex:1}]} value={to} onChangeText={setTo} placeholder="AAAA-MM-DD"/></View>}"""
+          assert old3 in s
+          s=s.replace(old3,new3)
+          marker="""    {comparedTrips.length>0&&<View style={s.reportWide}>"""
+          insert="""    <View style={s.reportWide}><Text style={s.reportWideTitle}>Despesas & prestação de contas</Text><Text style={s.reportWideSub}>Custos operacionais vinculados ao período selecionado.</Text><View style={s.reportLine}><Text style={s.sub}>Previsto</Text><Text style={s.reportLineValue}>{money(expenseSummary.planned)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Realizado</Text><Text style={s.reportLineValue}>{money(expenseSummary.actual)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Variação</Text><Text style={[s.reportLineValue,expenseSummary.variance>0&&{color:ORANGE}]}>{expenseSummary.variance>0?'+':''}{money(expenseSummary.variance)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Potencial a reembolsar</Text><Text style={s.reportLineValue}>{money(expenseSummary.reimbursement)}</Text></View><View style={s.reportLine}><Text style={s.sub}>Lançamentos</Text><Text style={s.reportLineValue}>{expenseSummary.count}</Text></View></View>\n"""+marker
+          assert marker in s
+          s=s.replace(marker,insert,1)
+          p.write_text(s)
+      - name: Install dependencies
+        working-directory: mobile-rc11
+        run: npm ci
+      - name: Expo doctor
+        working-directory: mobile-rc11
+        run: npx expo-doctor
+      - name: TypeScript check
+        working-directory: mobile-rc11
+        run: npx tsc --noEmit
+      - name: Expo config check
+        working-directory: mobile-rc11
+        run: npx expo config --type public >/dev/null
+      - name: Commit validated block
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/AppRC11Final.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "RC11: integrate period expense reimbursement management reports"
+          git push origin HEAD:movvant-mobile-rc11
