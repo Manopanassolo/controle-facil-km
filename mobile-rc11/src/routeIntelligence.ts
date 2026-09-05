@@ -11,6 +11,7 @@ export type RouteDeviationEvent = {
   distanceMeters: number;
   dwellSeconds: number;
   planned: boolean;
+  classification?: 'detected' | 'confirmed_visit' | 'dismissed' | 'occurrence';
 };
 
 type Candidate = { customerId: string; enteredAt: number; lastSeenAt: number; minDistanceMeters: number; fired: boolean };
@@ -63,6 +64,7 @@ export class RouteDeviationDetector {
           distanceMeters: Math.round(candidate.minDistanceMeters),
           dwellSeconds: dwell,
           planned: this.plannedCustomerIds.has(c.id),
+          classification: 'detected',
         });
       }
     }
