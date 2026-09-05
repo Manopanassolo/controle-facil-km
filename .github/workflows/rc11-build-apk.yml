@@ -13,7 +13,7 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: mobile-rc11
@@ -35,7 +35,7 @@ jobs:
           test -n "$GOOGLE_MAPS_API_KEY" || (echo 'GOOGLE_MAPS_API_KEY ausente' && exit 1)
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Install EAS CLI for environment access only
+      - name: Install EAS CLI
         run: npm install --global eas-cli
       - name: Quality gate
         run: |
@@ -44,17 +44,17 @@ jobs:
           GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" npx expo config --type public > /tmp/rc11-expo-config.txt
           grep -q 'com.movvant.enterprise' /tmp/rc11-expo-config.txt
           grep -q 'ACCESS_FINE_LOCATION' /tmp/rc11-expo-config.txt
-      - name: Generate Android native project with preview environment
-        run: eas env:exec preview "npx expo prebuild --platform android --clean --non-interactive" --non-interactive
-      - name: Build Android homologation APK locally on GitHub runner
-        run: eas env:exec preview "cd android && chmod +x gradlew && ./gradlew :app:assembleDebug --no-daemon" --non-interactive
-      - name: Collect APK
+      - name: Build signed Android homologation APK on GitHub runner
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Movvant-RC11-homologacao.apk
-      - name: Upload APK for Android installation
+          eas env:exec preview "eas build --platform android --profile preview --local --non-interactive --freeze-credentials --output dist/Movvant-RC11-homologacao.apk" --non-interactive
+      - name: Verify APK generated
+        run: |
+          test -s dist/Movvant-RC11-homologacao.apk
+          ls -lh dist/Movvant-RC11-homologacao.apk
+      - name: Upload signed APK for Android installation
         uses: actions/upload-artifact@v4
         with:
-          name: Movvant-RC11-APK
+          name: Movvant-RC11-APK-SIGNED
           path: mobile-rc11/dist/Movvant-RC11-homologacao.apk
           retention-days: 30
