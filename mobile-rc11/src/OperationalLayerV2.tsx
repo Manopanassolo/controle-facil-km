@@ -19,8 +19,8 @@ const customerName=(c?:CustomerRow|null)=>c?.trade_name||c?.legal_name||'Loja';
 const clock=(v:number)=>{const d=new Date(v);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
 const duration=(ms:number)=>{const m=Math.max(0,Math.round(ms/60000));if(m<60)return `${m} min`;return `${Math.floor(m/60)}h${m%60?` ${m%60}min`:''}`};
 const distance=(m:number)=>m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(1)} km`;
-const icon=(t:TimelineEvent['type'])=>t==='trip'?'⌖':t==='checkin'?'✓':t==='checkout'?'↗':t==='km'?'◎':'▦';
-const tone=(t:TimelineEvent['type'])=>t==='checkin'?GREEN:t==='checkout'?ORANGE:t==='trip'?BLUE:t==='km'?NAVY:'#7A899A';
+const icon=(t:TimelineEvent['type'])=>t==='trip'?'⌖':t==='checkin'?'✓':t==='checkout'?'↗':t==='km'?'◎':t==='route_deviation'?'↪':'▦';
+const tone=(t:TimelineEvent['type'])=>t==='checkin'?GREEN:t==='checkout'?ORANGE:t==='trip'?BLUE:t==='km'?NAVY:t==='route_deviation'?ORANGE:'#7A899A';
 const isNetworkError=(e:unknown)=>/network|fetch|timeout|conex|internet|offline/i.test(e instanceof Error?e.message:String(e||''));
 const canAdmin=(d:BootstrapData|null)=>{const raw=`${d?.directory?.role_slug||''} ${d?.directory?.role_name||''} ${d?.directory?.job_title||''} ${d?.directory?.scope_level||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();return ['owner','propriet','admin','master','gerente','manager','supervisor'].some(x=>raw.includes(x))};
 

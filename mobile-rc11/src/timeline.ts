@@ -1,7 +1,7 @@
 import type { VisitRow } from './api';
 import type { LocalState, LocalTripRecord } from './offline';
 
-export type TimelineEventType = 'trip' | 'visit' | 'checkin' | 'checkout' | 'km';
+export type TimelineEventType = 'trip' | 'visit' | 'checkin' | 'checkout' | 'km' | 'route_deviation';
 
 export type TimelineEvent = {
   id: string;
@@ -55,7 +55,16 @@ export function buildLocalTimeline(local: LocalState): TimelineEvent[] {
     synced: item.synced,
     sourceId: item.id,
   }));
-  return [...tripEvents, ...kmEvents].sort((a, b) => b.startedAt - a.startedAt);
+  const deviationEvents: TimelineEvent[] = local.trips.flatMap(trip => (trip.deviations || []).filter(d => d.classification !== 'dismissed').map(d => ({
+    id: `route-deviation-${trip.id}-${d.id}`,
+    type: 'route_deviation' as const,
+    startedAt: new Date(d.detectedAt).getTime(),
+    title: d.classification === 'confirmed_visit' ? `Visita extra · ${d.customerName}` : `Parada extra · ${d.customerName}`,
+    subtitle: `${Math.max(1, Math.round(d.dwellSeconds / 60))} min · ${Math.round(d.distanceMeters)} m do ponto · ${d.classification === 'confirmed_visit' ? 'visita confirmada' : d.classification === 'occurrence' ? 'ocorrência de rota' : 'aguardando classificação'}`,
+    sourceId: trip.id,
+    synced: trip.synced,
+  })));
+  return [...tripEvents, ...kmEvents, ...deviationEvents].sort((a, b) => b.startedAt - a.startedAt);
 }
 
 export function buildVisitTimeline(visits: VisitRow[], customerName: (customerId: string) => string): TimelineEvent[] {
