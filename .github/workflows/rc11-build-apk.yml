@@ -51,12 +51,18 @@ jobs:
           eas env:exec preview "eas build --platform android --profile preview --local --non-interactive --freeze-credentials --output dist/Movvant-RC11-homologacao.apk" --non-interactive
       - name: Verify APK and signing certificate
         run: |
-          test -s dist/Movvant-RC11-homologacao.apk
-          ACTUAL_SHA1="$(keytool -printcert -jarfile dist/Movvant-RC11-homologacao.apk 2>/dev/null | sed -n 's/.*SHA1: //p' | head -1 | tr -d '\r')"
-          echo "APK gerado: $(du -h dist/Movvant-RC11-homologacao.apk | cut -f1)"
-          echo "Certificado SHA-1: $ACTUAL_SHA1"
-          test -n "$ACTUAL_SHA1" || (echo 'Nao foi possivel ler a assinatura do APK' && exit 1)
-          test "$ACTUAL_SHA1" = "$EXPECTED_ANDROID_SHA1" || (echo 'Assinatura diferente da credencial Android esperada; publicacao bloqueada.' && exit 1)
+          set -euo pipefail
+          APK='dist/Movvant-RC11-homologacao.apk'
+          test -s "$APK"
+          APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          test -x "$APKSIGNER" || (echo 'apksigner nao encontrado no Android SDK' && exit 1)
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          ACTUAL_SHA1="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' | head -1 | tr -d ':\r' | tr '[:lower:]' '[:upper:]')"
+          EXPECTED_SHA1="$(printf '%s' "$EXPECTED_ANDROID_SHA1" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          echo "APK gerado: $(du -h "$APK" | cut -f1)"
+          echo "Certificado SHA-1 normalizado: $ACTUAL_SHA1"
+          test -n "$ACTUAL_SHA1" || (echo 'Nao foi possivel ler a assinatura moderna do APK' && exit 1)
+          test "$ACTUAL_SHA1" = "$EXPECTED_SHA1" || (echo 'Assinatura diferente da credencial Android esperada; publicacao bloqueada.' && exit 1)
           echo 'Assinatura Android validada para Google Maps.'
       - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
