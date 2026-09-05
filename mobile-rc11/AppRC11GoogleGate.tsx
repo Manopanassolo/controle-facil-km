@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
-import OperationalLayer from './src/OperationalLayer';
+import OperationalLayerV2 from './src/OperationalLayerV2';
 import { signIn } from './src/api';
 import { signInWithGoogle } from './src/googleAuth';
 
@@ -55,7 +55,7 @@ export default function AppRC11GoogleGate() {
   };
 
   if (checking) return <SafeAreaView style={s.loading}><StatusBar barStyle="light-content" backgroundColor={NAVY}/><Text style={s.loadingText}>Movvant</Text></SafeAreaView>;
-  if (authenticated) return <OperationalLayer/>;
+  if (authenticated) return <OperationalLayerV2/>;
 
   return <SafeAreaView style={s.root}>
     <StatusBar barStyle="light-content" backgroundColor={NAVY}/>
