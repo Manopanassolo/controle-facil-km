@@ -44,7 +44,7 @@ jobs:
       - name: Quality gate
         working-directory: mobile-rc11
         run: |
-          npm ci
+          npm install --no-package-lock
           npx expo-doctor
           npx tsc --noEmit
           npx expo config --type public >/dev/null
