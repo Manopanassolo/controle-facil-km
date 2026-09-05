@@ -1,0 +1,77 @@
+name: RC11 deviation classification large block
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-deviation-classification-large-block.yml']
+permissions:
+  contents: write
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Add classification flow for unplanned stops
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path('mobile-rc11/src/routeIntelligence.ts')
+          s=p.read_text()
+          s=s.replace("  planned: boolean;\n};","  planned: boolean;\n  classification?: 'detected' | 'confirmed_visit' | 'dismissed' | 'occurrence';\n};",1)
+          s=s.replace("          planned: this.plannedCustomerIds.has(c.id),\n        });","          planned: this.plannedCustomerIds.has(c.id),\n          classification: 'detected',\n        });",1)
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/offline.ts')
+          s=p.read_text()
+          s=s.replace("export type RouteDeviationSummary = { id: string; customerId: string; customerName: string; detectedAt: string; latitude: number; longitude: number; distanceMeters: number; dwellSeconds: number; planned: boolean };","export type RouteDeviationSummary = { id: string; customerId: string; customerName: string; detectedAt: string; latitude: number; longitude: number; distanceMeters: number; dwellSeconds: number; planned: boolean; classification?: 'detected' | 'confirmed_visit' | 'dismissed' | 'occurrence' };",1)
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/RouteScreen.tsx')
+          s=p.read_text()
+          marker="  const [lastDeviation, setLastDeviation] = useState<RouteDeviationEvent | null>(null);"
+          if marker not in s: raise SystemExit('deviation state marker missing')
+          s=s.replace(marker,marker+"\n  const classifyDeviation = (id: string, classification: 'confirmed_visit' | 'dismissed' | 'occurrence') => {\n    setDeviations(prev => prev.map(x => x.id === id ? { ...x, classification } : x));\n    setLastDeviation(prev => prev?.id === id ? null : prev);\n  };",1)
+          old="      {lastDeviation ? <View style={styles.deviationBanner}><View style={{flex:1}}><Text style={styles.deviationTitle}>Parada não planejada detectada</Text><Text style={styles.deviationText}>{lastDeviation.customerName} · permanência {Math.max(1,Math.round(lastDeviation.dwellSeconds/60))} min · {lastDeviation.distanceMeters} m</Text></View><Pressable onPress={()=>setLastDeviation(null)}><Text style={styles.deviationClose}>×</Text></Pressable></View> : null}"
+          new="      {lastDeviation ? <View style={styles.deviationBanner}><View style={{flex:1}}><Text style={styles.deviationTitle}>Parada não planejada detectada</Text><Text style={styles.deviationText}>{lastDeviation.customerName} · permanência {Math.max(1,Math.round(lastDeviation.dwellSeconds/60))} min · {lastDeviation.distanceMeters} m</Text><View style={styles.deviationActions}><Pressable style={styles.deviationActionPrimary} onPress={()=>classifyDeviation(lastDeviation.id,'confirmed_visit')}><Text style={styles.deviationActionPrimaryText}>Confirmar visita</Text></Pressable><Pressable style={styles.deviationAction} onPress={()=>classifyDeviation(lastDeviation.id,'occurrence')}><Text style={styles.deviationActionText}>Só ocorrência</Text></Pressable><Pressable style={styles.deviationAction} onPress={()=>classifyDeviation(lastDeviation.id,'dismissed')}><Text style={styles.deviationActionText}>Descartar</Text></Pressable></View></View><Pressable onPress={()=>setLastDeviation(null)}><Text style={styles.deviationClose}>×</Text></Pressable></View> : null}"
+          if old not in s: raise SystemExit('deviation banner marker missing')
+          s=s.replace(old,new,1)
+          old="deviationClose:{fontSize:22,fontWeight:'800',color:'#A67B31',paddingHorizontal:6},planCompare:"
+          new="deviationClose:{fontSize:22,fontWeight:'800',color:'#A67B31',paddingHorizontal:6},deviationActions:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:9},deviationActionPrimary:{minHeight:32,borderRadius:10,backgroundColor:NAVY,paddingHorizontal:9,alignItems:'center',justifyContent:'center'},deviationActionPrimaryText:{fontSize:9,fontWeight:'900',color:'#fff'},deviationAction:{minHeight:32,borderRadius:10,borderWidth:1,borderColor:'#E3C98D',backgroundColor:'#fff',paddingHorizontal:9,alignItems:'center',justifyContent:'center'},deviationActionText:{fontSize:9,fontWeight:'900',color:'#775719'},planCompare:"
+          if old not in s: raise SystemExit('deviation style marker missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          old="  const comparedTrips=localTrips.filter(x=>(x.plannedDistanceMeters||0)>0),plannedKm=comparedTrips.reduce((n,x)=>n+(x.plannedDistanceMeters||0)/1000,0),actualComparedKm=comparedTrips.reduce((n,x)=>n+x.distanceMeters/1000,0),extraStops=localTrips.reduce((n,x)=>n+(x.deviations?.length||0),0),distanceVarianceKm=actualComparedKm-plannedKm;"
+          new="  const comparedTrips=localTrips.filter(x=>(x.plannedDistanceMeters||0)>0),plannedKm=comparedTrips.reduce((n,x)=>n+(x.plannedDistanceMeters||0)/1000,0),actualComparedKm=comparedTrips.reduce((n,x)=>n+x.distanceMeters/1000,0),extraStops=localTrips.reduce((n,x)=>n+(x.deviations?.filter(d=>d.classification!=='dismissed').length||0),0),confirmedExtraVisits=localTrips.reduce((n,x)=>n+(x.deviations?.filter(d=>d.classification==='confirmed_visit').length||0),0),routeOccurrences=localTrips.reduce((n,x)=>n+(x.deviations?.filter(d=>d.classification==='occurrence'||d.classification==='detected'||!d.classification).length||0),0),distanceVarianceKm=actualComparedKm-plannedKm;"
+          if old not in s: raise SystemExit('report metrics marker missing')
+          s=s.replace(old,new,1)
+          old="<View style={s.reportLine}><Text style={s.sub}>Paradas extras detectadas</Text><Text style={s.reportLineValue}>{extraStops}</Text></View></View>}"
+          new="<View style={s.reportLine}><Text style={s.sub}>Paradas extras consideradas</Text><Text style={s.reportLineValue}>{extraStops}</Text></View><View style={s.reportLine}><Text style={s.sub}>Visitas extras confirmadas</Text><Text style={s.reportLineValue}>{confirmedExtraVisits}</Text></View><View style={s.reportLine}><Text style={s.sub}>Ocorrências de rota</Text><Text style={s.reportLineValue}>{routeOccurrences}</Text></View></View>}"
+          if old not in s: raise SystemExit('report compare marker missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Install dependencies
+        working-directory: mobile-rc11
+        run: npm install --no-audit --no-fund
+      - name: Expo doctor
+        working-directory: mobile-rc11
+        run: npx expo-doctor
+      - name: TypeScript check
+        working-directory: mobile-rc11
+        run: npx tsc --noEmit
+      - name: Expo config check
+        working-directory: mobile-rc11
+        run: npx expo config --type public > /tmp/config.json && grep -q 'com.movvant.enterprise' /tmp/config.json
+      - name: Commit validated block
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/src/routeIntelligence.ts mobile-rc11/src/offline.ts mobile-rc11/src/RouteScreen.tsx mobile-rc11/AppRC11Final.tsx
+          git commit -m 'RC11: classify unplanned route stops and extra visits'
+          git push
