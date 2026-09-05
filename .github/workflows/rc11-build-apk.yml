@@ -58,7 +58,7 @@ jobs:
           test -x "$APKSIGNER" || (echo 'apksigner nao encontrado no Android SDK' && exit 1)
           CERT_OUTPUT="$("$APKSIGNER" verify --verbose --print-certs "$APK")"
           printf '%s\n' "$CERT_OUTPUT"
-          ACTUAL_SHA1="$(printf '%s\n' "$CERT_OUTPUT" | sed -nE 's/^(Signer #1|V[0-9]+ Signer) certificate SHA-1 digest: //p' | head -1 | tr -d ':\r ' | tr '[:lower:]' '[:upper:]')"
+          ACTUAL_SHA1="$(printf '%s\n' "$CERT_OUTPUT" | sed -nE 's/^.*certificate SHA-1 digest:[[:space:]]*//p' | head -1 | tr -d ':\r ' | tr '[:lower:]' '[:upper:]')"
           EXPECTED_SHA1="$(printf '%s' "$EXPECTED_ANDROID_SHA1" | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
           echo "APK gerado: $(du -h "$APK" | cut -f1)"
           echo "Certificado SHA-1 normalizado: $ACTUAL_SHA1"
