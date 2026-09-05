@@ -12,7 +12,7 @@ const API_BASE=(process.env.EXPO_PUBLIC_MOVVANT_API_BASE_URL||DEFAULT_API_BASE).
 type PlaceSuggestion={placeId:string;text:string;mainText:string;secondaryText?:string};
 type RouteOption={index:number;strategy?:string;strategyLabel?:string;distanceMeters:number;duration?:string|null;polyline?:string|null;returnPolyline?:string|null;tollTotalBRL:number;hasTolls:boolean;hasFerry:boolean;optimizedIntermediateWaypointIndex?:number[]};
 export type PlannedExpenseDraft={category:string;subcategory:string;amount:number;description?:string};
-export type PlannedTrip={date:string;time:string;origin:string;destination:string;stops:string[];roundTrip:boolean;optimizeStops:boolean;distanceMeters:number;durationSeconds:number;tollBRL:number;routeLabel:string;vehicleId:string;vehiclePlate:string;polyline?:string|null;returnPolyline?:string|null;plannedExpenses?:PlannedExpenseDraft[]};
+export type PlannedTrip={date:string;time:string;origin:string;destination:string;stops:string[];roundTrip:boolean;optimizeStops:boolean;distanceMeters:number;durationSeconds:number;tollBRL:number;routeLabel:string;vehicleId?:string;vehiclePlate?:string;polyline?:string|null;returnPolyline?:string|null;plannedExpenses?:PlannedExpenseDraft[]};
 type Props={visible:boolean;customers:CustomerRow[];vehicles:VehicleRow[];initialDate:string;initialTrip?:PlannedTrip|null;userId?:string;onClose:()=>void;onSave:(trip:PlannedTrip)=>Promise<void>};
 type Point={latitude:number;longitude:number};
 
