@@ -1,0 +1,76 @@
+name: RC11.3 homologation four fixes
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-fix-homologation-4.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Apply four homologation fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # 1 + 2: route total breakdown, tap target, stable framing
+          p=Path('mobile-rc11/src/TripPlannerScreen.tsx')
+          s=p.read_text()
+          s=s.replace("type RouteOption={index:number;strategy?:string;strategyLabel?:string;distanceMeters:number;duration?:string|null;polyline?:string|null;returnPolyline?:string|null;tollTotalBRL:number;hasTolls:boolean;hasFerry:boolean;optimizedIntermediateWaypointIndex?:number[]};",
+          "type RouteOption={index:number;strategy?:string;strategyLabel?:string;distanceMeters:number;outboundDistanceMeters?:number;returnDistanceMeters?:number;outboundTollBRL?:number;returnTollBRL?:number;duration?:string|null;polyline?:string|null;returnPolyline?:string|null;tollTotalBRL:number;hasTolls:boolean;hasFerry:boolean;optimizedIntermediateWaypointIndex?:number[]};")
+          old="if(roundTrip){const back=await requestRoutes({origin:destination,destination:origin,stops:[],optimize:false},'all');items=items.map((x,i)=>{const b=back.find(q=>q.strategy===x.strategy)||back[i]||back[0];return {...x,distanceMeters:x.distanceMeters+(b?.distanceMeters||0),duration:`${seconds(x.duration)+seconds(b?.duration)}s`,tollTotalBRL:(x.tollTotalBRL||0)+(b?.tollTotalBRL||0),returnPolyline:b?.polyline||null}})}"
+          new="if(roundTrip){const back=await requestRoutes({origin:destination,destination:origin,stops:[],optimize:false},'all');items=items.map((x,i)=>{const b=back.find(q=>q.strategy===x.strategy)||back[i]||back[0];const outboundDistance=x.distanceMeters||0,returnDistance=b?.distanceMeters||0,outboundToll=x.tollTotalBRL||0,returnToll=b?.tollTotalBRL||0;return {...x,outboundDistanceMeters:outboundDistance,returnDistanceMeters:returnDistance,outboundTollBRL:outboundToll,returnTollBRL:returnToll,distanceMeters:outboundDistance+returnDistance,duration:`${seconds(x.duration)+seconds(b?.duration)}s`,tollTotalBRL:outboundToll+returnToll,returnPolyline:b?.polyline||null}})}else{items=items.map(x=>({...x,outboundDistanceMeters:x.distanceMeters||0,returnDistanceMeters:0,outboundTollBRL:x.tollTotalBRL||0,returnTollBRL:0}))}"
+          if old not in s: raise SystemExit('roundTrip block not found')
+          s=s.replace(old,new)
+          old="const routePoints=decodePolyline(route?.polyline),returnPoints=decodePolyline(route?.returnPolyline),mapRegion=regionFor([...routePoints,...returnPoints]);\n  useEffect(()=>{if(routePoints.length>1)setTimeout(()=>mapRef.current?.fitToCoordinates([...routePoints,...returnPoints],{edgePadding:{top:50,right:50,bottom:50,left:50},animated:true}),250)},[selected,routes.length,route?.returnPolyline]);"
+          new="const routePoints=decodePolyline(route?.polyline),returnPoints=decodePolyline(route?.returnPolyline),allOutboundPoints=routes.flatMap(r=>decodePolyline(r.polyline)),mapRegion=regionFor([...allOutboundPoints,...returnPoints]);\n  useEffect(()=>{const pts=[...allOutboundPoints,...returnPoints];if(pts.length>1)setTimeout(()=>mapRef.current?.fitToCoordinates(pts,{edgePadding:{top:50,right:50,bottom:50,left:50},animated:true}),250)},[selected,routes.length,route?.returnPolyline]);"
+          if old not in s: raise SystemExit('fit block not found')
+          s=s.replace(old,new)
+          old="{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor={i===selected?BLUE:'#9AA9B8'} strokeWidth={i===selected?8:5} tappable onPress={()=>selectRoute(i)} zIndex={i===selected?10:2}/>:null})}"
+          new="{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1?<React.Fragment key={`alt-${i}`}><Polyline coordinates={pts} strokeColor=\"rgba(0,0,0,0.01)\" strokeWidth={28} tappable onPress={()=>selectRoute(i)} zIndex={20}/><Polyline coordinates={pts} strokeColor={i===selected?BLUE:'#9AA9B8'} strokeWidth={i===selected?8:5} tappable onPress={()=>selectRoute(i)} zIndex={i===selected?10:2}/></React.Fragment>:null})}"
+          if old not in s: raise SystemExit('polyline map block not found')
+          s=s.replace(old,new)
+          old="<Text style={s.routeSub}>{km(r.distanceMeters)} km · {fmtTime(seconds(r.duration))} · pedágios {money(r.tollTotalBRL||0)}</Text>"
+          new="<Text style={s.routeSub}>{roundTrip?`Ida ${km(r.outboundDistanceMeters||0)} km + retorno ${km(r.returnDistanceMeters||0)} km = total ${km(r.distanceMeters)} km`:`${km(r.distanceMeters)} km`} · {fmtTime(seconds(r.duration))} · pedágios {money(r.tollTotalBRL||0)}</Text>{roundTrip?<Text style={s.routeSub}>Pedágio ida {money(r.outboundTollBRL||0)} + retorno {money(r.returnTollBRL||0)}</Text>:null}"
+          if old not in s: raise SystemExit('route display block not found')
+          s=s.replace(old,new)
+          p.write_text(s)
+
+          # 4: expose Timeline/Admin through Menu and remove floating controls
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          s=s.replace("function More({ page, setPage, data, local, session, prefs, setPrefs, online, pending, syncing, diagnostics, syncReport, onSync, onRefresh, onRead, logout }:","function More({ page, setPage, data, local, session, prefs, setPrefs, online, pending, syncing, diagnostics, syncReport, onSync, onRefresh, onRead, logout, onOpenTimeline, onOpenAdmin }:")
+          s=s.replace("logout: () => void }) {","logout: () => void; onOpenTimeline?:()=>void; onOpenAdmin?:()=>void }) {",1)
+          marker='<Row icon="⚙" title="Configurações" sub="Perfil, sessão e preferências" onPress={() => setPage(\'configuracoes\')}/>'
+          repl='<Row icon="≡" title="Linha do Tempo" sub="Deslocamentos, visitas e KM" onPress={()=>onOpenTimeline?.()}/>{onOpenAdmin?<Row icon="⚙" title="Admin" sub="Regras e configurações da empresa" onPress={()=>onOpenAdmin()}/>:null}'+marker
+          if marker not in s: raise SystemExit('More menu marker not found')
+          s=s.replace(marker,repl)
+          s=s.replace("export default function AppRC11Final() {","export default function AppRC11Final({onOpenTimeline,onOpenAdmin}:{onOpenTimeline?:()=>void;onOpenAdmin?:()=>void}={}) {")
+          old="logout={logout}/>}</View><Bottom"
+          new="logout={logout} onOpenTimeline={onOpenTimeline} onOpenAdmin={onOpenAdmin}/>}</View><Bottom"
+          if old not in s: raise SystemExit('More invocation marker not found')
+          s=s.replace(old,new)
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/OperationalLayerV2.tsx')
+          s=p.read_text()
+          s=s.replace("return <View style={s.root}><AppRC11Final/>","return <View style={s.root}><AppRC11Final onOpenTimeline={()=>setTimelineOpen(true)} onOpenAdmin={admin?()=>setAdminOpen(true):undefined}/>")
+          old=" <View style={s.fabs}><Pressable style={s.fab} onPress={()=>setTimelineOpen(true)}><Text style={s.fabText}>≡ Linha do Tempo</Text></Pressable>{admin&&<Pressable style={s.adminFab} onPress={()=>setAdminOpen(true)}><Text style={s.adminFabText}>⚙ Admin</Text></Pressable>}</View>\n"
+          if old not in s: raise SystemExit('floating buttons block not found')
+          s=s.replace(old,'')
+          p.write_text(s)
+
+          # remove this one-shot workflow after applying
+          Path('.github/workflows/rc11-fix-homologation-4.yml').unlink()
+          PY
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "RC11.3: fix route totals tap targets and floating controls"
+          git push origin movvant-mobile-rc11
