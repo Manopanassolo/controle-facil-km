@@ -36,7 +36,7 @@ export class RouteDeviationDetector {
     const results: RouteDeviationEvent[] = [];
     const nearby = this.customers
       .filter(c => Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude)))
-      .map(c => ({ c, d: distanceMeters(point, { latitude: Number(c.latitude), longitude: Number(c.longitude) }) }))
+      .map(c => ({ c, d: distanceMeters(point, { latitude: Number(c.latitude), longitude: Number(c.longitude), timestamp: point.timestamp }) }))
       .filter(x => x.d <= this.radiusMeters)
       .sort((a,b) => a.d - b.d)
       .slice(0, 5);

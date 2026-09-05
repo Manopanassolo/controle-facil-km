@@ -20,7 +20,7 @@ export type LocalAppointment = { id: string; date: string; time: string; title: 
 export type LocalKmRecord = { id: string; vehicleId?: string; vehicle: string; start: number; end: number; total: number; reason: string; photoUri?: string | null; createdAt: string; synced?: boolean };
 export type LocalTripPoint = { latitude: number; longitude: number; timestamp?: number; accuracy?: number | null };
 export type RouteDeviationSummary = { id: string; customerId: string; customerName: string; detectedAt: string; latitude: number; longitude: number; distanceMeters: number; dwellSeconds: number; planned: boolean };
-export type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; deviations?: RouteDeviationSummary[]; plannedTripId?: string | null; synced?: boolean };
+export type LocalTripRecord = { id: string; startedAt: number | null; finishedAt: number; elapsedMs: number; distanceMeters: number; returnStart: number | null; pointsCount: number; points?: LocalTripPoint[]; deviations?: RouteDeviationSummary[]; plannedTripId?: string | null; plannedDistanceMeters?: number; plannedDurationSeconds?: number; plannedTollBRL?: number; distanceVarianceMeters?: number; durationVarianceSeconds?: number; synced?: boolean };
 export type ActiveTripDraft = { startedAt: number; elapsedMs: number; returnStart: number | null; points: LocalTripPoint[]; savedAt: number };
 export type LocalVisitState = { visitId: string; checkinAt?: string | null; checkoutAt?: string | null; geofenceValid?: boolean | null; status: string; updatedAt: string; synced?: boolean };
 
