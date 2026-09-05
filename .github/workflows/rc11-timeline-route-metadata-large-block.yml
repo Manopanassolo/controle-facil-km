@@ -1,0 +1,62 @@
+name: RC11 timeline route metadata large block
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-timeline-route-metadata-large-block.yml']
+permissions:
+  contents: write
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Add route intelligence to timeline and sync metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path('mobile-rc11/src/timeline.ts')
+          s=p.read_text()
+          s=s.replace("export type TimelineEventType = 'trip' | 'visit' | 'checkin' | 'checkout' | 'km';","export type TimelineEventType = 'trip' | 'visit' | 'checkin' | 'checkout' | 'km' | 'route_deviation';",1)
+          old="  const kmEvents: TimelineEvent[] = local.km.map(item => ({\n    id: `km-${item.id}`,\n    type: 'km',\n    startedAt: new Date(item.createdAt).getTime(),\n    title: 'Registro de KM',\n    subtitle: `${item.vehicle} · ${item.total.toFixed(1)} km${item.reason ? ` · ${item.reason}` : ''}`,\n    distanceMeters: item.total * 1000,\n    synced: item.synced,\n    sourceId: item.id,\n  }));\n  return [...tripEvents, ...kmEvents].sort((a, b) => b.startedAt - a.startedAt);"
+          new="  const kmEvents: TimelineEvent[] = local.km.map(item => ({\n    id: `km-${item.id}`,\n    type: 'km',\n    startedAt: new Date(item.createdAt).getTime(),\n    title: 'Registro de KM',\n    subtitle: `${item.vehicle} · ${item.total.toFixed(1)} km${item.reason ? ` · ${item.reason}` : ''}`,\n    distanceMeters: item.total * 1000,\n    synced: item.synced,\n    sourceId: item.id,\n  }));\n  const deviationEvents: TimelineEvent[] = local.trips.flatMap(trip => (trip.deviations || []).filter(d => d.classification !== 'dismissed').map(d => ({\n    id: `route-deviation-${trip.id}-${d.id}`,\n    type: 'route_deviation' as const,\n    startedAt: new Date(d.detectedAt).getTime(),\n    title: d.classification === 'confirmed_visit' ? `Visita extra · ${d.customerName}` : `Parada extra · ${d.customerName}`,\n    subtitle: `${Math.max(1, Math.round(d.dwellSeconds / 60))} min · ${Math.round(d.distanceMeters)} m do ponto · ${d.classification === 'confirmed_visit' ? 'visita confirmada' : d.classification === 'occurrence' ? 'ocorrência de rota' : 'aguardando classificação'}`,\n    sourceId: trip.id,\n    synced: trip.synced,\n  })));\n  return [...tripEvents, ...kmEvents, ...deviationEvents].sort((a, b) => b.startedAt - a.startedAt);"
+          if old not in s: raise SystemExit('timeline local events marker missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/offline.ts')
+          s=p.read_text()
+          old="metadata: { source: 'movvant_mobile', return_start_index: item.payload.returnStart ?? null, gps_points: remotePoints, gps_points_original_count: originalPoints, gps_points_sampled: originalPoints > remotePoints.length }"
+          new="metadata: { source: 'movvant_mobile', return_start_index: item.payload.returnStart ?? null, gps_points: remotePoints, gps_points_original_count: originalPoints, gps_points_sampled: originalPoints > remotePoints.length, planned_trip_id: item.payload.plannedTripId ?? null, planned_distance_m: Number(item.payload.plannedDistanceMeters || 0) || null, planned_duration_s: Number(item.payload.plannedDurationSeconds || 0) || null, planned_toll_brl: Number(item.payload.plannedTollBRL || 0) || null, distance_variance_m: item.payload.distanceVarianceMeters ?? null, duration_variance_s: item.payload.durationVarianceSeconds ?? null, route_deviations: Array.isArray(item.payload.deviations) ? item.payload.deviations : [] }"
+          if old not in s: raise SystemExit('route metadata marker missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('mobile-rc11/src/OperationalLayerV2.tsx')
+          s=p.read_text()
+          s=s.replace("const icon=(t:TimelineEvent['type'])=>t==='trip'?'⌖':t==='checkin'?'✓':t==='checkout'?'↗':t==='km'?'◎':'▦';","const icon=(t:TimelineEvent['type'])=>t==='trip'?'⌖':t==='checkin'?'✓':t==='checkout'?'↗':t==='km'?'◎':t==='route_deviation'?'↪':'▦';",1)
+          s=s.replace("const tone=(t:TimelineEvent['type'])=>t==='checkin'?GREEN:t==='checkout'?ORANGE:t==='trip'?BLUE:t==='km'?NAVY:'#7A899A';","const tone=(t:TimelineEvent['type'])=>t==='checkin'?GREEN:t==='checkout'?ORANGE:t==='trip'?BLUE:t==='km'?NAVY:t==='route_deviation'?ORANGE:'#7A899A';",1)
+          p.write_text(s)
+          PY
+      - name: Install dependencies
+        working-directory: mobile-rc11
+        run: npm install --no-audit --no-fund
+      - name: Expo doctor
+        working-directory: mobile-rc11
+        run: npx expo-doctor
+      - name: TypeScript check
+        working-directory: mobile-rc11
+        run: npx tsc --noEmit
+      - name: Expo config check
+        working-directory: mobile-rc11
+        run: npx expo config --type public > /tmp/config.json && grep -q 'com.movvant.enterprise' /tmp/config.json
+      - name: Commit validated block
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile-rc11/src/timeline.ts mobile-rc11/src/offline.ts mobile-rc11/src/OperationalLayerV2.tsx
+          git commit -m 'RC11: surface route intelligence in timeline and sync metadata'
+          git push
