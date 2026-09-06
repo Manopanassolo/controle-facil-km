@@ -1,0 +1,36 @@
+name: Movvant Web Consolidation Quality Gate
+on:
+  push:
+    branches: [movvant-web-consolidation-v1]
+    paths:
+      - 'index.html'
+      - 'web/**'
+      - 'build.js'
+      - 'validate-*.js'
+      - 'package.json'
+      - '.github/workflows/web-consolidation-quality.yml'
+  workflow_dispatch:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build and validate consolidated Web
+        run: npm run build
+      - name: Validate generated assets
+        run: |
+          test -f dist/index.html
+          test -f dist/commercial-intelligence.html
+          test -f dist/commercial-intelligence-core.js
+          test -f dist/navigation-manifest.js
+          test -f dist/shell-bridge.js
+          grep -q 'MOVVANT_WEB_CONSOLIDATION_V1' dist/index.html
+          grep -q 'MOVVANT_WEB_SHELL' dist/shell-bridge.js
+          grep -q 'Inteligência Comercial' dist/navigation-manifest.js
+      - name: Summary
+        run: |
+          echo 'Movvant Web Consolidation V1 validated.'
+          echo 'Existing shell preserved; Intelligence Commercial integrated through build bridge.'
