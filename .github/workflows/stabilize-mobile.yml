@@ -15,31 +15,47 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Validate Worker syntax
-        run: node --check cloudflare-worker.js
-      - name: Build production candidate
+          cache: 'npm'
+          cache-dependency-path: movvant-v2/package-lock.json
+      - name: Install Movvant V2 dependencies
+        working-directory: movvant-v2
+        run: npm ci
+      - name: Build Movvant V2 production candidate
+        working-directory: movvant-v2
         run: npm run build
-      - name: Verify Movvant identity
+      - name: Start Movvant V2 preview server
+        working-directory: movvant-v2
         run: |
-          grep -Eqi '<title>[^<]*Movvant' dist/index.html
-          ! grep -Eqi '<title>[^<]*(Controle Fácil KM|Controle KM)' dist/index.html
-          ! grep -Eqi '>(Controle Fácil KM|Controle KM)<' dist/index.html
-      - name: Inspect rendered shell
-        run: node inspect-shell.js
-      - name: Export Movvant canonical HTML snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: movvant-mobile-web-alignment-html
-          path: dist/index.html
-          retention-days: 7
-      - name: Capture desktop visual reference
+          npm run start -- -H 127.0.0.1 -p 4177 > /tmp/movvant-v2-server.log 2>&1 &
+          echo $! > /tmp/movvant-v2-server.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4177/roteiros >/tmp/movvant-v2-routes.html; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/movvant-v2-server.log
+          exit 1
+      - name: Verify Movvant V2 identity
+        run: |
+          grep -qi 'Movvant' /tmp/movvant-v2-routes.html
+          ! grep -Eqi 'Controle Fácil KM|Controle KM' /tmp/movvant-v2-routes.html
+      - name: Install browser for visual validation
+        working-directory: movvant-v2
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
-          node preview-desktop-screens.mjs
-      - name: Upload visual reference
+      - name: Capture real Rotas visual references
+        working-directory: movvant-v2
+        run: node scripts/capture-routes-preview.mjs
+      - name: Upload Rotas visual references
         uses: actions/upload-artifact@v4
         with:
-          name: movvant-web-reference-preview
-          path: /tmp/movvant-preview-*.png
+          name: movvant-v2-routes-preview
+          path: /tmp/movvant-v2-routes-*.png
+          retention-days: 7
+      - name: Upload Movvant V2 server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: movvant-v2-preview-log
+          path: /tmp/movvant-v2-server.log
           retention-days: 7
