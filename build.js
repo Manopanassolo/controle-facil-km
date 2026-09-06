@@ -8,6 +8,6 @@ if(!main.includes(marker)){
   if(main.includes('</body>'))main=main.replace('</body>',scripts+'</body>');else main+=scripts;
 }
 fs.writeFileSync('dist/index.html',main);
-const webFiles=['commercial-intelligence.html','commercial-intelligence-core.js','authenticated-intelligence.js','enterprise-intelligence.js','navigation-manifest.js','access-scope.js','historical-data-contract.js','contract-profile.js','product-catalog-contract.js','sales-source-profile-v1.js','sales-import-qc.js','sales-import-contract.js','sales-fact-model.js','visit-sales-link.js','commercial-opportunity-engine.js','shell-bridge.js'];
+const webFiles=['commercial-intelligence.html','commercial-intelligence-core.js','authenticated-intelligence.js','enterprise-intelligence.js','enterprise-rankings.js','navigation-manifest.js','access-scope.js','historical-data-contract.js','contract-profile.js','product-catalog-contract.js','sales-source-profile-v1.js','sales-import-qc.js','sales-import-contract.js','sales-fact-model.js','visit-sales-link.js','commercial-opportunity-engine.js','shell-bridge.js'];
 for(const name of webFiles){const src=path.join('web',name);if(!fs.existsSync(src))throw new Error(`Missing web consolidation asset: ${src}`);fs.copyFileSync(src,path.join('dist',name));}
-console.log('Movvant canonical build: existing Web + Movvant Enterprise intelligence + historical sales + opportunity/risk engine -> dist');
+console.log('Movvant canonical build: existing Web + Movvant Enterprise intelligence + rankings + historical sales + opportunity/risk engine -> dist');
