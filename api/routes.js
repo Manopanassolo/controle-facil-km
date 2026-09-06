@@ -1,3 +1,4 @@
+// Movvant RC11.7 route backend redeploy marker 2026-09-06
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   const key=process.env.GOOGLE_MAPS_API_KEY;
