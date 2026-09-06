@@ -23,19 +23,38 @@ jobs:
           from pathlib import Path
           p=Path('mobile-rc11/AppRC11Final.tsx')
           s=p.read_text()
-          s=s.replace("import VehicleSettingsScreen from './src/VehicleSettingsScreen';", "import VehicleSettingsScreen from './src/VehicleSettingsScreen';\nimport CommercialActionsScreen from './src/CommercialActionsScreen';")
-          s=s.replace("type MorePage = 'menu' | 'lojas' | 'relatorios' | 'despesas' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';", "type MorePage = 'menu' | 'lojas' | 'inteligencia' | 'relatorios' | 'despesas' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';")
-          s=s.replace("if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;", "if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data}/>;\n  if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;")
-          s=s.replace("<Row icon=\"▦\" title=\"Lojas\"", "<Row icon=\"✦\" title=\"Inteligência Comercial\" sub=\"Prioridades reais, risco, mix e próxima ação\" onPress={() => setPage('inteligencia')}/><Row icon=\"▦\" title=\"Lojas\"")
+          if "CommercialActionsScreen" not in s:
+            s=s.replace("import VehicleSettingsScreen from './src/VehicleSettingsScreen';", "import VehicleSettingsScreen from './src/VehicleSettingsScreen';\nimport CommercialActionsScreen from './src/CommercialActionsScreen';")
+          start="type MorePage = "
+          for line in s.splitlines():
+            if line.startswith(start):
+              s=s.replace(line,"type MorePage = 'menu' | 'lojas' | 'inteligencia' | 'relatorios' | 'despesas' | 'abastecimentos' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';")
+              break
+          if "page === 'inteligencia'" not in s:
+            s=s.replace("if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;", "if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data}/>;\n  if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;")
+          if "title=\"Inteligência Comercial\"" not in s:
+            s=s.replace("<Row icon=\"▦\" title=\"Lojas\"", "<Row icon=\"✦\" title=\"Inteligência Comercial\" sub=\"Prioridades reais, risco, mix e próxima ação\" onPress={() => setPage('inteligencia')}/><Row icon=\"▦\" title=\"Lojas\"")
+          p.write_text(s)
+          PY
+      - name: Install
+        working-directory: mobile-rc11
+        run: npm install --no-audit --no-fund
+      - name: Reconcile MorePage after postinstall patches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/AppRC11Final.tsx');s=p.read_text()
+          for line in s.splitlines():
+            if line.startswith('type MorePage = '):
+              s=s.replace(line,"type MorePage = 'menu' | 'lojas' | 'inteligencia' | 'relatorios' | 'despesas' | 'abastecimentos' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';")
+              break
           p.write_text(s)
           PY
       - name: Validate patch
         run: |
           grep -q "CommercialActionsScreen" mobile-rc11/AppRC11Final.tsx
           grep -q "Inteligência Comercial" mobile-rc11/AppRC11Final.tsx
-      - name: Install
-        working-directory: mobile-rc11
-        run: npm install --no-audit --no-fund
+          grep -q "abastecimentos" mobile-rc11/AppRC11Final.tsx
       - name: Typecheck
         working-directory: mobile-rc11
         run: npx tsc --noEmit
