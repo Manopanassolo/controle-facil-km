@@ -27,9 +27,7 @@ jobs:
           import re
           p=Path('mobile-rc11/AppRC11Final.tsx')
           s=p.read_text()
-          # Deduplicate imports that legacy postinstall may add more than once.
-          lines=s.splitlines()
-          seen=set(); out=[]
+          lines=s.splitlines(); seen=set(); out=[]
           unique_prefixes=("import FuelingApprovalScreen ","import { evaluateOperationalReadiness, readinessMessage } ","import CommercialActionsScreen ")
           for line in lines:
             key=next((x for x in unique_prefixes if line.startswith(x)),None)
@@ -40,28 +38,22 @@ jobs:
           s='\n'.join(out)+'\n'
           if "import CommercialActionsScreen from './src/CommercialActionsScreen';" not in s:
             s=s.replace("import { evaluateOperationalReadiness, readinessMessage } from './src/operationalReadiness';", "import { evaluateOperationalReadiness, readinessMessage } from './src/operationalReadiness';\nimport CommercialActionsScreen from './src/CommercialActionsScreen';")
-          # Canonical MorePage union.
           s=re.sub(r"type MorePage = [^;]+;", "type MorePage = 'menu' | 'lojas' | 'inteligencia' | 'relatorios' | 'despesas' | 'abastecimentos' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';", s, count=1)
-          # Add callback prop to More signature.
-          s=s.replace("onOpenTimeline?:()=>void; onOpenAdmin?:()=>void }) {", "onOpenTimeline?:()=>void; onOpenAdmin?:()=>void; onScheduleCommercial?:(customerId:string,customerName:string)=>void }) {")
-          # Intelligence route uses callback.
-          s=s.replace("if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data}/>;", "if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data} onSchedule={onScheduleCommercial}/>;")
+          # Remove any incomplete callback experiment and retain stable screen integration.
+          s=s.replace(" data={data} onSchedule={onScheduleCommercial}/>", " data={data}/>")
+          s=s.replace("; onScheduleCommercial?:(customerId:string,customerName:string)=>void", "")
+          s=re.sub(r" onScheduleCommercial=\{\(customerId,customerName\)=>\{setMain\('agenda'\);Alert\.alert\('Oportunidade comercial',[^}]+\}\}", "", s)
           if "if (page === 'inteligencia')" not in s:
-            s=s.replace("if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;", "if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data} onSchedule={onScheduleCommercial}/>;\n  if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;")
+            s=s.replace("if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;", "if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data}/>;\n  if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;")
           if 'title="Inteligência Comercial"' not in s:
             s=s.replace("<Row icon=\"▦\" title=\"Lojas\"", "<Row icon=\"✦\" title=\"Inteligência Comercial\" sub=\"Prioridades reais, risco, mix e próxima ação\" onPress={() => setPage('inteligencia')}/><Row icon=\"▦\" title=\"Lojas\"")
-          # Drawer shortcut.
           if "['✦','Inteligência Comercial'" not in s:
             s=s.replace("['▦','Lojas',()=>go('mais','lojas')]", "['✦','Inteligência Comercial',()=>go('mais','inteligencia')],['▦','Lojas',()=>go('mais','lojas')]")
-          # App-level callback.
-          if 'onScheduleCommercial={(customerId,customerName)' not in s:
-            s=s.replace("onOpenTimeline={onOpenTimeline} onOpenAdmin={onOpenAdmin}/>", "onOpenTimeline={onOpenTimeline} onOpenAdmin={onOpenAdmin} onScheduleCommercial={(customerId,customerName)=>{setMain('agenda');Alert.alert('Oportunidade comercial',`Agenda aberta para ${customerName}. Crie o compromisso e selecione a data desejada.`)}}/>")
           p.write_text(s)
           PY
       - name: Validate integration
         run: |
           grep -q "CommercialActionsScreen" mobile-rc11/AppRC11Final.tsx
-          grep -q "onScheduleCommercial" mobile-rc11/AppRC11Final.tsx
           grep -q "Inteligência Comercial" mobile-rc11/AppRC11Final.tsx
           grep -q "abastecimentos" mobile-rc11/AppRC11Final.tsx
       - name: Typecheck
@@ -72,5 +64,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mobile-rc11/AppRC11Final.tsx
-          git diff --cached --quiet || git commit -m "Mobile: conectar oportunidade comercial à Agenda"
+          git diff --cached --quiet || git commit -m "Mobile: integrar Inteligência Comercial estável"
           git push origin HEAD:movvant-mobile-intelligence-sync
