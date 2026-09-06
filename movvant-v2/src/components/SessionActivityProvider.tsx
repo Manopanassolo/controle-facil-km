@@ -17,14 +17,8 @@ export type SessionDocument={ id:string; createdAt:string; kind:DocumentKind; sc
 export type DocumentAlert={ documentId:string; kind:DocumentKind; scope:DocumentScope; subject:string; state:DocumentState; remainingDays:number; expiryDate:string; blocksOperation:boolean; };
 
 type VehicleOverride = Partial<Pick<SessionVehicle,'currentKm'|'status'|'nextMaintenanceKm'|'nextMaintenanceDate'>>;
-const baseVehicles:SessionVehicle[]=[
-{id:'base-suv',name:'SUV Comercial',plate:'ABC1D23',model:'Veículo demonstrativo',year:2026,currentKm:12480,responsible:'Equipe comercial',status:'Ativo',source:'base',nextMaintenanceKm:13000,nextMaintenanceDate:'2026-09-18'},
-{id:'base-hatch',name:'Hatch Vendas',plate:'DEF4G56',model:'Veículo demonstrativo',year:2025,currentKm:38210,responsible:'Equipe comercial',status:'Ativo',source:'base',nextMaintenanceKm:40000,nextMaintenanceDate:'2026-11-15'},
-{id:'base-utilitario',name:'Utilitário',plate:'GHI7J89',model:'Veículo demonstrativo',year:2024,currentKm:64990,responsible:'Logística',status:'Manutenção',source:'base',nextMaintenanceKm:65000,nextMaintenanceDate:'2026-08-30'}];
-const baseDocuments:SessionDocument[]=[
-{id:'doc-cnh-marcos',createdAt:'2026-01-01T12:00:00.000Z',kind:'CNH',scope:'condutor',subject:'Marcos Paulo',expiryDate:'2028-03-18',warningDays:30,note:'Documento demonstrativo',source:'base'},
-{id:'doc-crlv-suv',createdAt:'2026-01-01T12:00:00.000Z',kind:'CRLV',scope:'veiculo',subject:'SUV Comercial',expiryDate:'2027-02-28',warningDays:30,note:'Licenciamento demonstrativo',source:'base'},
-{id:'doc-seguro-hatch',createdAt:'2026-01-01T12:00:00.000Z',kind:'Seguro',scope:'veiculo',subject:'Hatch Vendas',expiryDate:'2026-10-13',warningDays:45,note:'Apólice demonstrativa',source:'base'}];
+const baseVehicles:SessionVehicle[]=[];
+const baseDocuments:SessionDocument[]=[];
 const MAINTENANCE_WARNING_KM=750; const MAINTENANCE_WARNING_DAYS=14;
 function dayDiff(date:string){if(!date)return Number.POSITIVE_INFINITY;const due=new Date(`${date}T12:00:00`);const now=new Date();const today=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12);return Math.ceil((due.getTime()-today.getTime())/86400000);}
 function maintenanceFor(vehicle:SessionVehicle):MaintenanceAlert{const remainingKm=vehicle.nextMaintenanceKm-vehicle.currentKm;const remainingDays=dayDiff(vehicle.nextMaintenanceDate);const state:MaintenanceState=remainingKm<=0||remainingDays<0?'vencida':remainingKm<=MAINTENANCE_WARNING_KM||remainingDays<=MAINTENANCE_WARNING_DAYS?'proxima':'ok';return{vehicleId:vehicle.id,vehicle:vehicle.name,plate:vehicle.plate,state,remainingKm,remainingDays,dueKm:vehicle.nextMaintenanceKm,dueDate:vehicle.nextMaintenanceDate};}
