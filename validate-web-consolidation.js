@@ -12,9 +12,9 @@ for(const text of ['MOVVANT_COMMERCIAL','visitValidationPct','routeCompletionPct
 const catalog=fs.readFileSync('dist/product-catalog-contract.js','utf8');
 for(const text of ['MOVVANT_PRODUCT_CATALOG','productCode','resolveMaster','latest_sale']){if(!catalog.includes(text))throw new Error(`Missing product catalog capability: ${text}`)}
 const salesFacts=fs.readFileSync('dist/sales-fact-model.js','utf8');
-for(const text of ['MOVVANT_SALES_FACTS','aggregate','group','abc','customerTrend','opportunityScore']){if(!salesFacts.includes(text))throw new Error(`Missing sales facts capability: ${text}`)}
+for(const text of ['MOVVANT_SALES_FACTS','aggregate','group','abc','marginPct','ticketAverage']){if(!salesFacts.includes(text))throw new Error(`Missing sales facts capability: ${text}`)}
 const opp=fs.readFileSync('dist/commercial-opportunity-engine.js','utf8');
-for(const text of ['MOVVANT_OPPORTUNITY','customerSignals','topOpportunities','executive','strong_decline','inactive']){if(!opp.includes(text))throw new Error(`Missing opportunity engine capability: ${text}`)}
+for(const text of ['MOVVANT_OPPORTUNITY','customerSignals','topOpportunities','executive','opportunityScore','strong_decline','inactive']){if(!opp.includes(text))throw new Error(`Missing opportunity engine capability: ${text}`)}
 const nav=fs.readFileSync('dist/navigation-manifest.js','utf8');
 for(const text of ['Home','Inteligência Comercial','Agenda','Deslocamentos / Rotas','Abastecimentos / Despesas','Relatórios','Clientes','Veículos','Administração']){if(!nav.includes(text))throw new Error(`Missing navigation item: ${text}`)}
 console.log('Movvant Web Consolidation V1: authenticated mobility + historical sales + risk/opportunity dashboard OK');
