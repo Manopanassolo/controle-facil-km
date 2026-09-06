@@ -1,6 +1,8 @@
-RC11.4 retest candidate
-fuel selector
-round-trip breakdown
-route touch targets
-floating controls moved to Menu
-quality rerun after menu callback type fix
+RC11.5 retest candidate
+map repeated touch selection v2
+selected outbound blue and selected return orange
+unselected alternatives discreet
+fuel selector preserved
+round-trip totals preserved
+floating controls preserved in Menu
+KM report exported as detailed PDF with dashboard and displacement table
