@@ -1,5 +1,5 @@
 (function(g){
- const ROLE={user:1,seller:1,driver:1,supervisor:2,manager:3,admin:4,master:5,owner:5};
+ const ROLE={user:1,seller:1,driver:1,seller_external:1,seller_counter:1,seller_telesales:1,supervisor:2,regional_supervisor:4,manager:3,branch_manager:3,director:4,admin:4,master:5,owner:5};
  const norm=v=>String(v||'').trim().toLowerCase();
  function build(session={}){
   const role=norm(session.role||session.profile||'user');
