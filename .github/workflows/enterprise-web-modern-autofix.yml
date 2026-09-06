@@ -1,0 +1,30 @@
+name: Movvant Enterprise Web Modern Autofix
+on:
+  push:
+    branches: [movvant-enterprise-web-modern]
+    paths:
+      - '.github/workflows/enterprise-web-modern-autofix.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-enterprise-web-modern
+      - name: Fix App export
+        run: |
+          if grep -q '^default function App' enterprise-web-modern/src/App.tsx; then
+            sed -i 's/^default function App/export default function App/' enterprise-web-modern/src/App.tsx
+          fi
+      - name: Commit fix
+        run: |
+          if ! git diff --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add enterprise-web-modern/src/App.tsx
+            git commit -m 'Fix: export default do App da Web moderna'
+            git push origin HEAD:movvant-enterprise-web-modern
+          fi
