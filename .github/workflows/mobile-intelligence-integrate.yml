@@ -1,0 +1,48 @@
+name: Movvant Mobile Intelligence Integrate
+on:
+  push:
+    branches: [movvant-mobile-intelligence-sync]
+    paths:
+      - '.github/workflows/mobile-intelligence-integrate.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-intelligence-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Patch AppRC11Final
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/AppRC11Final.tsx')
+          s=p.read_text()
+          s=s.replace("import VehicleSettingsScreen from './src/VehicleSettingsScreen';", "import VehicleSettingsScreen from './src/VehicleSettingsScreen';\nimport CommercialActionsScreen from './src/CommercialActionsScreen';")
+          s=s.replace("type MorePage = 'menu' | 'lojas' | 'relatorios' | 'despesas' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';", "type MorePage = 'menu' | 'lojas' | 'inteligencia' | 'relatorios' | 'despesas' | 'veiculos' | 'notificacoes' | 'sincronizacao' | 'configuracoes';")
+          s=s.replace("if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;", "if (page === 'inteligencia') return <CommercialActionsScreen session={session} data={data}/>;\n  if (page === 'relatorios') return <ReportsHierarchicalScreen session={session} data={data} local={local}/>;")
+          s=s.replace("<Row icon=\"▦\" title=\"Lojas\"", "<Row icon=\"✦\" title=\"Inteligência Comercial\" sub=\"Prioridades reais, risco, mix e próxima ação\" onPress={() => setPage('inteligencia')}/><Row icon=\"▦\" title=\"Lojas\"")
+          p.write_text(s)
+          PY
+      - name: Validate patch
+        run: |
+          grep -q "CommercialActionsScreen" mobile-rc11/AppRC11Final.tsx
+          grep -q "Inteligência Comercial" mobile-rc11/AppRC11Final.tsx
+      - name: Install
+        working-directory: mobile-rc11
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        working-directory: mobile-rc11
+        run: npx tsc --noEmit
+      - name: Commit integrated app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile-rc11/AppRC11Final.tsx
+          git diff --cached --quiet || git commit -m "Mobile: integrar Central de Ações Comerciais no menu"
+          git push origin HEAD:movvant-mobile-intelligence-sync
