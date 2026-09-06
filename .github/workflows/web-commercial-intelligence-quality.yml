@@ -1,0 +1,26 @@
+name: Movvant Web commercial intelligence quality
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - 'commercial-intelligence.html'
+      - 'api/commercial-intelligence.js'
+      - 'build.js'
+      - 'package.json'
+      - 'validate-commercial-intelligence.js'
+      - '.github/workflows/web-commercial-intelligence-quality.yml'
+  workflow_dispatch:
+jobs:
+  validate-web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Canonical web build
+        run: npm run build
+      - name: Validate commercial API syntax
+        run: node --check api/commercial-intelligence.js
+      - name: Verify dashboard artifact
+        run: test -f dist/commercial-intelligence.html && grep -q 'INTELIGÊNCIA COMERCIAL' dist/commercial-intelligence.html
