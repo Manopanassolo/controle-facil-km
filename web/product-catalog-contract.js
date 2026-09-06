@@ -1,0 +1,13 @@
+(function(g){
+ const num=v=>{const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:null};
+ const text=v=>String(v??'').trim();
+ const DEFAULT_MAP={productCode:['Cód. Produto','Codigo','Código','SKU'],description:['Produto','Descrição','Descricao','Nome'],brand:['Marca'],department:['Departamento'],group:['Grupo'],section:['Seção','Secao'],subgroup:['Subgrupo'],stock:['Saldo Estoque','Estoque'],avgCost:['Custo Médio Un.','Custo Medio Un.','Custo'],unitPrice:['Preço Un.','Preco Un.','Preço'],promoPrice:['Promoção Un.','Promocao Un.','Preço Promocional'],unit:['Un. de Medida','Unidade','UM']};
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+ function detect(headers,custom={}){const source={...DEFAULT_MAP,...custom},out={};for(const[k,aliases]of Object.entries(source)){const candidates=[k,...aliases].map(norm);const found=headers.find(h=>candidates.includes(norm(h)));if(found)out[k]=found;}return out;}
+ function masterKey(row,mapping){return text(row[mapping.productCode]);}
+ function normalizeRow(row,mapping,ctx={}){return{contractId:ctx.contractId||'default',sourceId:ctx.sourceId||null,branchId:ctx.branchId||null,snapshotAt:ctx.snapshotAt||null,productCode:masterKey(row,mapping),description:text(row[mapping.description]),brand:text(row[mapping.brand]),department:text(row[mapping.department]),group:text(row[mapping.group]),section:text(row[mapping.section]),subgroup:text(row[mapping.subgroup]),stock:num(row[mapping.stock]),avgCost:num(row[mapping.avgCost]),unitPrice:num(row[mapping.unitPrice]),promoPrice:num(row[mapping.promoPrice]),unit:text(row[mapping.unit])};}
+ function dedupeMaster(rows){const m=new Map();for(const r of rows){if(!r.productCode)continue;const prev=m.get(r.productCode);if(!prev)m.set(r.productCode,{productCode:r.productCode,description:r.description,brand:r.brand,department:r.department,group:r.group,section:r.section,subgroup:r.subgroup,unit:r.unit});}return[...m.values()];}
+ function facts(rows){return rows.filter(r=>r.productCode).map(r=>({contractId:r.contractId,sourceId:r.sourceId,branchId:r.branchId,snapshotAt:r.snapshotAt,productCode:r.productCode,stock:r.stock,avgCost:r.avgCost,unitPrice:r.unitPrice,promoPrice:r.promoPrice,unit:r.unit}));}
+ function validate(mapping){const required=['productCode','description'];return{ready:required.every(k=>mapping[k]),missing:required.filter(k=>!mapping[k])};}
+ g.MOVVANT_PRODUCT_CATALOG={DEFAULT_MAP,detect,normalizeRow,dedupeMaster,facts,validate};
+})(window);
