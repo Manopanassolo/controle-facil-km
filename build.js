@@ -8,6 +8,6 @@ if(!main.includes(marker)){
   if(main.includes('</body>'))main=main.replace('</body>',scripts+'</body>');else main+=scripts;
 }
 fs.writeFileSync('dist/index.html',main);
-const webFiles=['commercial-intelligence.html','commercial-intelligence-core.js','navigation-manifest.js','access-scope.js','historical-data-contract.js','shell-bridge.js'];
+const webFiles=['commercial-intelligence.html','commercial-intelligence-core.js','authenticated-intelligence.js','navigation-manifest.js','access-scope.js','historical-data-contract.js','shell-bridge.js'];
 for(const name of webFiles){const src=path.join('web',name);if(!fs.existsSync(src))throw new Error(`Missing web consolidation asset: ${src}`);fs.copyFileSync(src,path.join('dist',name));}
-console.log('Movvant canonical build: existing Web + consolidated shell + access scope + historical intelligence -> dist');
+console.log('Movvant canonical build: existing Web + consolidated shell + authenticated intelligence + historical contract -> dist');
