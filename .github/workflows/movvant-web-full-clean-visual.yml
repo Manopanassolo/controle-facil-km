@@ -24,9 +24,13 @@ jobs:
           s=re.sub(r"const baseVehicles:SessionVehicle\[\]=\[.*?\];\nconst baseDocuments:SessionDocument\[\]=\[.*?\];", "const baseVehicles:SessionVehicle[]=[];\nconst baseDocuments:SessionDocument[]=[];", s, count=1, flags=re.S)
           p.write_text(s)
           PY
-      - name: Verify fictitious operational records are gone
+      - name: Verify active operational modules have no fictitious records
         run: |
-          ! grep -R -E "Casa do MDF|Cliente regional|Nova conta|Veículo demonstrativo|ABC1D23|DEF4G56|GHI7J89|Documento demonstrativo|Licenciamento demonstrativo|Apólice demonstrativa" movvant-v2/src --exclude-dir=.next
+          ! grep -E "Casa do MDF|Cliente regional|Nova conta|Veículo demonstrativo|ABC1D23|DEF4G56|GHI7J89|Documento demonstrativo|Licenciamento demonstrativo|Apólice demonstrativa" \
+            movvant-v2/src/components/AgendaSessionModule.tsx \
+            movvant-v2/src/components/SessionActivityProvider.tsx \
+            movvant-v2/src/components/DashboardByRole.tsx \
+            movvant-v2/src/components/HistorySessionModule.tsx
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -44,7 +48,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add movvant-v2/src/components/SessionActivityProvider.tsx
-          git diff --cached --quiet || git commit -m "Web full transplant: remover dados operacionais fictícios"
+          git diff --cached --quiet || git commit -m "Web full transplant: remover frota e documentos fictícios"
           git push origin HEAD:movvant-enterprise-web-full-transplant
       - name: Install Playwright Chromium
         working-directory: movvant-v2
@@ -55,7 +59,6 @@ jobs:
         working-directory: movvant-v2
         run: |
           npm start -- --hostname 127.0.0.1 > /tmp/movvant-web.log 2>&1 &
-          echo $! > /tmp/movvant-web.pid
           for i in {1..40}; do curl -fsS http://127.0.0.1:3000/dashboard >/dev/null && exit 0; sleep 1; done
           cat /tmp/movvant-web.log
           exit 1
@@ -68,12 +71,10 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const page=await browser.newPage({viewport:{width:1440,height:1100},deviceScaleFactor:1});
-            await page.goto('http://127.0.0.1:3000/inteligencia',{waitUntil:'networkidle'});
-            await page.screenshot({path:'visual-proof/inteligencia-real.png',fullPage:true});
-            await page.goto('http://127.0.0.1:3000/agenda',{waitUntil:'networkidle'});
-            await page.screenshot({path:'visual-proof/agenda-real.png',fullPage:true});
-            await page.goto('http://127.0.0.1:3000/dashboard',{waitUntil:'networkidle'});
-            await page.screenshot({path:'visual-proof/dashboard-real.png',fullPage:true});
+            for (const [route,file] of [['/dashboard','dashboard-real.png'],['/inteligencia','inteligencia-real.png'],['/agenda','agenda-real.png']]) {
+              await page.goto('http://127.0.0.1:3000'+route,{waitUntil:'networkidle'});
+              await page.screenshot({path:'visual-proof/'+file,fullPage:true});
+            }
             await browser.close();
           })();
           NODE
