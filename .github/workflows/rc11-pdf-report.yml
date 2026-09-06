@@ -1,0 +1,42 @@
+name: RC11.5 PDF report integration
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-pdf-report.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Integrate detailed PDF export
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/src/ReportsHierarchicalScreen.tsx')
+          s=p.read_text()
+          s=s.replace("import{Pressable,ScrollView,Share,StyleSheet,Text,View}from'react-native';","import{Alert,Pressable,ScrollView,StyleSheet,Text,View}from'react-native';")
+          anchor="import{readExpenses,summarizeExpenses}from'./expenses';\n"
+          if "./reportPdf" not in s:
+              s=s.replace(anchor,anchor+"import{createAndShareKmPdf}from'./reportPdf';\n")
+          old="const share=async()=>Share.share({title:'Relatório Movvant',message:[`Movvant Enterprise — ${selectedLabel}`,`Período: ${start.toLocaleDateString('pt-BR')} a ${end.toLocaleDateString('pt-BR')}`,`Deslocamentos: ${detail.length}`,`KM planejado comparável: ${plannedComparableKm.toFixed(1)} km`,`KM realizado: ${kmTotal.toFixed(1)} km`,`KM futuro planejado: ${futurePlannedKm.toFixed(1)} km`,`Despesas: ${money(expenseTotal)}`].join('\\n')});"
+          new="""const share=async()=>{try{await createAndShareKmPdf({reportTitle:'Relatório de KM e deslocamentos',scopeLabel:selectedLabel,periodLabel:`${start.toLocaleDateString('pt-BR')} a ${end.toLocaleDateString('pt-BR')}`,displacements:detail.length,completed:comparable.length,plannedComparableKm,realizedKm:kmTotal,futurePlannedKm,expensesLabel:money(expenseTotal),fuelLabel:refAvg||realFuelCost?money(fuelCost):'Sem base',litersLabel:(fuelMode==='real'?realLiters:estimatedLiters)>0?`${(fuelMode==='real'?realLiters:estimatedLiters).toFixed(1)} L`:'Sem base'},detail.map(r=>({date:new Date(`${r.date}T12:00:00`).toLocaleDateString('pt-BR'),status:r.status,title:r.title,vehicle:r.vehicle,plannedKm:r.plannedKm,actualKm:r.actualKm,source:r.source,expenseLabel:money(r.expense)})));}catch(e){Alert.alert('Relatório PDF',e instanceof Error?e.message:'Não foi possível gerar o PDF.')}};"""
+          if old not in s:
+              raise SystemExit('share function target not found')
+          s=s.replace(old,new)
+          s=s.replace('Compartilhar visão gerencial','Gerar PDF / salvar / compartilhar')
+          p.write_text(s)
+          PY
+      - name: Refresh npm lockfile
+        working-directory: mobile-rc11
+        run: npm install --package-lock-only --no-audit --no-fund
+      - name: Commit PDF report
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add mobile-rc11/src/ReportsHierarchicalScreen.tsx mobile-rc11/package-lock.json
+          git commit -m 'RC11.5: generate detailed KM report as PDF'
+          git push origin HEAD:movvant-mobile-rc11
