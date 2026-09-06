@@ -18,6 +18,7 @@ export const modules: MovvantModule[] = [
   { slug: 'equipe', label: 'Equipe', group: 'Gestão', description: 'Usuários, funções e permissões.' },
   { slug: 'documentos', label: 'Documentos', group: 'Gestão', description: 'Documentos vinculados a usuários e veículos.' },
   { slug: 'sinistros', label: 'Sinistros', group: 'Gestão', description: 'Registro e acompanhamento de ocorrências.' },
+  { slug: 'inteligencia', label: 'Inteligência Comercial', group: 'Análise', description: 'Carteira, oportunidades, mix, metas e eficiência de campo.' },
   { slug: 'relatorios', label: 'Relatórios', group: 'Análise', description: 'Relatórios gerenciais e comerciais.' },
   { slug: 'perfil', label: 'Perfil', group: 'Conta', description: 'Dados pessoais e preferências.' },
   { slug: 'configuracoes', label: 'Configurações', group: 'Conta', description: 'Parâmetros gerais do sistema.' }
