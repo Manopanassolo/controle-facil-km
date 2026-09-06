@@ -1,0 +1,35 @@
+name: Movvant Enterprise Web Modern Vercel Preview
+on:
+  push:
+    branches: [movvant-enterprise-web-modern]
+    paths:
+      - 'enterprise-web-modern/**'
+      - '.github/workflows/enterprise-web-modern-vercel-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: enterprise-web-modern
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Deploy preview to correct homologation project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN secret is not configured" >&2
+            exit 2
+          fi
+          vercel deploy --yes --token "$VERCEL_TOKEN" | tee /tmp/vercel-url.txt
+          echo "PREVIEW_URL=$(tail -1 /tmp/vercel-url.txt)" >> "$GITHUB_ENV"
+      - name: Show preview URL
+        run: echo "$PREVIEW_URL"
