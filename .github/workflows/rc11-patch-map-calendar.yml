@@ -1,0 +1,52 @@
+name: RC11.9 patch map and calendar
+
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths:
+      - '.github/workflows/rc11-patch-map-calendar.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Apply RC11.9 map and calendar patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          trip = Path('mobile-rc11/src/TripPlannerScreen.tsx')
+          text = trip.read_text()
+          text = text.replace("import MapView, { MapPressEvent, Marker, Polyline } from 'react-native-maps';", "import MapView, { Marker, Polyline } from 'react-native-maps';")
+          text = text.replace("const segmentDistance=(p:Point,a:Point,b:Point)=>{const x=p.longitude,y=p.latitude,x1=a.longitude,y1=a.latitude,x2=b.longitude,y2=b.latitude;const dx=x2-x1,dy=y2-y1;if(!dx&&!dy)return Math.hypot(x-x1,y-y1);const t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/(dx*dx+dy*dy)));return Math.hypot(x-(x1+t*dx),y-(y1+t*dy))};\nconst routeDistance=(p:Point,pts:Point[])=>{let best=Infinity;for(let i=1;i<pts.length;i++)best=Math.min(best,segmentDistance(p,pts[i-1],pts[i]));return best};\n", "")
+          old = "  const onMapPress=(e:MapPressEvent)=>{if(routes.length<2)return;const p=e.nativeEvent.coordinate;let best=-1,bestDist=Infinity;routes.forEach((r,i)=>{const pts=decodePolyline(r.polyline);if(pts.length>1){const d=routeDistance(p,pts);if(d<bestDist){bestDist=d;best=i}}});const threshold=Math.max(mapRegion.latitudeDelta,mapRegion.longitudeDelta)*0.045;if(best>=0&&bestDist<=threshold)selectRoute(best)};\n"
+          text = text.replace(old, "")
+          old_map = '''    {routePoints.length>1&&<View style={s.card}><Text style={s.cardTitle}>Escolha o trajeto</Text><Text style={s.cardSub}>O mapa destaca somente a rota ativa. As demais aparecem discretas para permitir toque direto sem poluir a visualização.</Text><View style={{flexDirection:'row',gap:6}}>{routes.map((r,i)=><Pressable key={`quick-${i}`} onPress={()=>selectRoute(i)} style={{flex:1,minHeight:40,paddingHorizontal:6,borderRadius:10,borderWidth:1,borderColor:i===selected?BLUE:BORDER,backgroundColor:i===selected?'#EEF5FF':'#fff',alignItems:'center',justifyContent:'center'}}><Text numberOfLines={2} style={{fontSize:9,fontWeight:'900',textAlign:'center',color:i===selected?BLUE:TEXT}}>{r.strategyLabel||`Rota ${i+1}`}</Text></Pressable>)}</View><MapView ref={mapRef} style={[s.map,{height:mapHeight}]} initialRegion={mapRegion} customMapStyle={LIGHT_MAP_STYLE} onPress={onMapPress}>{routes.map((r,i)=>{if(i===selected)return null;const pts=decodePolyline(r.polyline);return pts.length>1?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor="#C8D2DC" strokeWidth={2} lineDashPattern={[8,8]} zIndex={2}/>:null})}{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={8} zIndex={20}/>:null}{showReturn&&returnPoints.length>1?<Polyline key={`selected-back-${selected}`} coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={6} zIndex={19}/>:null}<Marker coordinate={routePoints[0]} title="Origem"/>{stops.filter(Boolean).map((label,i)=>{const fallback=routePoints.length?routePoints[Math.min(routePoints.length-1,Math.max(0,Math.round(((i+1)/(stops.filter(Boolean).length+1))*(routePoints.length-1))))]:null;const c=stopCoords[i]||fallback;return c?<Marker key={`stop-${i}`} coordinate={c} title={`Parada ${i+1}`} description={label} pinColor={GREEN}/>:null})}<Marker coordinate={routePoints[routePoints.length-1]} title="Destino" pinColor={ORANGE}/></MapView>'''
+          new_map = '''    {routePoints.length>1&&<View style={s.card}><Text style={s.cardTitle}>Escolha o trajeto</Text><Text style={s.cardSub}>Selecione uma alternativa abaixo. O mapa mostra somente a rota escolhida e, quando solicitado, o retorno correspondente.</Text><View style={{flexDirection:'row',gap:6}}>{routes.map((r,i)=><Pressable key={`quick-${i}`} onPress={()=>selectRoute(i)} style={{flex:1,minHeight:40,paddingHorizontal:6,borderRadius:10,borderWidth:1,borderColor:i===selected?BLUE:BORDER,backgroundColor:i===selected?'#EEF5FF':'#fff',alignItems:'center',justifyContent:'center'}}><Text numberOfLines={2} style={{fontSize:9,fontWeight:'900',textAlign:'center',color:i===selected?BLUE:TEXT}}>{r.strategyLabel||`Rota ${i+1}`}</Text></Pressable>)}</View><MapView key={`active-map-${selected}-${showReturn?'return':'outbound'}`} ref={mapRef} style={[s.map,{height:mapHeight}]} initialRegion={mapRegion} customMapStyle={LIGHT_MAP_STYLE}>{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={8} zIndex={20}/>:null}{showReturn&&returnPoints.length>1?<Polyline key={`selected-back-${selected}`} coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={6} zIndex={19}/>:null}<Marker coordinate={routePoints[0]} title="Origem"/>{stops.filter(Boolean).map((label,i)=>{const fallback=routePoints.length?routePoints[Math.min(routePoints.length-1,Math.max(0,Math.round(((i+1)/(stops.filter(Boolean).length+1))*(routePoints.length-1))))]:null;const c=stopCoords[i]||fallback;return c?<Marker key={`stop-${i}`} coordinate={c} title={`Parada ${i+1}`} description={label} pinColor={GREEN}/>:null})}<Marker coordinate={routePoints[routePoints.length-1]} title="Destino" pinColor={ORANGE}/></MapView>'''
+          if old_map not in text:
+              raise SystemExit('TripPlanner map block not found')
+          text = text.replace(old_map, new_map)
+          trip.write_text(text)
+
+          app = Path('mobile-rc11/AppRC11Final.tsx')
+          text = app.read_text()
+          old_dot = "{appointments.some(x=>x.date===isoDate(new Date(y,m,d)))&&<View style={s.dayDot}/>}"
+          new_dot = "{(()=>{const dayIso=isoDate(new Date(y,m,d));const dayRoutes=appointments.filter(x=>x.date===dayIso&&x.type==='Viagem');const hasPendingRoute=dayRoutes.some(x=>x.routeStatus!=='completed'&&x.routeStatus!=='cancelled');const hasAny=appointments.some(x=>x.date===dayIso);return hasPendingRoute?<View style={[s.dayDot,{backgroundColor:ORANGE}]}/>:hasAny?<View style={s.dayDot}/>:null})()}"
+          if old_dot not in text:
+              raise SystemExit('Agenda calendar dot block not found')
+          text = text.replace(old_dot, new_dot)
+          app.write_text(text)
+          PY
+      - name: Commit patched files
+        run: |
+          git config user.name "Movvant CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add mobile-rc11/src/TripPlannerScreen.tsx mobile-rc11/AppRC11Final.tsx
+          git commit -m "RC11.9: render only active route and flag pending trips in calendar"
+          git push origin HEAD:movvant-mobile-rc11
