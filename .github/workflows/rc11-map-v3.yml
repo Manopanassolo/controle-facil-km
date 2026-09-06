@@ -1,4 +1,4 @@
-name: RC11.6 map interaction v3
+name: RC11.7 outbound alternatives v4
 on:
   push:
     branches: [movvant-mobile-rc11]
@@ -12,36 +12,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: movvant-mobile-rc11
-      - name: Patch map alternatives, repeated touch and stop markers
+      - name: Patch canonical strategies and clickable route markers
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mobile-rc11/src/TripPlannerScreen.tsx')
           s=p.read_text()
-          s=s.replace(
-            "[calendarOpen,setCalendarOpen]=useState(false),[calendarCursor,setCalendarCursor]=useState(new Date(initialDate+'T12:00:00')),[locating,setLocating]=useState(false);",
-            "[calendarOpen,setCalendarOpen]=useState(false),[calendarCursor,setCalendarCursor]=useState(new Date(initialDate+'T12:00:00')),[locating,setLocating]=useState(false),[stopCoords,setStopCoords]=useState<Point[]>([]);"
-          )
-          old="""  const onMapPress=(e:MapPressEvent)=>{const p=e.nativeEvent.coordinate;let best=-1,bestDist=Infinity;routes.forEach((r,i)=>{const pts=decodePolyline(r.polyline);if(pts.length>1){const d=routeDistance(p,pts);if(d<bestDist){bestDist=d;best=i}}});const threshold=Math.max(mapRegion.latitudeDelta,mapRegion.longitudeDelta)*0.055;if(best>=0&&bestDist<=threshold)selectRoute(best)};
-"""
-          new="""  const onMapPress=(e:MapPressEvent)=>{const p=e.nativeEvent.coordinate;let best=-1,bestDist=Infinity;routes.forEach((r,i)=>{const pts=decodePolyline(r.polyline);if(pts.length>1){const d=routeDistance(p,pts);if(d<bestDist){bestDist=d;best=i}}});if(best>=0)selectRoute(best)};
-"""
-          if old not in s: raise SystemExit('onMapPress target not found')
+          s=s.replace("for(const strategy of ['fastest','avoid_tolls','avoid_highways'])", "for(const strategy of ['rapida','economica','urbana'])")
+          s=s.replace("strategy==='fastest'?'Mais rápida':strategy==='avoid_tolls'?'Menos pedágios':'Evitar rodovias'", "strategy==='rapida'?'Mais rápida':strategy==='economica'?'Menos pedágios':'Evitar rodovias'")
+          s=s.replace("if(items.length<2){const variants:RouteOption[]=[];", "if(items.length<3){const variants:RouteOption[]=[];")
+          old='''{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1&&i!==selected?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor="#8B9AAA" strokeWidth={5} zIndex={3}/>:null})}{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={9} zIndex={20}/>:null}'''
+          new='''{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1&&i!==selected?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor="#8B9AAA" strokeWidth={5} zIndex={3}/>:null})}{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);if(pts.length<2)return null;const fractions=[0.32,0.50,0.68],idx=Math.min(pts.length-1,Math.max(0,Math.round((fractions[i%fractions.length]||0.5)*(pts.length-1))));return <Marker key={`route-pick-${i}`} coordinate={pts[idx]} anchor={{x:.5,y:.5}} onPress={()=>selectRoute(i)} zIndex={40}><View style={{minWidth:34,height:34,borderRadius:17,alignItems:'center',justifyContent:'center',backgroundColor:i===selected?BLUE:'#FFFFFF',borderWidth:2,borderColor:i===selected?'#FFFFFF':'#536577'}}><Text style={{fontSize:12,fontWeight:'900',color:i===selected?'#FFFFFF':'#17324D'}}>{i+1}</Text></View></Marker>})}{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={9} zIndex={20}/>:null}'''
+          if old not in s: raise SystemExit('map alternatives block not found')
           s=s.replace(old,new)
-          old2="""setRoutes(items);setSelected(0);setApprovedIndex(null);setShowReturn(true);if(!items.length)setError('Nenhuma rota disponível para os pontos informados.');setTimeout(()=>scrollRef.current?.scrollToEnd({animated:true}),120)"""
-          new2="""setRoutes(items);setSelected(0);setApprovedIndex(null);setShowReturn(true);const stopTexts=stops.filter(Boolean);if(stopTexts.length){const coords=await Promise.all(stopTexts.map(async text=>{try{const g=await Location.geocodeAsync(text);return g[0]?{latitude:g[0].latitude,longitude:g[0].longitude}:null}catch{return null}}));setStopCoords(coords.filter(Boolean) as Point[])}else setStopCoords([]);if(!items.length)setError('Nenhuma rota disponível para os pontos informados.');setTimeout(()=>scrollRef.current?.scrollToEnd({animated:true}),120)"""
-          if old2 not in s: raise SystemExit('compute target not found')
-          s=s.replace(old2,new2)
-          old3='''<MapView ref={mapRef} style={[s.map,{height:mapHeight}]} initialRegion={mapRegion} customMapStyle={LIGHT_MAP_STYLE} onPress={onMapPress}>{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1&&i!==selected?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor="#B8C2CC" strokeWidth={4} zIndex={2}/>:null})}{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1?<Polyline key={`hit-${i}-${selected}`} coordinates={pts} strokeColor="rgba(0,0,0,0.01)" strokeWidth={30} tappable onPress={()=>selectRoute(i)} zIndex={30}/>:null})}{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={8} zIndex={18}/>:null}{showReturn&&returnPoints.length>1?<Polyline key={`selected-back-${selected}`} coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={6} zIndex={17}/>:null}<Marker coordinate={routePoints[0]} title="Origem"/><Marker coordinate={routePoints[routePoints.length-1]} title="Destino" pinColor={ORANGE}/></MapView>'''
-          new3='''<MapView ref={mapRef} style={[s.map,{height:mapHeight}]} initialRegion={mapRegion} customMapStyle={LIGHT_MAP_STYLE} onPress={onMapPress}>{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1&&i!==selected?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor="#8B9AAA" strokeWidth={5} zIndex={3}/>:null})}{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={9} zIndex={20}/>:null}{showReturn&&returnPoints.length>1?<Polyline key={`selected-back-${selected}`} coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={7} zIndex={19}/>:null}<Marker coordinate={routePoints[0]} title="Origem"/>{stops.filter(Boolean).map((label,i)=>{const fallback=routePoints.length?routePoints[Math.min(routePoints.length-1,Math.max(0,Math.round(((i+1)/(stops.filter(Boolean).length+1))*(routePoints.length-1))))]:null;const c=stopCoords[i]||fallback;return c?<Marker key={`stop-${i}`} coordinate={c} title={`Parada ${i+1}`} description={label} pinColor={GREEN}/>:null})}<Marker coordinate={routePoints[routePoints.length-1]} title="Destino" pinColor={ORANGE}/></MapView>'''
-          if old3 not in s: raise SystemExit('map target not found')
-          s=s.replace(old3,new3)
+          s=s.replace('Toque diretamente sobre qualquer linha. A rota selecionada fica azul; o retorno fica laranja.','Toque na linha ou nos marcadores 1, 2 e 3 para escolher a rota de ida. A selecionada fica azul; o retorno correspondente fica laranja.')
           p.write_text(s)
           PY
-      - name: Commit map v3 fix
+      - name: Commit RC11.7 map fix
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add mobile-rc11/src/TripPlannerScreen.tsx
-          git commit -m 'RC11.6: fix map touch, alternatives and stop markers'
+          git commit -m 'RC11.7: separate outbound alternatives and add map selectors'
           git push origin HEAD:movvant-mobile-rc11
