@@ -1,0 +1,10 @@
+(function(g){
+ const n=v=>Number(v||0)||0;
+ const day=s=>String(s||'').slice(0,10);
+ function indexSales(rows){const idx=new Map();for(const r of rows){const k=[r.customerCode,day(r.date)].join('|');if(!idx.has(k))idx.set(k,[]);idx.get(k).push(r);}return idx;}
+ function linkVisits({visits=[],sales=[],routes=[],windowDays=7}){const out=[];const byCustomer=new Map();for(const s of sales){if(!s.customerCode)continue;if(!byCustomer.has(s.customerCode))byCustomer.set(s.customerCode,[]);byCustomer.get(s.customerCode).push(s);}for(const arr of byCustomer.values())arr.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+ for(const v of visits){const vd=new Date(v.date||v.scheduled_date||v.start_at||0);const c=String(v.customerCode||v.customer_code||'');const candidates=(byCustomer.get(c)||[]).filter(s=>{const sd=new Date(s.date);const diff=(sd-vd)/86400000;return diff>=0&&diff<=windowDays;});const revenue=candidates.reduce((s,x)=>s+n(x.netRevenue),0);const orders=new Set(candidates.map(x=>x.invoice).filter(Boolean)).size;const route=routes.find(r=>String(r.userId||r.user_id||'')===String(v.userId||v.user_id||'')&&day(r.date||r.route_date)===day(v.date||v.scheduled_date||v.start_at));const km=n(route?.actualKm||route?.distance_km);out.push({...v,linkedRevenue:revenue,linkedOrders:orders,linkedSalesRows:candidates.length,linkedKm:km,revenuePerKm:km>0?revenue/km:0,converted:orders>0});}
+ return out;}
+ function summary(rows){const visits=rows.length,converted=rows.filter(x=>x.converted).length,revenue=rows.reduce((s,x)=>s+n(x.linkedRevenue),0),km=rows.reduce((s,x)=>s+n(x.linkedKm),0);return{visits,converted,conversionPct:visits?converted/visits*100:0,revenue,km,revenuePerVisit:visits?revenue/visits:0,revenuePerKm:km?revenue/km:0};}
+ g.MOVVANT_VISIT_SALES_LINK={indexSales,linkVisits,summary};
+})(window);
