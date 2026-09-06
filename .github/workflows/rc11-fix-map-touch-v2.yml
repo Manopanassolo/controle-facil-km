@@ -1,0 +1,49 @@
+name: RC11.5 map touch v2
+on:
+  push:
+    branches: [movvant-mobile-rc11]
+    paths: ['.github/workflows/rc11-fix-map-touch-v2.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: movvant-mobile-rc11
+      - name: Patch repeated map route selection
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile-rc11/src/TripPlannerScreen.tsx')
+          s=p.read_text()
+          old="""  const route=routes[selected];
+  const routePoints=decodePolyline(route?.polyline),returnPoints=decodePolyline(route?.returnPolyline),allOutboundPoints=routes.flatMap(r=>decodePolyline(r.polyline)),mapRegion=regionFor([...allOutboundPoints,...returnPoints]);
+  useEffect(()=>{const pts=[...allOutboundPoints,...returnPoints];if(pts.length>1)setTimeout(()=>mapRef.current?.fitToCoordinates(pts,{edgePadding:{top:50,right:50,bottom:50,left:50},animated:true}),250)},[selected,routes.length,route?.returnPolyline]);
+  const selectRoute=(i:number)=>{setSelected(i);setApprovedIndex(null);setError('')};
+  const onMapPress=(e:MapPressEvent)=>{const p=e.nativeEvent.coordinate;let best=-1,bestDist=Infinity;routes.forEach((r,i)=>{const pts=decodePolyline(r.polyline);if(pts.length>1){const d=routeDistance(p,pts);if(d<bestDist){bestDist=d;best=i}}});const threshold=Math.max(mapRegion.latitudeDelta,mapRegion.longitudeDelta)*0.035;if(best>=0&&bestDist<=threshold)selectRoute(best)};
+"""
+          new="""  const route=routes[selected];
+  const routePoints=decodePolyline(route?.polyline),returnPoints=decodePolyline(route?.returnPolyline),allOutboundPoints=routes.flatMap(r=>decodePolyline(r.polyline)),allReturnPoints=routes.flatMap(r=>decodePolyline(r.returnPolyline)),mapRegion=regionFor([...allOutboundPoints,...allReturnPoints]);
+  useEffect(()=>{const pts=[...allOutboundPoints,...allReturnPoints];if(pts.length>1)setTimeout(()=>mapRef.current?.fitToCoordinates(pts,{edgePadding:{top:50,right:50,bottom:50,left:50},animated:false}),180)},[routes.length]);
+  const selectRoute=(i:number)=>{if(i<0||i>=routes.length)return;setSelected(i);setApprovedIndex(null);setShowReturn(true);setError('')};
+  const onMapPress=(e:MapPressEvent)=>{const p=e.nativeEvent.coordinate;let best=-1,bestDist=Infinity;routes.forEach((r,i)=>{const pts=decodePolyline(r.polyline);if(pts.length>1){const d=routeDistance(p,pts);if(d<bestDist){bestDist=d;best=i}}});const threshold=Math.max(mapRegion.latitudeDelta,mapRegion.longitudeDelta)*0.055;if(best>=0&&bestDist<=threshold)selectRoute(best)};
+"""
+          if old not in s:
+              raise SystemExit('target route block not found')
+          s=s.replace(old,new)
+          old2="""<MapView ref={mapRef} style={[s.map,{height:mapHeight}]} initialRegion={mapRegion} customMapStyle={LIGHT_MAP_STYLE} onPress={onMapPress}>{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1?<><Polyline key={`hit-${i}`} coordinates={pts} strokeColor="rgba(0,0,0,0.01)" strokeWidth={22} tappable onPress={()=>selectRoute(i)} zIndex={20}/><Polyline key={`alt-${i}`} coordinates={pts} strokeColor={i===selected?BLUE:'#AEB9C5'} strokeWidth={i===selected?8:4} tappable onPress={()=>selectRoute(i)} zIndex={i===selected?15:3}/></>:null})}{showReturn&&returnPoints.length>1?<Polyline coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={6} zIndex={14}/>:null}<Marker coordinate={routePoints[0]} title="Origem"/><Marker coordinate={routePoints[routePoints.length-1]} title="Destino" pinColor={ORANGE}/></MapView>"""
+          new2="""<MapView ref={mapRef} style={[s.map,{height:mapHeight}]} initialRegion={mapRegion} customMapStyle={LIGHT_MAP_STYLE} onPress={onMapPress}>{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1&&i!==selected?<Polyline key={`alt-${i}`} coordinates={pts} strokeColor="#B8C2CC" strokeWidth={4} zIndex={2}/>:null})}{routes.map((r,i)=>{const pts=decodePolyline(r.polyline);return pts.length>1?<Polyline key={`hit-${i}-${selected}`} coordinates={pts} strokeColor="rgba(0,0,0,0.01)" strokeWidth={30} tappable onPress={()=>selectRoute(i)} zIndex={30}/>:null})}{routePoints.length>1?<Polyline key={`selected-out-${selected}`} coordinates={routePoints} strokeColor={BLUE} strokeWidth={8} zIndex={18}/>:null}{showReturn&&returnPoints.length>1?<Polyline key={`selected-back-${selected}`} coordinates={returnPoints} strokeColor={ORANGE} strokeWidth={6} zIndex={17}/>:null}<Marker coordinate={routePoints[0]} title="Origem"/><Marker coordinate={routePoints[routePoints.length-1]} title="Destino" pinColor={ORANGE}/></MapView>"""
+          if old2 not in s:
+              raise SystemExit('target map block not found')
+          s=s.replace(old2,new2)
+          p.write_text(s)
+          PY
+      - name: Commit map fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add mobile-rc11/src/TripPlannerScreen.tsx
+          git commit -m 'RC11.5: fix repeated map route selection and layer order'
+          git push origin HEAD:movvant-mobile-rc11
