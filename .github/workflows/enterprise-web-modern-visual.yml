@@ -1,0 +1,52 @@
+name: Movvant Enterprise Web Modern Visual
+on:
+  push:
+    branches: [movvant-enterprise-web-modern]
+    paths:
+      - '.github/workflows/enterprise-web-modern-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: enterprise-web-modern
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install app
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Start preview
+        run: |
+          nohup npm run preview -- --host 127.0.0.1 --port 4173 >/tmp/movvant-preview.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/movvant-preview.log
+          exit 1
+      - name: Capture actual UI
+        run: |
+          node - <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const b=await chromium.launch({headless:true});
+            const p=await b.newPage({viewport:{width:1600,height:1000}, deviceScaleFactor:1});
+            await p.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle',timeout:30000}).catch(()=>{});
+            await p.waitForTimeout(3500);
+            await p.screenshot({path:'movvant-enterprise-web-modern-real.png',fullPage:true});
+            await b.close();
+          })();
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movvant-enterprise-web-modern-real-screenshot
+          path: enterprise-web-modern/movvant-enterprise-web-modern-real.png
+          retention-days: 14
