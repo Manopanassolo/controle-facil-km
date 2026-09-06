@@ -21,8 +21,9 @@ jobs:
         run: npm run build
       - name: Verify Movvant identity
         run: |
-          grep -qi 'Movvant' dist/index.html
-          ! grep -qi 'Controle Fácil KM' dist/index.html
+          grep -Eqi '<title>[^<]*Movvant' dist/index.html
+          ! grep -Eqi '<title>[^<]*(Controle Fácil KM|Controle KM)' dist/index.html
+          ! grep -Eqi '>(Controle Fácil KM|Controle KM)<' dist/index.html
       - name: Inspect rendered shell
         run: node inspect-shell.js
       - name: Export Movvant canonical HTML snapshot
@@ -32,14 +33,13 @@ jobs:
           path: dist/index.html
           retention-days: 7
       - name: Capture desktop visual reference
-        if: github.event_name == 'pull_request'
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           node preview-desktop-screens.mjs
       - name: Upload visual reference
-        if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: movvant-web-reference-preview
           path: /tmp/movvant-preview-*.png
+          retention-days: 7
