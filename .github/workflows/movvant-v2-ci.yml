@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - movvant-v2-rebuild
+      - movvant-enterprise-web-full-transplant
     paths:
       - 'movvant-v2/**'
       - '.github/workflows/movvant-v2-ci.yml'
@@ -11,6 +12,7 @@ on:
     paths:
       - 'movvant-v2/**'
       - '.github/workflows/movvant-v2-ci.yml'
+  workflow_dispatch:
 
 jobs:
   validate-v2:
