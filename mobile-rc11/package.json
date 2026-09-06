@@ -4,7 +4,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "postinstall": "node scripts/rc11-map-calendar-patch.js",
+    "postinstall": "node scripts/rc11-map-calendar-patch.js && node scripts/rc11-operations-foundation-patch.js",
     "start": "expo start",
     "android": "expo start --android",
     "build:android": "eas build --platform android --profile preview",
