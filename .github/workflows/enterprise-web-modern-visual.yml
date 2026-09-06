@@ -3,6 +3,7 @@ on:
   push:
     branches: [movvant-enterprise-web-modern]
     paths:
+      - 'enterprise-web-modern/**'
       - '.github/workflows/enterprise-web-modern-visual.yml'
   workflow_dispatch:
 permissions:
