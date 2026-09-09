@@ -1,0 +1,55 @@
+name: Movvant V2 Static Preview Build
+
+on:
+  push:
+    branches:
+      - movvant-v2-rebuild
+    paths:
+      - 'movvant-v2/**'
+      - '.github/workflows/movvant-v2-pages-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: movvant-v2-static-preview
+  cancel-in-progress: true
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: movvant-v2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: movvant-v2/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate architecture
+        run: npm run guard
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Build static preview
+        env:
+          GITHUB_PAGES: 'true'
+        run: npm run build
+
+      - name: Upload static preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: movvant-v2-static-preview
+          path: movvant-v2/out
+          if-no-files-found: error
+          retention-days: 7

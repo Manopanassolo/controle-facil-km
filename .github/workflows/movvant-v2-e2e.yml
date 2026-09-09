@@ -1,0 +1,63 @@
+name: Movvant V2 Browser E2E
+
+on:
+  push:
+    branches:
+      - movvant-v2-rebuild
+    paths:
+      - 'movvant-v2/**'
+      - '.github/workflows/movvant-v2-e2e.yml'
+  pull_request:
+    paths:
+      - 'movvant-v2/**'
+      - '.github/workflows/movvant-v2-e2e.yml'
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: movvant-v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: movvant-v2/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Validate and build V2
+        run: npm run build
+
+      - name: Install Playwright Python
+        run: |
+          python3 -m pip install --disable-pip-version-check playwright==1.62.0
+          python3 -m playwright install --with-deps chromium
+
+      - name: Start isolated V2 server
+        run: |
+          nohup npm start -- --hostname 127.0.0.1 --port 3000 > /tmp/movvant-v2-server.log 2>&1 &
+          echo $! > /tmp/movvant-v2-server.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:3000/dashboard > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/movvant-v2-server.log
+          exit 1
+
+      - name: Browser E2E
+        run: python3 scripts/e2e-smoke.py
+
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/movvant-v2-server.log || true

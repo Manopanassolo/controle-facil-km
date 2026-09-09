@@ -1,0 +1,30 @@
+.data-panel { margin-top: 14px; }
+.data-table { display: grid; gap: 8px; }
+.data-row { display: grid; grid-template-columns: 90px 1fr 1.2fr 110px; align-items: center; gap: 12px; padding: 12px 13px; border: 1px solid var(--mv-border); border-radius: 12px; background: #fbfcfd; font-size: 11px; }
+.data-row strong, .data-row b { color: var(--mv-blue-950); }
+.data-row b { text-align: right; }
+.data-row span { color: var(--mv-muted); }
+.cards-list { display: grid; gap: 12px; }
+.vehicle-card { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; align-items: center; gap: 16px; min-height: 110px; }
+.vehicle-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 15px; background: var(--mv-blue-900); color: var(--mv-lime); font-weight: 900; font-size: 18px; }
+.vehicle-copy h2 { margin: 0 0 5px; }
+.vehicle-copy p { margin: 0; color: var(--mv-muted); font-size: 11px; }
+.reports-layout { display: grid; grid-template-columns: 1.25fr .75fr; gap: 14px; }
+.report-hero { min-height: 390px; }
+.report-number { display: block; margin-top: 28px; font-size: clamp(38px,5vw,64px); line-height: 1; letter-spacing: -.05em; color: var(--mv-blue-950); }
+.report-caption { display: block; margin-top: 8px; color: var(--mv-muted); font-size: 11px; }
+.bar-chart { height: 180px; display: flex; align-items: end; gap: 12px; margin-top: 30px; padding: 18px 18px 0; border-left: 1px solid var(--mv-border); border-bottom: 1px solid var(--mv-border); background: linear-gradient(180deg,rgba(244,247,249,.2),rgba(244,247,249,.7)); border-radius: 8px 8px 0 0; }
+.bar-chart i { flex: 1; min-width: 12px; background: linear-gradient(180deg,var(--mv-lime),#8ac51e); border-radius: 7px 7px 2px 2px; box-shadow: 0 5px 12px rgba(138,197,30,.16); }
+.report-list { margin-top: 18px; }
+@media (max-width: 900px) {
+  .reports-layout { grid-template-columns: 1fr; }
+  .data-row { grid-template-columns: 78px 1fr 90px; }
+  .data-row span:nth-child(3) { display: none; }
+}
+@media (max-width: 520px) {
+  .data-row { grid-template-columns: 1fr auto; }
+  .data-row span:first-child { grid-column: 1 / -1; }
+  .vehicle-card { grid-template-columns: 48px minmax(0,1fr); }
+  .vehicle-card > .tag { grid-column: 2; justify-self: start; }
+  .vehicle-icon { width: 44px; height: 44px; }
+}

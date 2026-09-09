@@ -1,0 +1,46 @@
+name: Movvant V2 CI
+
+on:
+  push:
+    branches:
+      - movvant-v2-rebuild
+    paths:
+      - 'movvant-v2/**'
+      - '.github/workflows/movvant-v2-ci.yml'
+  pull_request:
+    paths:
+      - 'movvant-v2/**'
+      - '.github/workflows/movvant-v2-ci.yml'
+
+jobs:
+  validate-v2:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: movvant-v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: movvant-v2/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+      - name: Architecture guard
+        run: npm run guard
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
