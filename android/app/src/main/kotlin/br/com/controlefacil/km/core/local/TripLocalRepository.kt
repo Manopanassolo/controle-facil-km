@@ -12,7 +12,7 @@ class TripLocalRepository(context: Context) {
 
     fun list(): List<Trip> {
         val raw = preferences.getString(KEY_TRIPS, "[]") ?: "[]"
-        val array = JSONArray(raw)
+        val array = LocalJsonRecoveryPolicy.parse(raw).json
         return buildList {
             for (i in 0 until array.length()) {
                 val o = array.getJSONObject(i)
