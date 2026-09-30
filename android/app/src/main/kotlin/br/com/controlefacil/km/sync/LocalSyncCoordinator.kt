@@ -178,7 +178,7 @@ class LocalSyncCoordinator(
                 currentOdometerM = it.current_odometer_m, isDefault = it.is_default, isActive = it.is_active
             )
         }
-        vehicles.replaceAll(SyncApplyPolicy.retainConflictRows(remoteRows, batch.conflicts, Vehicle::id))
+        vehicles.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, batch.conflicts.map { it.local.id }, conflictRows, Vehicle::id))
     }
 
     private fun applyTrips(batch: SyncBatch<RemoteTrip>) {
@@ -202,7 +202,7 @@ class LocalSyncCoordinator(
                 status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
             )
         }
-        trips.replaceAll(SyncApplyPolicy.retainConflictRows(remoteRows, batch.conflicts, Trip::id))
+        trips.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, batch.conflicts.map { it.local.id }, conflictRows, Trip::id))
     }
 
     private fun applyExpenses(batch: SyncBatch<RemoteExpense>) {
@@ -228,7 +228,7 @@ class LocalSyncCoordinator(
                 notes = it.notes
             )
         }
-        expenses.replaceAll(SyncApplyPolicy.retainConflictRows(remoteRows, batch.conflicts, Expense::id))
+        expenses.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, batch.conflicts.map { it.local.id }, conflictRows, Expense::id))
     }
 }
 
