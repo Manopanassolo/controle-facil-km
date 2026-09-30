@@ -269,6 +269,7 @@ private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onExpenses: (
     val completedTrips = trips.count { it.status == TripStatus.COMPLETED }
     val expenses = remember { expenseRepository.list() }
     val totalExpensesCents = expenses.sumOf { it.amountCents }
+    val syncState = remember { SyncStatusStore(context).get() }
     val labels = listOf("Início", "Viagens", "Despesas", "Agenda", "Mais")
     val icons = listOf(Icons.Filled.Home, Icons.Filled.DirectionsCar, Icons.Filled.ReceiptLong, Icons.Filled.CalendarMonth, Icons.Filled.MoreHoriz)
     AppScaffold(tab, { selected ->
