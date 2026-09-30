@@ -60,11 +60,14 @@ import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseCategoryLocalRepository
 import br.com.controlefacil.km.core.local.AttachmentLocalRepository
+import br.com.controlefacil.km.core.local.ReceiptLocalFileStore
 import br.com.controlefacil.km.core.model.Attachment
 import br.com.controlefacil.km.auth.SupabaseAuthRepository
 import br.com.controlefacil.km.auth.SupabaseClientProvider
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import br.com.controlefacil.km.core.model.ExpensePayment
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
 import br.com.controlefacil.km.core.model.Trip
@@ -464,6 +467,7 @@ private fun ExpenseScreen(
     onBack: () -> Unit
 ) {
     val appContext = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val vehicles = remember { vehicleRepository.listActive() }
     val categories = remember { categoryRepository.listActive() }
     var selectedVehicleId by rememberSaveable { mutableStateOf(VehicleSelectionRules.initialSelection(vehicles)) }
@@ -478,10 +482,21 @@ private fun ExpenseScreen(
     var receiptUri by rememberSaveable { mutableStateOf<String?>(null) }
     var receiptName by rememberSaveable { mutableStateOf<String?>(null) }
     val receiptPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        receiptUri = uri?.toString()
-        receiptName = uri?.let { appContext.contentResolver.query(it, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0) else null
-        } }
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                ReceiptLocalFileStore.copyToPrivateStorage(appContext, uri)
+            }
+            result.onSuccess { stored ->
+                receiptUri = stored.localUri
+                receiptName = stored.originalFilename
+                error = null
+            }.onFailure {
+                receiptUri = null
+                receiptName = null
+                error = it.message ?: "Não foi possível armazenar o comprovante."
+            }
+        }
     }
     val categoryNames = remember(categories) { categories.associate { it.id to it.name } }
     val expenses = remember(version) { expenseRepository.list().sortedByDescending { it.expenseDate } }
@@ -561,23 +576,36 @@ private fun ExpenseScreen(
                         paymentMethod = payment,
                         notes = null
                     ).onSuccess { saved ->
-                        receiptUri?.let { uriString ->
-                            val uri = android.net.Uri.parse(uriString)
-                            val mime = appContext.contentResolver.getType(uri) ?: "application/octet-stream"
-                            val size = appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }.takeIf { it != null && it >= 0 } ?: 0L
+                        val attachmentResult = receiptUri?.let { uriString ->
                             attachmentRepository.save(
                                 Attachment(
                                     id = UUID.randomUUID().toString(),
                                     expenseId = saved.id,
                                     localUri = uriString,
                                     originalFilename = receiptName ?: "comprovante",
-                                    mimeType = mime,
-                                    fileSizeBytes = size
+                                    mimeType = if (uriString.startsWith("file://")) {
+                                        receiptName?.substringAfterLast('.', "").takeIf { !it.isNullOrBlank() }?.let {
+                                            android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(it)
+                                        } ?: "application/octet-stream"
+                                    } else {
+                                        appContext.contentResolver.getType(android.net.Uri.parse(uriString))
+                                            ?: "application/octet-stream"
+                                    },
+                                    fileSizeBytes = if (uriString.startsWith("file://")) {
+                                        java.io.File(android.net.Uri.parse(uriString).path!!).length()
+                                    } else {
+                                        0L
+                                    }
                                 )
                             )
                         }
-                        description = ""; amount = ""; merchant = ""; odometer = ""; receiptUri = null; receiptName = null; error = null; version++
-                        SyncScheduler.requestNow(appContext)
+                        if (attachmentResult?.isFailure == true) {
+                            error = attachmentResult.exceptionOrNull()?.message
+                                ?: "A despesa foi salva, mas o comprovante não pôde ser associado."
+                        } else {
+                            description = ""; amount = ""; merchant = ""; odometer = ""; receiptUri = null; receiptName = null; error = null; version++
+                            SyncScheduler.requestNow(appContext)
+                        }
                     }.onFailure { error = it.message ?: "Não foi possível salvar a despesa." }
                 }
             }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Salvar despesa") }
