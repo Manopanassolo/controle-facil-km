@@ -143,9 +143,7 @@ async function syncCalendar(userId: string, connection: any) {
         await admin.from("calendar_events")
           .update({ deleted_at: new Date().toISOString() })
           .eq("connection_id", connection.id);
-        nextSyncToken = undefined;
-        pageToken = undefined;
-        continue;
+        return await syncCalendar(userId, { ...connection, next_sync_token: null });
       }
       throw e;
     }
