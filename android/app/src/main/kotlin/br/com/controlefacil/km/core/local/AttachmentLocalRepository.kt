@@ -3,6 +3,7 @@ package br.com.controlefacil.km.core.local
 import android.content.Context
 import br.com.controlefacil.km.core.model.Attachment
 import br.com.controlefacil.km.core.model.AttachmentSyncState
+import br.com.controlefacil.km.core.rules.AttachmentRules
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -36,7 +37,8 @@ class AttachmentLocalRepository(context: Context) {
         }
     }
 
-    fun save(attachment: Attachment) {
+    fun save(attachment: Attachment): Result<Unit> = runCatching {
+        AttachmentRules.validate(attachment).getOrThrow()
         val existing = list().filterNot { it.id == attachment.id }
         writeAll(existing + attachment)
     }
