@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+<title>Controle Fácil KM</title>
+<desc>Marca Controle Fácil KM com símbolo de rota e localização</desc>
+<rect width="640" height="160" rx="28" fill="#155EEF"/>
+<g transform="translate(28 22)">
+  <path d="M58 8C31 8 10 29 10 56c0 35 48 68 48 68s48-33 48-68C106 29 85 8 58 8Z" fill="#fff"/>
+  <circle cx="58" cy="56" r="17" fill="#FFC928"/>
+  <path d="M58 43v26M45 56h26" stroke="#123A7A" stroke-width="6" stroke-linecap="round"/>
+  <path d="M14 104c22 10 43 15 65 13" fill="none" stroke="#FFC928" stroke-width="7" stroke-linecap="round"/>
+</g>
+<text x="150" y="76" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="800" fill="#fff">Controle Fácil</text>
+<text x="152" y="116" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#FFC928">KM</text>
+</svg>
