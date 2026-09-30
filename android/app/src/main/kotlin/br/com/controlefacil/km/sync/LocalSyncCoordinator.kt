@@ -109,7 +109,7 @@ class LocalSyncCoordinator(
                 version = 1
             )
             metadata += remoteRow
-            attachments.save(item)
+            attachments.save(item.copy(state = AttachmentSyncState.UPLOADING))
         }
 
         if (metadata.isNotEmpty()) {
@@ -120,6 +120,9 @@ class LocalSyncCoordinator(
                     attachments.updateState(it.id, AttachmentSyncState.ERROR, storagePath = it.storage_path, uploadedAt = it.uploaded_at, error = result.exceptionOrNull()?.message ?: "Falha ao registrar comprovante.")
                 }
             } else {
+                metadata.forEach { item ->
+                    attachments.updateState(item.id, AttachmentSyncState.SYNCED, storagePath = item.storage_path, uploadedAt = item.uploaded_at, error = null)
+                }
                 uploaded += metadata.size
             }
         }
