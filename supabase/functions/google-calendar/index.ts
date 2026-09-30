@@ -14,6 +14,7 @@ const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const googleClientId = Deno.env.get("CFKM_GOOGLE_CLIENT_ID")!;
 const googleClientSecret = Deno.env.get("CFKM_GOOGLE_CLIENT_SECRET")!;
 const publicBaseUrl = Deno.env.get("CFKM_GOOGLE_CALLBACK_BASE_URL")!;
+const appRedirectUri = Deno.env.get("CFKM_APP_REDIRECT_URI")!;
 
 const admin = createClient(supabaseUrl, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -288,7 +289,7 @@ async function callback(req: Request) {
 
   await admin.from("calendar_oauth_states").update({ used_at: new Date().toISOString() }).eq("id", oauthState.id);
 
-  const redirect = new URL("https://controlefacil.app/google-calendar-callback");
+  const redirect = new URL(appRedirectUri);
   redirect.searchParams.set("status", "connected");
   return Response.redirect(redirect.toString(), 302);
 }
