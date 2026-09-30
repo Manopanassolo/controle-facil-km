@@ -71,7 +71,8 @@ class LocalSyncCoordinator(
             SyncResult(
                 uploaded = vehicleBatch.uploaded + tripBatch.uploaded + expenseBatch.uploaded + attachmentResult.uploaded,
                 downloaded = vehicleBatch.remoteWins.size + tripBatch.remoteWins.size + expenseBatch.remoteWins.size,
-                conflicts = vehicleBatch.conflicts.size + tripBatch.conflicts.size + expenseBatch.conflicts.size + attachmentResult.conflicts
+                conflicts = vehicleBatch.conflicts.size + tripBatch.conflicts.size + expenseBatch.conflicts.size,
+                errors = attachmentResult.errors
             )
         )
     }
@@ -123,7 +124,7 @@ class LocalSyncCoordinator(
             }
         }
 
-        return AttachmentSyncSummary(uploaded = uploaded, conflicts = errors)
+        return AttachmentSyncSummary(uploaded = uploaded, errors = errors)
     }
 
     private fun applyVehicles(batch: SyncBatch<RemoteVehicle>) {
@@ -171,4 +172,4 @@ class LocalSyncCoordinator(
 }
 
 
-private data class AttachmentSyncSummary(val uploaded: Int, val conflicts: Int)
+private data class AttachmentSyncSummary(val uploaded: Int, val errors: Int)
