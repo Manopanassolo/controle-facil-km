@@ -17,9 +17,12 @@ class ReceiptStorageRepository(private val context: Context) {
         if (attachment.storagePath != null) return@runCatching attachment.copy(state = AttachmentSyncState.SYNCED, error = null)
         require(attachment.expenseId != null || attachment.tripId != null) { "Comprovante sem viagem ou despesa vinculada." }
 
-        val bytes = context.contentResolver.openInputStream(android.net.Uri.parse(attachment.localUri))
-            ?.use { it.readBytes() }
-            ?: error("Não foi possível ler o comprovante local.")
+        val bytes = if (attachment.localUri.startsWith("file://")) {
+            java.io.File(android.net.Uri.parse(attachment.localUri).path!!).readBytes()
+        } else {
+            context.contentResolver.openInputStream(android.net.Uri.parse(attachment.localUri))
+                ?.use { it.readBytes() }
+        } ?: error("Não foi possível ler o comprovante local.")
 
         require(bytes.isNotEmpty()) { "O comprovante está vazio." }
 
