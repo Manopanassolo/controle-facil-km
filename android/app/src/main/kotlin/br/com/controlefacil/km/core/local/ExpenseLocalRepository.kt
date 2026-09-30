@@ -11,8 +11,7 @@ class ExpenseLocalRepository(context: Context) {
     private val preferences = context.getSharedPreferences("controle_facil_km_local", Context.MODE_PRIVATE)
 
     fun list(): List<Expense> {
-        val raw = preferences.getString(KEY_EXPENSES, "[]") ?: "[]"
-        val array = JSONArray(raw)
+        val array = JSONArray(preferences.getString(KEY_EXPENSES, "[]") ?: "[]")
         return buildList {
             for (i in 0 until array.length()) {
                 val o = array.getJSONObject(i)
@@ -35,6 +34,13 @@ class ExpenseLocalRepository(context: Context) {
         }
     }
 
+    fun replaceAll(expenses: List<Expense>) = writeAll(expenses)
+
+    fun remapCategoryIds(idMap: Map<String, String>) {
+        if (idMap.isEmpty()) return
+        writeAll(list().map { it.copy(categoryId = idMap[it.categoryId] ?: it.categoryId) })
+    }
+
     fun save(
         vehicleId: String,
         categoryId: String,
@@ -49,9 +55,8 @@ class ExpenseLocalRepository(context: Context) {
     ): Result<Expense> {
         val validation = ExpenseRules.validate(description, amountCents, expenseDate, vehicleId)
         if (!validation.valid) return Result.failure(IllegalArgumentException(validation.message))
-        if (odometerM != null && odometerM < 0L) {
-            return Result.failure(IllegalArgumentException("O KM da despesa não pode ser negativo."))
-        }
+        if (categoryId.isBlank()) return Result.failure(IllegalArgumentException("Selecione uma categoria."))
+        if (odometerM != null && odometerM < 0L) return Result.failure(IllegalArgumentException("O KM da despesa não pode ser negativo."))
         val expense = Expense(
             id = java.util.UUID.randomUUID().toString(),
             vehicleId = vehicleId,
@@ -65,7 +70,11 @@ class ExpenseLocalRepository(context: Context) {
             paymentMethod = paymentMethod,
             notes = notes?.trim()?.takeIf { it.isNotEmpty() }
         )
-        val expenses = list() + expense
+        writeAll(list() + expense)
+        return Result.success(expense)
+    }
+
+    private fun writeAll(expenses: List<Expense>) {
         val array = JSONArray()
         expenses.forEach { e ->
             array.put(JSONObject().apply {
@@ -83,10 +92,7 @@ class ExpenseLocalRepository(context: Context) {
             })
         }
         preferences.edit().putString(KEY_EXPENSES, array.toString()).apply()
-        return Result.success(expense)
     }
 
-    companion object {
-        private const val KEY_EXPENSES = "expenses"
-    }
+    companion object { private const val KEY_EXPENSES = "expenses" }
 }
