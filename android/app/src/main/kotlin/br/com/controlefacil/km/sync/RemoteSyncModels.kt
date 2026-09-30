@@ -73,3 +73,24 @@ data class RemoteExpense(
     val updated_at: String? = null,
     val deleted_at: String? = null
 )
+
+
+@Serializable
+data class RemoteAttachment(
+    val id: String,
+    val user_id: String,
+    val expense_id: String? = null,
+    val trip_id: String? = null,
+    val storage_path: String,
+    val original_filename: String,
+    val mime_type: String,
+    val file_size_bytes: Long,
+    val sha256: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val uploaded_at: String? = null,
+    val version: Int = 1,
+    val created_at: String? = null,
+    val updated_at: String? = null,
+    val deleted_at: String? = null
+)
