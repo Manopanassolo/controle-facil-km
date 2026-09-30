@@ -9,6 +9,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import br.com.controlefacil.km.auth.SupabaseClientProvider
+import io.github.jan.supabase.auth.auth
 import br.com.controlefacil.km.core.local.ExpenseCategoryLocalRepository
 import br.com.controlefacil.km.core.local.AttachmentLocalRepository
 import br.com.controlefacil.km.core.local.ReceiptStorageRepository
