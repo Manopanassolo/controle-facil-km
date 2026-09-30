@@ -41,6 +41,21 @@ data class RemoteTrip(
 )
 
 @Serializable
+data class RemoteExpenseCategory(
+    val id: String,
+    val user_id: String,
+    val name: String,
+    val icon: String? = null,
+    val color: String? = null,
+    val sort_order: Int = 0,
+    val is_system: Boolean = true,
+    val is_active: Boolean = true,
+    val version: Int = 1,
+    val updated_at: String? = null,
+    val deleted_at: String? = null
+)
+
+@Serializable
 data class RemoteExpense(
     val id: String,
     val user_id: String,
