@@ -63,6 +63,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
 
     // Configuração pública do Supabase: URL e publishable key podem ser injetadas no build.
     // Nunca colocar service_role/secret key no APK.
