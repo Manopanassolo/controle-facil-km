@@ -1,7 +1,10 @@
 package br.com.controlefacil.km.auth
 
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 class SupabaseAuthRepository(
     private val client: io.github.jan.supabase.SupabaseClient = SupabaseClientProvider.client
@@ -24,8 +27,8 @@ class SupabaseAuthRepository(
             this.email = email.trim()
             this.password = password
             if (!displayName.isNullOrBlank()) {
-                data = kotlinx.serialization.json.buildJsonObject {
-                    put("display_name", displayName.trim())
+                data = buildJsonObject {
+                    put("display_name", JsonPrimitive(displayName.trim()))
                 }
             }
         }
