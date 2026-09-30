@@ -56,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
+import br.com.controlefacil.km.core.local.ExpenseCategoryLocalRepository
 import br.com.controlefacil.km.auth.SupabaseAuthRepository
 import br.com.controlefacil.km.auth.SupabaseClientProvider
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -90,6 +91,8 @@ fun ControleFacilApp() {
     val vehicleRepository = remember { VehicleLocalRepository(context) }
     val tripRepository = remember { TripLocalRepository(context) }
     val expenseRepository = remember { ExpenseLocalRepository(context) }
+    val expenseCategoryRepository = remember { ExpenseCategoryLocalRepository(context) }
+    LaunchedEffect(Unit) { expenseCategoryRepository.seedDefaultsIfEmpty() }
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
         when (screen) {
             AppScreen.AUTH -> AuthScreen(
@@ -118,6 +121,7 @@ fun ControleFacilApp() {
             AppScreen.EXPENSES -> ExpenseScreen(
                 vehicleRepository = vehicleRepository,
                 expenseRepository = expenseRepository,
+                categoryRepository = expenseCategoryRepository,
                 onBack = { screen = AppScreen.HOME }
             )
             AppScreen.NEW_TRIP -> NewTripScreen(
@@ -434,18 +438,21 @@ private fun NewTripScreen(
 private fun ExpenseScreen(
     vehicleRepository: VehicleLocalRepository,
     expenseRepository: ExpenseLocalRepository,
+    categoryRepository: ExpenseCategoryLocalRepository,
     onBack: () -> Unit
 ) {
     val vehicles = remember { vehicleRepository.listActive() }
+    val categories = remember { categoryRepository.listActive() }
     var selectedVehicleId by rememberSaveable { mutableStateOf(VehicleSelectionRules.initialSelection(vehicles)) }
+    var selectedCategoryId by rememberSaveable { mutableStateOf(categories.firstOrNull()?.id.orEmpty()) }
     var description by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     var merchant by rememberSaveable { mutableStateOf("") }
     var odometer by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("Geral") }
     var payment by rememberSaveable { mutableStateOf(ExpensePayment.PIX) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var version by rememberSaveable { mutableStateOf(0) }
+    val categoryNames = remember(categories) { categories.associate { it.id to it.name } }
     val expenses = remember(version) { expenseRepository.list().sortedByDescending { it.expenseDate } }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
@@ -470,11 +477,19 @@ private fun ExpenseScreen(
                 Spacer(Modifier.height(5.dp))
             }
             Spacer(Modifier.height(10.dp))
+            Text("Categoria", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            categories.forEach { item ->
+                OutlinedButton(
+                    onClick = { selectedCategoryId = item.id },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = if (selectedCategoryId == item.id) BorderStroke(2.dp, BluePrimary) else null
+                ) { Text(item.name) }
+                Spacer(Modifier.height(5.dp))
+            }
             OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Descrição*") }, singleLine = true)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(amount, { amount = it }, Modifier.fillMaxWidth(), label = { Text("Valor (R$)*") }, singleLine = true)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(category, { category = it }, Modifier.fillMaxWidth(), label = { Text("Categoria") }, singleLine = true)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth(), label = { Text("Estabelecimento") }, singleLine = true)
             Spacer(Modifier.height(8.dp))
@@ -490,14 +505,13 @@ private fun ExpenseScreen(
             Spacer(Modifier.height(12.dp))
             Button(onClick = {
                 val cents = amount.replace(",", ".").toDoubleOrNull()?.let { kotlin.math.round(it * 100).toLong() }
-                if (selectedVehicleId == null) {
-                    error = "Selecione um veículo."
-                } else if (cents == null) {
-                    error = "Informe um valor válido."
-                } else {
-                    val result = expenseRepository.save(
+                if (selectedVehicleId == null) error = "Selecione um veículo."
+                else if (selectedCategoryId.isBlank()) error = "Selecione uma categoria."
+                else if (cents == null) error = "Informe um valor válido."
+                else {
+                    expenseRepository.save(
                         vehicleId = selectedVehicleId!!,
-                        categoryId = category.trim().ifBlank { "Geral" },
+                        categoryId = selectedCategoryId,
                         tripId = null,
                         expenseDate = LocalDate.now().toString(),
                         description = description,
@@ -506,8 +520,7 @@ private fun ExpenseScreen(
                         merchant = merchant,
                         paymentMethod = payment,
                         notes = null
-                    )
-                    result.onSuccess {
+                    ).onSuccess {
                         description = ""; amount = ""; merchant = ""; odometer = ""; error = null; version++
                     }.onFailure { error = it.message ?: "Não foi possível salvar a despesa." }
                 }
@@ -520,7 +533,7 @@ private fun ExpenseScreen(
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(expense.description, fontWeight = FontWeight.Bold)
-                        Text(expense.expenseDate + " • " + expense.categoryId, color = TextSecondary)
+                        Text(expense.expenseDate + " • " + (categoryNames[expense.categoryId] ?: "Categoria"), color = TextSecondary)
                     }
                     Text("R$ %.2f".format(java.util.Locale("pt", "BR"), expense.amountCents / 100.0), color = BluePrimary, fontWeight = FontWeight.Bold)
                 }
