@@ -29,7 +29,7 @@ class ReceiptStorageRepository(private val context: Context) {
 
         val ownerFolder = user.id
         val recordFolder = attachment.expenseId ?: attachment.tripId!!
-        val path = "\$ownerFolder/\$recordFolder/\$\{attachment.id\}.\$extension"
+        val path = "$" + "ownerFolder/" + "$" + "recordFolder/" + "$" + "{attachment.id}." + "$" + "extension"
 
         client.storage.from("receipts").upload(path, bytes) {
             upsert = false
