@@ -49,7 +49,7 @@ class SupabaseSyncRepository(
             if (rows.isNotEmpty()) client.from("expenses").upsert(rows)
         }
 
-    private suspend fun <T> syncTable(
+    private suspend fun <T : Any> syncTable(
         local: List<T>,
         remoteLoader: suspend () -> List<T>,
         uploader: suspend (List<T>) -> Unit
