@@ -24,8 +24,10 @@ class SupabaseSyncWorker(
 
     override suspend fun doWork(): Result {
         val context = applicationContext
-        if (!AndroidConnectivity(context).isOnline()) return Result.retry()
-        if (SupabaseClientProvider.client.auth.currentUserOrNull() == null) return Result.success()
+        val status = SyncStatusStore(context)
+        if (!AndroidConnectivity(context).isOnline()) { status.set(SyncUiState.OFFLINE); return Result.retry() }
+        status.set(SyncUiState.SYNCING)
+        if (SupabaseClientProvider.client.auth.currentUserOrNull() == null) { status.set(SyncUiState.PENDING); return Result.success() }
 
         val result = LocalSyncCoordinator(
             connectivity = AndroidConnectivity(context),
@@ -40,8 +42,11 @@ class SupabaseSyncWorker(
         ).run()
 
         return result.fold(
-            onSuccess = { Result.success() },
-            onFailure = { Result.retry() }
+            onSuccess = { resultValue ->
+                status.set(if (resultValue.errors > 0 || resultValue.conflicts > 0) SyncUiState.ERROR else SyncUiState.SYNCED)
+                Result.success()
+            },
+            onFailure = { status.set(SyncUiState.ERROR); Result.retry() }
         )
     }
 }
