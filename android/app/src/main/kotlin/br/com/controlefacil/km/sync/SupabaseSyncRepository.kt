@@ -1,6 +1,10 @@
 package br.com.controlefacil.km.sync
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.decodeList
+import io.github.jan.supabase.postgrest.upsert
 import io.github.jan.supabase.auth.user.UserInfo
 
 data class SyncBatch<T>(
