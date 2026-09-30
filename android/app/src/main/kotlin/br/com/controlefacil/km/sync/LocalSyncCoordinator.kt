@@ -152,7 +152,14 @@ class LocalSyncCoordinator(
                 currentOdometerM = it.current_odometer_m, isDefault = it.is_default, isActive = it.is_active
             )
         }
-        vehicles.replaceAll(remoteRows)
+        val conflictRows = batch.conflicts.map { it.local }.map {
+            Vehicle(
+                id = it.id, name = it.name, brand = it.brand, model = it.model, year = it.year,
+                plate = it.plate, fuelType = it.fuel_type, initialOdometerM = it.initial_odometer_m,
+                currentOdometerM = it.current_odometer_m, isDefault = it.is_default, isActive = it.is_active
+            )
+        }
+        vehicles.replaceAll(remoteRows + conflictRows)
     }
 
     private fun applyTrips(batch: SyncBatch<RemoteTrip>) {
@@ -167,7 +174,17 @@ class LocalSyncCoordinator(
                 status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
             )
         }
-        trips.replaceAll(remoteRows)
+        val conflictRows = batch.conflicts.map { it.local }.map {
+            Trip(
+                id = it.id, vehicleId = it.vehicle_id, tripDate = it.trip_date,
+                startOdometerM = it.start_odometer_m, endOdometerM = it.end_odometer_m,
+                origin = it.origin, destination = it.destination,
+                tripType = runCatching { TripType.valueOf(it.trip_type.uppercase()) }.getOrDefault(TripType.PERSONAL),
+                purpose = it.purpose, notes = it.notes,
+                status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
+            )
+        }
+        trips.replaceAll(remoteRows + conflictRows)
     }
 
     private fun applyExpenses(batch: SyncBatch<RemoteExpense>) {
@@ -183,7 +200,18 @@ class LocalSyncCoordinator(
                 notes = it.notes
             )
         }
-        expenses.replaceAll(remoteRows)
+        val conflictRows = batch.conflicts.map { it.local }.map {
+            Expense(
+                id = it.id, vehicleId = it.vehicle_id, categoryId = it.category_id, tripId = it.trip_id,
+                expenseDate = it.expense_date, description = it.description, amountCents = it.amount_cents,
+                odometerM = it.odometer_m, merchant = it.merchant,
+                paymentMethod = it.payment_method?.let { method ->
+                    runCatching { ExpensePayment.valueOf(method.uppercase()) }.getOrNull()
+                },
+                notes = it.notes
+            )
+        }
+        expenses.replaceAll(remoteRows + conflictRows)
     }
 }
 
