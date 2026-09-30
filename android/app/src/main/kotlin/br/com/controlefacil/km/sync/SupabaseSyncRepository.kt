@@ -36,10 +36,11 @@ class SupabaseSyncRepository(
         client.from("expense_categories").select().decodeList<RemoteExpenseCategory>()
     }
 
-    suspend fun syncAttachments(local: List<RemoteAttachment>): Result<SyncBatch<RemoteAttachment>> =
-        syncTable(local, { client.from("attachments").select().decodeList<RemoteAttachment>() }) { rows ->
-            if (rows.isNotEmpty()) client.from("attachments").upsert(rows)
-        }
+    suspend fun upsertAttachments(local: List<RemoteAttachment>): Result<Int> = runCatching {
+        requireNotNull(userProvider()) { "Usuário não autenticado." }
+        if (local.isNotEmpty()) client.from("attachments").upsert(local)
+        local.size
+    }
 
     suspend fun syncExpenses(local: List<RemoteExpense>): Result<SyncBatch<RemoteExpense>> =
         syncTable(local, { client.from("expenses").select().decodeList<RemoteExpense>() }) { rows ->
