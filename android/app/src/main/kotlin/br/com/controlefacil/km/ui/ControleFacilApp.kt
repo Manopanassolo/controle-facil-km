@@ -462,7 +462,7 @@ private fun ExpenseScreen(
             Text("Pagamento", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(ExpensePayment.PIX, ExpensePayment.CREDIT, ExpensePayment.DEBIT, ExpensePayment.CASH).forEach { method ->
-                    FilterChipLike(method.name, payment == method) { payment = method }
+                    FilterChipLike(method.name, payment == method, Modifier.weight(1f)) { payment = method }
                 }
             }
             error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = androidx.compose.ui.graphics.Color(0xFFF04438)) }
@@ -509,11 +509,11 @@ private fun ExpenseScreen(
 }
 
 @Composable
-private fun FilterChipLike(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun FilterChipLike(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         border = if (selected) BorderStroke(2.dp, BluePrimary) else null,
-        modifier = Modifier.weight(1f)
+        modifier = modifier
     ) { Text(label.take(6)) }
 }
 
