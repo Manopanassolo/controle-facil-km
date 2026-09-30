@@ -8,18 +8,18 @@ class PendingSyncStore(context: Context) {
     fun markPending(recordType: String, recordId: String) {
         val key = key(recordType)
         val values = pending(recordType).toMutableSet()
-        values += recordId
-        preferences.edit().putStringSet(key, values).apply()
+        val next = PendingSyncPolicy.add(values, recordId)
+        preferences.edit().putStringSet(key, next).apply()
     }
 
     fun clear(recordType: String, recordId: String) {
         val values = pending(recordType).toMutableSet()
-        values -= recordId
-        preferences.edit().putStringSet(key(recordType), values).apply()
+        val next = PendingSyncPolicy.remove(values, recordId)
+        preferences.edit().putStringSet(key(recordType), next).apply()
     }
 
     fun pending(recordType: String): Set<String> =
-        preferences.getStringSet(key(recordType), emptySet())?.toSet() ?: emptySet()
+        PendingSyncPolicy.normalized(preferences.getStringSet(key(recordType), emptySet()))
 
     private fun key(recordType: String) = "sync_pending_$recordType"
 }
