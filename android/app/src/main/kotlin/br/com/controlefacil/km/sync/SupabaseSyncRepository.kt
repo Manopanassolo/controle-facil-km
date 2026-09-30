@@ -36,6 +36,11 @@ class SupabaseSyncRepository(
         client.from("expense_categories").select().decodeList<RemoteExpenseCategory>()
     }
 
+    suspend fun syncAttachments(local: List<RemoteAttachment>): Result<SyncBatch<RemoteAttachment>> =
+        syncTable(local, { client.from("attachments").select().decodeList<RemoteAttachment>() }) { rows ->
+            if (rows.isNotEmpty()) client.from("attachments").upsert(rows)
+        }
+
     suspend fun syncExpenses(local: List<RemoteExpense>): Result<SyncBatch<RemoteExpense>> =
         syncTable(local, { client.from("expenses").select().decodeList<RemoteExpense>() }) { rows ->
             if (rows.isNotEmpty()) client.from("expenses").upsert(rows)
@@ -76,6 +81,7 @@ class SupabaseSyncRepository(
         is RemoteVehicle -> value.id
         is RemoteTrip -> value.id
         is RemoteExpense -> value.id
+        is RemoteAttachment -> value.id
         else -> error("Tipo de sincronização não suportado")
     }
 
@@ -83,6 +89,7 @@ class SupabaseSyncRepository(
         is RemoteVehicle -> value.version
         is RemoteTrip -> value.version
         is RemoteExpense -> value.version
+        is RemoteAttachment -> value.version
         else -> error("Tipo de sincronização não suportado")
     }
 }
