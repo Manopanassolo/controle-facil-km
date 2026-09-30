@@ -93,7 +93,8 @@ fun ControleFacilApp() {
                 onNewTrip = { screen = AppScreen.NEW_TRIP },
                 onTrips = { screen = AppScreen.TRIPS },
                 onCalendar = { screen = AppScreen.CALENDAR },
-                onVehicles = { screen = AppScreen.VEHICLES }
+                onVehicles = { screen = AppScreen.VEHICLES },
+                tripRepository = tripRepository
             )
             AppScreen.TRIPS -> TripsScreen(
                 vehicleRepository = vehicleRepository,
