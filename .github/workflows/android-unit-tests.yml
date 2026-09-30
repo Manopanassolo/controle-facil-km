@@ -28,6 +28,11 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Compilar APK debug
+        working-directory: android
+        run: |
+          gradle :app:assembleDebug --no-build-cache --rerun-tasks
+
       - name: Executar testes unitários
         working-directory: android
         run: |
