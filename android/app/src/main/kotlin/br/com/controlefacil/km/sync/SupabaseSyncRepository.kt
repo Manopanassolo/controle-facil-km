@@ -80,11 +80,7 @@ class SupabaseSyncRepository(
 
         // O snapshot remoto foi lido antes do upload. Reincorpora os registros
         // enviados ao lote efetivo para que o apply local não os remova.
-        val uploadedIds = upload.map(::idOf).toSet()
-        val effectiveRemote = buildList {
-            addAll(remote.filterNot { idOf(it) in uploadedIds })
-            addAll(upload)
-        }
+        val effectiveRemote = SyncApplyPolicy.retainUploadedRows(remote, upload, ::idOf)
         SyncBatch(effectiveRemote, upload.size, remoteWins, conflicts)
     }
 
