@@ -65,6 +65,7 @@ import br.com.controlefacil.km.core.model.Attachment
 import br.com.controlefacil.km.auth.SupabaseAuthRepository
 import br.com.controlefacil.km.auth.SupabaseClientProvider
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -264,6 +265,7 @@ private fun PlanCard(selected: Boolean, onClick: () -> Unit, title: String, pric
 @Composable
 private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onExpenses: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit, tripRepository: TripLocalRepository, expenseRepository: ExpenseLocalRepository) {
     var tab by rememberSaveable { mutableStateOf(0) }
+    val context = LocalContext.current
     val trips = remember { tripRepository.list() }
     val totalKm = trips.sumOf { it.distanceM ?: 0L }
     val completedTrips = trips.count { it.status == TripStatus.COMPLETED }
