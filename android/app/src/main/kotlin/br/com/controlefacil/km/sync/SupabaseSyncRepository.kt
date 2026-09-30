@@ -31,6 +31,11 @@ class SupabaseSyncRepository(
             if (rows.isNotEmpty()) client.from("trips").upsert(rows)
         }
 
+    suspend fun loadExpenseCategories(): Result<List<RemoteExpenseCategory>> = runCatching {
+        requireNotNull(userProvider()) { "Usuário não autenticado." }
+        client.from("expense_categories").select().decodeList<RemoteExpenseCategory>()
+    }
+
     suspend fun syncExpenses(local: List<RemoteExpense>): Result<SyncBatch<RemoteExpense>> =
         syncTable(local, { client.from("expenses").select().decodeList<RemoteExpense>() }) { rows ->
             if (rows.isNotEmpty()) client.from("expenses").upsert(rows)
