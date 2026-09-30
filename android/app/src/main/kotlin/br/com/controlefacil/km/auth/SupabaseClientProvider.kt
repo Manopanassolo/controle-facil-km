@@ -4,6 +4,7 @@ import br.com.controlefacil.km.BuildConfig
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.FlowType
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.createSupabaseClient
 
 object SupabaseClientProvider {
@@ -17,5 +18,6 @@ object SupabaseClientProvider {
             host = "auth"
         }
         install(Postgrest)
+        install(Storage)
     }
 }
