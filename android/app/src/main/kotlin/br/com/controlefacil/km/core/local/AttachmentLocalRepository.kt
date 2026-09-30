@@ -11,7 +11,7 @@ class AttachmentLocalRepository(context: Context) {
     private val preferences = context.getSharedPreferences("controle_facil_km_local", Context.MODE_PRIVATE)
 
     fun list(): List<Attachment> {
-        val array = JSONArray(preferences.getString(KEY, "[]") ?: "[]")
+        val array = LocalJsonRecoveryPolicy.parse(preferences.getString(KEY, "[]")).json
         return buildList {
             for (i in 0 until array.length()) {
                 val o = array.getJSONObject(i)
