@@ -13,6 +13,7 @@ import br.com.controlefacil.km.core.model.Trip
 import br.com.controlefacil.km.core.model.TripStatus
 import br.com.controlefacil.km.core.model.TripType
 import br.com.controlefacil.km.core.model.Vehicle
+import br.com.controlefacil.km.core.model.ExpenseCategory
 
 class LocalSyncMapper(private val userId: String) {
     fun vehicle(v: Vehicle) = RemoteVehicle(
@@ -55,7 +56,19 @@ class LocalSyncCoordinator(
 
         categories.seedDefaultsIfEmpty()
         val remoteCategories = remote.loadExpenseCategories().getOrElse { return Result.failure(it) }
-        val categoryIdMap = categories.mergeRemote(remoteCategories)
+        val categoryIdMap = categories.mergeRemote(
+            remoteCategories.map {
+                ExpenseCategory(
+                    id = it.id,
+                    name = it.name,
+                    icon = it.icon,
+                    color = it.color,
+                    sortOrder = it.sort_order,
+                    isSystem = it.is_system,
+                    isActive = it.is_active
+                )
+            }
+        )
         expenses.remapCategoryIds(categoryIdMap)
 
         val vehicleBatch = remote.syncVehicles(vehicles.listActive().map(mapper::vehicle)).getOrElse { return Result.failure(it) }
@@ -139,7 +152,7 @@ class LocalSyncCoordinator(
                 currentOdometerM = it.current_odometer_m, isDefault = it.is_default, isActive = it.is_active
             )
         }
-        vehicles.replaceAll((remoteRows + batch.conflicts.map { it.local }).distinctBy { it.id })
+        vehicles.replaceAll(remoteRows)
     }
 
     private fun applyTrips(batch: SyncBatch<RemoteTrip>) {
@@ -154,7 +167,7 @@ class LocalSyncCoordinator(
                 status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
             )
         }
-        trips.replaceAll((remoteRows + batch.conflicts.map { it.local }).distinctBy { it.id })
+        trips.replaceAll(remoteRows)
     }
 
     private fun applyExpenses(batch: SyncBatch<RemoteExpense>) {
@@ -170,7 +183,7 @@ class LocalSyncCoordinator(
                 notes = it.notes
             )
         }
-        expenses.replaceAll((remoteRows + batch.conflicts.map { it.local }).distinctBy { it.id })
+        expenses.replaceAll(remoteRows)
     }
 }
 
