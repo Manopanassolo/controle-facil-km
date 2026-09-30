@@ -1,6 +1,9 @@
 package br.com.controlefacil.km.sync
 
 import br.com.controlefacil.km.core.local.ExpenseCategoryLocalRepository
+import br.com.controlefacil.km.core.local.AttachmentLocalRepository
+import br.com.controlefacil.km.core.local.ReceiptStorageRepository
+import br.com.controlefacil.km.core.model.AttachmentSyncState
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
 import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
@@ -41,7 +44,9 @@ class LocalSyncCoordinator(
     private val trips: TripLocalRepository,
     private val categories: ExpenseCategoryLocalRepository,
     private val expenses: ExpenseLocalRepository,
-    private val remote: SupabaseSyncRepository
+    private val remote: SupabaseSyncRepository,
+    private val attachments: AttachmentLocalRepository,
+    private val receiptStorage: ReceiptStorageRepository
 ) {
     suspend fun run(): Result<SyncResult> {
         if (!connectivity.isOnline()) return Result.success(SyncResult())
@@ -60,14 +65,65 @@ class LocalSyncCoordinator(
         applyVehicles(vehicleBatch)
         applyTrips(tripBatch)
         applyExpenses(expenseBatch)
+        val attachmentResult = syncAttachments(userId)
 
         return Result.success(
             SyncResult(
-                uploaded = vehicleBatch.uploaded + tripBatch.uploaded + expenseBatch.uploaded,
+                uploaded = vehicleBatch.uploaded + tripBatch.uploaded + expenseBatch.uploaded + attachmentResult.uploaded,
                 downloaded = vehicleBatch.remoteWins.size + tripBatch.remoteWins.size + expenseBatch.remoteWins.size,
-                conflicts = vehicleBatch.conflicts.size + tripBatch.conflicts.size + expenseBatch.conflicts.size
+                conflicts = vehicleBatch.conflicts.size + tripBatch.conflicts.size + expenseBatch.conflicts.size + attachmentResult.conflicts
             )
         )
+    }
+
+
+    private suspend fun syncAttachments(userId: String): AttachmentSyncSummary {
+        var uploaded = 0
+        var errors = 0
+        val metadata = mutableListOf<RemoteAttachment>()
+
+        attachments.pending().forEach { local ->
+            attachments.updateState(local.id, AttachmentSyncState.UPLOADING, error = null)
+            val uploadedAttachment = receiptStorage.upload(local)
+            if (uploadedAttachment.isFailure) {
+                errors++
+                attachments.updateState(local.id, AttachmentSyncState.ERROR, error = uploadedAttachment.exceptionOrNull()?.message ?: "Falha no envio do comprovante.")
+                return@forEach
+            }
+
+            val item = uploadedAttachment.getOrThrow()
+            val remoteRow = RemoteAttachment(
+                id = item.id,
+                user_id = userId,
+                expense_id = item.expenseId,
+                trip_id = item.tripId,
+                storage_path = requireNotNull(item.storagePath),
+                original_filename = item.originalFilename,
+                mime_type = item.mimeType,
+                file_size_bytes = item.fileSizeBytes,
+                sha256 = item.sha256,
+                width = item.width,
+                height = item.height,
+                uploaded_at = item.uploadedAt,
+                version = 1
+            )
+            metadata += remoteRow
+            attachments.save(item)
+        }
+
+        if (metadata.isNotEmpty()) {
+            val result = remote.upsertAttachments(metadata)
+            if (result.isFailure) {
+                errors += metadata.size
+                metadata.forEach {
+                    attachments.updateState(it.id, AttachmentSyncState.ERROR, storagePath = it.storage_path, uploadedAt = it.uploaded_at, error = result.exceptionOrNull()?.message ?: "Falha ao registrar comprovante.")
+                }
+            } else {
+                uploaded += metadata.size
+            }
+        }
+
+        return AttachmentSyncSummary(uploaded = uploaded, conflicts = errors)
     }
 
     private fun applyVehicles(batch: SyncBatch<RemoteVehicle>) {
@@ -113,3 +169,6 @@ class LocalSyncCoordinator(
         expenses.replaceAll((remoteRows + batch.conflicts.map { it.local }).distinctBy { it.id })
     }
 }
+
+
+private data class AttachmentSyncSummary(val uploaded: Int, val conflicts: Int)
