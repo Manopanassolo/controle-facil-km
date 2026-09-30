@@ -97,11 +97,16 @@ class LocalSyncCoordinator(
         val metadata = mutableListOf<RemoteAttachment>()
 
         attachments.pending().forEach { local ->
-            attachments.updateState(local.id, AttachmentSyncState.UPLOADING, error = null)
+            attachments.save(AttachmentSyncPolicy.beforeUpload(local))
             val uploadedAttachment = receiptStorage.upload(local)
             if (uploadedAttachment.isFailure) {
                 errors++
-                attachments.updateState(local.id, AttachmentSyncState.ERROR, error = uploadedAttachment.exceptionOrNull()?.message ?: "Falha no envio do comprovante.")
+                attachments.save(
+                    AttachmentSyncPolicy.uploadFailed(
+                        local,
+                        uploadedAttachment.exceptionOrNull()?.message ?: "Falha no envio do comprovante."
+                    )
+                )
                 return@forEach
             }
 
@@ -122,7 +127,7 @@ class LocalSyncCoordinator(
                 version = 1
             )
             metadata += remoteRow
-            attachments.save(item.copy(state = AttachmentSyncState.UPLOADING))
+            attachments.save(AttachmentSyncPolicy.uploadSucceededPendingMetadata(item))
         }
 
         if (metadata.isNotEmpty()) {
@@ -130,11 +135,18 @@ class LocalSyncCoordinator(
             if (result.isFailure) {
                 errors += metadata.size
                 metadata.forEach {
-                    attachments.updateState(it.id, AttachmentSyncState.ERROR, storagePath = it.storage_path, uploadedAt = it.uploaded_at, error = result.exceptionOrNull()?.message ?: "Falha ao registrar comprovante.")
+                    attachments.save(
+                        AttachmentSyncPolicy.metadataFailed(
+                            it.toAttachment(),
+                            it.storage_path,
+                            it.uploaded_at,
+                            result.exceptionOrNull()?.message ?: "Falha ao registrar comprovante."
+                        )
+                    )
                 }
             } else {
                 metadata.forEach { item ->
-                    attachments.updateState(item.id, AttachmentSyncState.SYNCED, storagePath = item.storage_path, uploadedAt = item.uploaded_at, error = null)
+                    attachments.save(item.toAttachment(state = AttachmentSyncState.SYNCED))
                 }
                 uploaded += metadata.size
             }
@@ -212,5 +224,23 @@ class LocalSyncCoordinator(
     }
 }
 
+
+private fun RemoteAttachment.toAttachment(
+    state: AttachmentSyncState = AttachmentSyncState.UPLOADING
+): br.com.controlefacil.km.core.model.Attachment = br.com.controlefacil.km.core.model.Attachment(
+    id = id,
+    expenseId = expense_id,
+    tripId = trip_id,
+    localUri = "",
+    storagePath = storage_path,
+    originalFilename = original_filename,
+    mimeType = mime_type,
+    fileSizeBytes = file_size_bytes,
+    sha256 = sha256,
+    width = width,
+    height = height,
+    uploadedAt = uploaded_at,
+    state = state
+)
 
 private data class AttachmentSyncSummary(val uploaded: Int, val errors: Int)
