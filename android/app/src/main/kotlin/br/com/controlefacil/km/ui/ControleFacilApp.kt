@@ -81,6 +81,7 @@ import br.com.controlefacil.km.ui.theme.BluePrimary
 import br.com.controlefacil.km.ui.theme.CardWhite
 import br.com.controlefacil.km.ui.theme.TextSecondary
 import br.com.controlefacil.km.ui.theme.YellowAccent
+import br.com.controlefacil.km.sync.SyncScheduler
 
 private enum class AppScreen { AUTH, PLANS, HOME, TRIPS, EXPENSES, NEW_TRIP, CALENDAR, VEHICLES }
 
@@ -341,6 +342,7 @@ private fun NewTripScreen(
     onBack: () -> Unit,
     onSaved: () -> Unit
 ) {
+    val appContext = LocalContext.current
     var origin by rememberSaveable { mutableStateOf("") }
     var destination by rememberSaveable { mutableStateOf("") }
     var initialKm by rememberSaveable { mutableStateOf("") }
@@ -421,6 +423,7 @@ private fun NewTripScreen(
                                 status = if (final != null) TripStatus.COMPLETED else TripStatus.DRAFT
                             )
                         )
+                        SyncScheduler.requestNow(appContext)
                         onSaved()
                     } else {
                         errorMessage = validation.message
@@ -441,6 +444,7 @@ private fun ExpenseScreen(
     categoryRepository: ExpenseCategoryLocalRepository,
     onBack: () -> Unit
 ) {
+    val appContext = LocalContext.current
     val vehicles = remember { vehicleRepository.listActive() }
     val categories = remember { categoryRepository.listActive() }
     var selectedVehicleId by rememberSaveable { mutableStateOf(VehicleSelectionRules.initialSelection(vehicles)) }
@@ -522,6 +526,7 @@ private fun ExpenseScreen(
                         notes = null
                     ).onSuccess {
                         description = ""; amount = ""; merchant = ""; odometer = ""; error = null; version++
+                        SyncScheduler.requestNow(appContext)
                     }.onFailure { error = it.message ?: "Não foi possível salvar a despesa." }
                 }
             }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Salvar despesa") }
