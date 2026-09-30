@@ -35,7 +35,7 @@ class TripLocalRepository(context: Context) {
         }
     }
 
-    fun save(trip: Trip) {
+    fun replaceAll(trips: List<Trip>) {\n        val array = JSONArray()\n        trips.forEach { tr -> array.put(JSONObject().apply {\n            put("id", tr.id); put("vehicleId", tr.vehicleId); put("tripDate", tr.tripDate); put("startOdometerM", tr.startOdometerM); put("endOdometerM", tr.endOdometerM); put("origin", tr.origin); put("destination", tr.destination); put("tripType", tr.tripType.name); put("purpose", tr.purpose); put("notes", tr.notes); put("status", tr.status.name)\n        }) }\n        preferences.edit().putString(KEY_TRIPS, array.toString()).apply()\n    }\n\n    fun save(trip: Trip) {
         val trips = list().filterNot { it.id == trip.id } + trip
         val array = JSONArray()
         trips.forEach { t ->
