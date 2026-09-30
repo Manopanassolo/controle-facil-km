@@ -12,8 +12,8 @@ class LocalJsonRecoveryPolicyTest {
         val result = LocalJsonRecoveryPolicy.parse("""[{"id":"1"}]""")
 
         assertFalse(result.recovered)
-        assertEquals(1, result.json.length())
-        assertEquals("1", result.json.getJSONObject(0).getString("id"))
+        assertEquals(1, result.json.size)
+        assertEquals("""{"id":"1"}""", result.json[0].toString())
     }
 
     @Test
