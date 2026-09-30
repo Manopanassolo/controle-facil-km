@@ -144,8 +144,7 @@ class LocalSyncCoordinator(
     }
 
     private fun applyVehicles(batch: SyncBatch<RemoteVehicle>) {
-        val conflictIds = batch.conflicts.map { it.local.id }.toSet()
-        val remoteRows = batch.remote.filter { it.deleted_at == null }.filterNot { it.id in conflictIds }.map {
+        val remoteRows = batch.remote.filter { it.deleted_at == null }.map {
             Vehicle(
                 id = it.id, name = it.name, brand = it.brand, model = it.model, year = it.year,
                 plate = it.plate, fuelType = it.fuel_type, initialOdometerM = it.initial_odometer_m,
@@ -159,12 +158,11 @@ class LocalSyncCoordinator(
                 currentOdometerM = it.current_odometer_m, isDefault = it.is_default, isActive = it.is_active
             )
         }
-        vehicles.replaceAll(remoteRows + conflictRows)
+        vehicles.replaceAll(SyncApplyPolicy.retainConflictRows(remoteRows, batch.conflicts, Vehicle::id))
     }
 
     private fun applyTrips(batch: SyncBatch<RemoteTrip>) {
-        val conflictIds = batch.conflicts.map { it.local.id }.toSet()
-        val remoteRows = batch.remote.filter { it.deleted_at == null }.filterNot { it.id in conflictIds }.map {
+        val remoteRows = batch.remote.filter { it.deleted_at == null }.map {
             Trip(
                 id = it.id, vehicleId = it.vehicle_id, tripDate = it.trip_date,
                 startOdometerM = it.start_odometer_m, endOdometerM = it.end_odometer_m,
@@ -184,12 +182,11 @@ class LocalSyncCoordinator(
                 status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
             )
         }
-        trips.replaceAll(remoteRows + conflictRows)
+        trips.replaceAll(SyncApplyPolicy.retainConflictRows(remoteRows, batch.conflicts, Trip::id))
     }
 
     private fun applyExpenses(batch: SyncBatch<RemoteExpense>) {
-        val conflictIds = batch.conflicts.map { it.local.id }.toSet()
-        val remoteRows = batch.remote.filter { it.deleted_at == null }.filterNot { it.id in conflictIds }.map {
+        val remoteRows = batch.remote.filter { it.deleted_at == null }.map {
             Expense(
                 id = it.id, vehicleId = it.vehicle_id, categoryId = it.category_id, tripId = it.trip_id,
                 expenseDate = it.expense_date, description = it.description, amountCents = it.amount_cents,
@@ -211,7 +208,7 @@ class LocalSyncCoordinator(
                 notes = it.notes
             )
         }
-        expenses.replaceAll(remoteRows + conflictRows)
+        expenses.replaceAll(SyncApplyPolicy.retainConflictRows(remoteRows, batch.conflicts, Expense::id))
     }
 }
 
