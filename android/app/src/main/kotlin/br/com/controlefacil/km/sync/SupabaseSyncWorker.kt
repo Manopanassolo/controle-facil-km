@@ -42,22 +42,3 @@ class SupabaseSyncWorker(
     }
 }
 
-object SyncScheduler {
-    private const val UNIQUE_WORK = "controle_facil_km_supabase_sync"
-
-    fun schedule(context: Context) {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val request = PeriodicWorkRequestBuilder<SupabaseSyncWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(constraints)
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            UNIQUE_WORK,
-            ExistingPeriodicWorkPolicy.KEEP,
-            request
-        )
-    }
-}
