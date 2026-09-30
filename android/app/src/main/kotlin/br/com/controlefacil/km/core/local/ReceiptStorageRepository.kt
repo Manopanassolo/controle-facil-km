@@ -5,6 +5,7 @@ import android.webkit.MimeTypeMap
 import br.com.controlefacil.km.auth.SupabaseClientProvider
 import br.com.controlefacil.km.core.model.Attachment
 import br.com.controlefacil.km.core.model.AttachmentSyncState
+import io.github.jan.supabase.auth.auth
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Locale
