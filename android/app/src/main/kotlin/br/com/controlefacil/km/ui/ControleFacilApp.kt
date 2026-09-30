@@ -54,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import br.com.controlefacil.km.core.local.TripLocalRepository
+import br.com.controlefacil.km.core.local.ExpenseLocalRepository
+import br.com.controlefacil.km.core.model.ExpensePayment
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
 import br.com.controlefacil.km.core.model.Trip
 import br.com.controlefacil.km.core.model.TripStatus
@@ -74,7 +76,7 @@ import br.com.controlefacil.km.ui.theme.CardWhite
 import br.com.controlefacil.km.ui.theme.TextSecondary
 import br.com.controlefacil.km.ui.theme.YellowAccent
 
-private enum class AppScreen { AUTH, PLANS, HOME, TRIPS, NEW_TRIP, CALENDAR, VEHICLES }
+private enum class AppScreen { AUTH, PLANS, HOME, TRIPS, EXPENSES, NEW_TRIP, CALENDAR, VEHICLES }
 
 @Composable
 fun ControleFacilApp() {
@@ -82,6 +84,7 @@ fun ControleFacilApp() {
     val context = LocalContext.current
     val vehicleRepository = remember { VehicleLocalRepository(context) }
     val tripRepository = remember { TripLocalRepository(context) }
+    val expenseRepository = remember { ExpenseLocalRepository(context) }
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
         when (screen) {
             AppScreen.AUTH -> AuthScreen { screen = AppScreen.PLANS }
@@ -92,15 +95,22 @@ fun ControleFacilApp() {
             AppScreen.HOME -> HomeScreen(
                 onNewTrip = { screen = AppScreen.NEW_TRIP },
                 onTrips = { screen = AppScreen.TRIPS },
+                onExpenses = { screen = AppScreen.EXPENSES },
                 onCalendar = { screen = AppScreen.CALENDAR },
                 onVehicles = { screen = AppScreen.VEHICLES },
-                tripRepository = tripRepository
+                tripRepository = tripRepository,
+                expenseRepository = expenseRepository
             )
             AppScreen.TRIPS -> TripsScreen(
                 vehicleRepository = vehicleRepository,
                 tripRepository = tripRepository,
                 onBack = { screen = AppScreen.HOME },
                 onNewTrip = { screen = AppScreen.NEW_TRIP }
+            )
+            AppScreen.EXPENSES -> ExpenseScreen(
+                vehicleRepository = vehicleRepository,
+                expenseRepository = expenseRepository,
+                onBack = { screen = AppScreen.HOME }
             )
             AppScreen.NEW_TRIP -> NewTripScreen(
                 vehicleRepository = vehicleRepository,
@@ -215,8 +225,8 @@ private fun PlanCard(selected: Boolean, onClick: () -> Unit, title: String, pric
 }
 
 @Composable
-private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit, tripRepository: TripLocalRepository) {
-    var tab by rememberSaveable { mutableStateOf(0) }\n    val trips = remember { tripRepository.list() }\n    val totalKm = trips.sumOf { it.distanceM ?: 0L }\n    val completedTrips = trips.count { it.status == TripStatus.COMPLETED }
+private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onExpenses: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit, tripRepository: TripLocalRepository, expenseRepository: ExpenseLocalRepository) {
+    var tab by rememberSaveable { mutableStateOf(0) }\n    val trips = remember { tripRepository.list() }\n    val totalKm = trips.sumOf { it.distanceM ?: 0L }\n    val completedTrips = trips.count { it.status == TripStatus.COMPLETED }\n    val expenses = remember { expenseRepository.list() }\n    val totalExpensesCents = expenses.sumOf { it.amountCents }
     val labels = listOf("Início", "Viagens", "Despesas", "Agenda", "Mais")
     val icons = listOf(Icons.Filled.Home, Icons.Filled.DirectionsCar, Icons.Filled.ReceiptLong, Icons.Filled.CalendarMonth, Icons.Filled.MoreHoriz)
     AppScaffold(tab, { selected ->
@@ -233,7 +243,7 @@ private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onCalendar: (
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("KM no período", "$totalKm km", Icons.Filled.Map, Modifier.weight(1f))
-                MetricCard("Despesas", "R$ 0,00", Icons.Filled.TrendingUp, Modifier.weight(1f))
+                MetricCard("Despesas", "R$ %.2f".format(java.util.Locale("pt", "BR"), totalExpensesCents / 100.0), Icons.Filled.TrendingUp, Modifier.weight(1f))
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -245,7 +255,7 @@ private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onCalendar: (
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onNewTrip) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("Nova viagem") }
-                OutlinedButton(onClick = {}) { Icon(Icons.Filled.ReceiptLong, null); Spacer(Modifier.width(6.dp)); Text("Despesa") }
+                OutlinedButton(onClick = onExpenses) { Icon(Icons.Filled.ReceiptLong, null); Spacer(Modifier.width(6.dp)); Text("Despesa") }
             }
             Spacer(Modifier.height(24.dp))
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
@@ -397,6 +407,114 @@ private fun NewTripScreen(
             Spacer(Modifier.height(30.dp))
         }
     }
+}
+
+@Composable
+private fun ExpenseScreen(
+    vehicleRepository: VehicleLocalRepository,
+    expenseRepository: ExpenseLocalRepository,
+    onBack: () -> Unit
+) {
+    val vehicles = remember { vehicleRepository.listActive() }
+    var selectedVehicleId by rememberSaveable { mutableStateOf(VehicleSelectionRules.initialSelection(vehicles)) }
+    var description by rememberSaveable { mutableStateOf("") }
+    var amount by rememberSaveable { mutableStateOf("") }
+    var merchant by rememberSaveable { mutableStateOf("") }
+    var odometer by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf("Geral") }
+    var payment by rememberSaveable { mutableStateOf(ExpensePayment.PIX) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var version by rememberSaveable { mutableStateOf(0) }
+    val expenses = remember(version) { expenseRepository.list().sortedByDescending { it.expenseDate } }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+            Text("Despesas", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(12.dp))
+        if (vehicles.isEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = BlueLight), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                Text("Cadastre um veículo antes de lançar uma despesa.", Modifier.padding(18.dp), color = BlueDark)
+            }
+        } else {
+            Text("Veículo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            vehicles.forEach { vehicle ->
+                OutlinedButton(
+                    onClick = { selectedVehicleId = vehicle.id },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = if (selectedVehicleId == vehicle.id) BorderStroke(2.dp, BluePrimary) else null
+                ) { Text(vehicle.name + (vehicle.plate?.let { " • $it" } ?: "")) }
+                Spacer(Modifier.height(5.dp))
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Descrição*") }, singleLine = true)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(amount, { amount = it }, Modifier.fillMaxWidth(), label = { Text("Valor (R$)*") }, singleLine = true)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(category, { category = it }, Modifier.fillMaxWidth(), label = { Text("Categoria") }, singleLine = true)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth(), label = { Text("Estabelecimento") }, singleLine = true)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(odometer, { odometer = it }, Modifier.fillMaxWidth(), label = { Text("KM no momento") }, singleLine = true)
+            Spacer(Modifier.height(10.dp))
+            Text("Pagamento", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(ExpensePayment.PIX, ExpensePayment.CREDIT, ExpensePayment.DEBIT, ExpensePayment.CASH).forEach { method ->
+                    FilterChipLike(method.name, payment == method) { payment = method }
+                }
+            }
+            error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = androidx.compose.ui.graphics.Color(0xFFF04438)) }
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = {
+                val cents = amount.replace(",", ".").toDoubleOrNull()?.let { kotlin.math.round(it * 100).toLong() }
+                if (selectedVehicleId == null) {
+                    error = "Selecione um veículo."
+                } else if (cents == null) {
+                    error = "Informe um valor válido."
+                } else {
+                    val result = expenseRepository.save(
+                        vehicleId = selectedVehicleId!!,
+                        categoryId = category.trim().ifBlank { "Geral" },
+                        tripId = null,
+                        expenseDate = LocalDate.now().toString(),
+                        description = description,
+                        amountCents = cents,
+                        odometerM = odometer.toLongOrNull(),
+                        merchant = merchant,
+                        paymentMethod = payment,
+                        notes = null
+                    )
+                    result.onSuccess {
+                        description = ""; amount = ""; merchant = ""; odometer = ""; error = null; version++
+                    }.onFailure { error = it.message ?: "Não foi possível salvar a despesa." }
+                }
+            }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Salvar despesa") }
+        }
+        Spacer(Modifier.height(20.dp))
+        Text("Últimas despesas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        expenses.take(20).forEach { expense ->
+            Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(expense.description, fontWeight = FontWeight.Bold)
+                        Text(expense.expenseDate + " • " + expense.categoryId, color = TextSecondary)
+                    }
+                    Text("R$ %.2f".format(java.util.Locale("pt", "BR"), expense.amountCents / 100.0), color = BluePrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterChipLike(label: String, selected: Boolean, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        border = if (selected) BorderStroke(2.dp, BluePrimary) else null,
+        modifier = Modifier.weight(1f)
+    ) { Text(label.take(6)) }
 }
 
 @Composable
