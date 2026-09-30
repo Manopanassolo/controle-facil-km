@@ -55,6 +55,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
+import br.com.controlefacil.km.auth.SupabaseAuthRepository
+import br.com.controlefacil.km.auth.SupabaseClientProvider
+import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.launch
 import br.com.controlefacil.km.core.model.ExpensePayment
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
 import br.com.controlefacil.km.core.model.Trip
@@ -87,7 +91,10 @@ fun ControleFacilApp() {
     val expenseRepository = remember { ExpenseLocalRepository(context) }
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
         when (screen) {
-            AppScreen.AUTH -> AuthScreen { screen = AppScreen.PLANS }
+            AppScreen.AUTH -> AuthScreen(
+                repository = SupabaseAuthRepository(),
+                onAuthenticated = { screen = AppScreen.PLANS }
+            )
             AppScreen.PLANS -> PlanScreen(
                 onContinue = { screen = AppScreen.HOME },
                 onBack = { screen = AppScreen.AUTH }
@@ -145,9 +152,20 @@ private fun BrandHeader() {
 }
 
 @Composable
-private fun AuthScreen(onContinue: () -> Unit) {
+private fun AuthScreen(repository: SupabaseAuthRepository, onAuthenticated: () -> Unit) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+    var signUpMode by rememberSaveable { mutableStateOf(false) }
+    var displayName by rememberSaveable { mutableStateOf("") }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var loading by rememberSaveable { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        if (repository.currentUser() != null) onAuthenticated()
+        SupabaseClientProvider.client.auth.sessionStatus.collect { status ->
+            if (status is SessionStatus.Authenticated) onAuthenticated()
+        }
+    }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 36.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -156,14 +174,15 @@ private fun AuthScreen(onContinue: () -> Unit) {
         Spacer(Modifier.height(34.dp))
         Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp)) {
-                Text("Entrar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(if (signUpMode) "Criar conta" else "Entrar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onContinue, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                Button(onClick = { scope.launch { loading = true; error = null; repository.signInWithGoogle().onFailure { error = it.message }; loading = false } }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), enabled = !loading) {
                     Icon(Icons.Filled.Login, null); Spacer(Modifier.width(8.dp)); Text("Continuar com Google")
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("ou entre com seu e-mail", color = TextSecondary)
+                Text(if (signUpMode) "Cadastre-se com seu e-mail" else "ou entre com seu e-mail", color = TextSecondary)
                 Spacer(Modifier.height(10.dp))
+                if (signUpMode) { OutlinedTextField(displayName, { displayName = it }, Modifier.fillMaxWidth(), label = { Text("Nome") }, singleLine = true); Spacer(Modifier.height(10.dp)) }
                 OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("E-mail") }, singleLine = true)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
@@ -172,10 +191,11 @@ private fun AuthScreen(onContinue: () -> Unit) {
                     leadingIcon = { Icon(Icons.Filled.Lock, null) }
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onContinue, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Entrar") }
+                Button(onClick = { scope.launch { loading = true; error = null; val result = if (signUpMode) repository.signUp(email, password, displayName) else repository.signIn(email, password); result.onSuccess { if (!signUpMode || it != null) onAuthenticated() else error = "Cadastro criado. Confirme seu e-mail para entrar." }.onFailure { error = it.message ?: "Não foi possível concluir a autenticação." }; loading = false } }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), enabled = !loading) { Text(if (signUpMode) "Criar conta" else "Entrar") }
+                error?.let { Text(it, color = androidx.compose.ui.graphics.Color(0xFFF04438), style = MaterialTheme.typography.bodySmall); Spacer(Modifier.height(8.dp)) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = {}) { Text("Criar conta") }
-                    TextButton(onClick = {}) { Text("Esqueci minha senha") }
+                    TextButton(onClick = { signUpMode = !signUpMode; error = null }) { Text(if (signUpMode) "Já tenho conta" else "Criar conta") }
+                    if (!signUpMode) TextButton(onClick = {}) { Text("Esqueci minha senha") }
                 }
             }
         }
