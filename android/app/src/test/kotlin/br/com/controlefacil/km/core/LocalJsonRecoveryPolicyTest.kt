@@ -29,6 +29,6 @@ class LocalJsonRecoveryPolicyTest {
         val result = LocalJsonRecoveryPolicy.parse(null)
 
         assertFalse(result.recovered)
-        assertEquals(0, result.json.length())
+        assertEquals(0, result.json.size)
     }
 }
