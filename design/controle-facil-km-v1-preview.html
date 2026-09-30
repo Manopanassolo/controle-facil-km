@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controle Fácil KM — Preview V1</title>
+<style>
+:root{--blue:#155EEF;--navy:#123A7A;--yellow:#FFC928;--bg:#F6F8FC;--card:#fff;--ink:#172033;--muted:#667085;--line:#E4E7EC;--green:#12B76A;--red:#F04438}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,sans-serif}
+.shell{min-height:100vh;display:flex}.side{width:250px;background:linear-gradient(180deg,var(--navy),#0E2C5B);color:#fff;padding:22px 14px;position:fixed;inset:0 auto 0 0}.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 24px}.mark{width:42px;height:42px;border-radius:12px;background:#fff;display:grid;place-items:center;color:var(--blue);font-weight:900}.brand b{font-size:17px}.brand small{display:block;color:#BFD0EF}.menu{display:grid;gap:5px}.menu button{border:0;background:transparent;color:#E8F0FF;padding:12px 13px;border-radius:11px;text-align:left;font:inherit;cursor:pointer}.menu button.active,.menu button:hover{background:rgba(255,255,255,.13)}.upgrade{margin-top:25px;background:rgba(255,201,40,.12);border:1px solid rgba(255,201,40,.35);border-radius:14px;padding:13px}.upgrade b{color:var(--yellow)}main{margin-left:250px;width:100%;padding:28px;max-width:1400px}.top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:25px}.top h1{margin:0;font-size:28px}.sync{font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);padding:8px 11px;border-radius:999px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 4px 16px #10182808}.kpi small{color:var(--muted)}.kpi strong{display:block;font-size:27px;margin-top:7px}.accent{color:var(--blue)}.section{margin-top:18px}.section h2{font-size:18px}.actions{display:flex;gap:10px}.btn{border:0;border-radius:11px;padding:11px 16px;font-weight:750;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#EAF2FF;color:var(--navy)}.calendar{display:grid;grid-template-columns:1.3fr .7fr;gap:14px}.event{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}.time{width:60px;color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:var(--blue);margin-top:6px}.plans{display:grid;grid-template-columns:1fr 1fr;gap:16px}.plan{position:relative}.plan.featured{border:2px solid var(--blue)}.pill{position:absolute;right:14px;top:14px;background:var(--yellow);color:#3A2B00;font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px}.price{font-size:34px;font-weight:850;margin:15px 0}.features{padding:0;margin:15px 0;list-style:none}.features li{padding:7px 0}.features li:before{content:"✓";color:var(--green);font-weight:900;margin-right:8px}@media(max-width:850px){.side{width:78px}.brand span,.brand small,.menu span,.upgrade{display:none}.brand{justify-content:center}.menu button{text-align:center}.menu button:first-letter{font-size:20px}main{margin-left:78px;padding:16px}.grid{grid-template-columns:1fr 1fr}.calendar,.plans{grid-template-columns:1fr}}@media(max-width:520px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+<div class="brand"><div class="mark">⌖</div><div><b>Controle Fácil</b><small>KM</small></div></div>
+<nav class="menu">
+<button class="active">⌂ <span>Início</span></button><button>＋ <span>Nova viagem</span></button><button>↗ <span>Viagens</span></button><button>▣ <span>Despesas</span></button><button>◷ <span>Agenda</span></button><button>▤ <span>Relatórios</span></button><button>🚗 <span>Veículos</span></button><button>⚙ <span>Configurações</span></button>
+</nav>
+<div class="upgrade"><b>Premium</b><br><small>Mais veículos, comprovantes e relatórios avançados.</small></div>
+</aside>
+<main>
+<div class="top"><div><h1>Olá, Mano 👋</h1><div style="color:var(--muted)">Seu controle de KM e despesas.</div></div><div class="sync">● Sincronizado agora</div></div>
+<div class="actions"><button class="btn primary">+ Nova viagem</button><button class="btn secondary">+ Nova despesa</button></div>
+<div class="grid section">
+<div class="card kpi"><small>KM no período</small><strong>1.248 km</strong><span class="accent">↑ 8,4%</span></div>
+<div class="card kpi"><small>Despesas</small><strong>R$ 1.842,70</strong><span style="color:var(--muted)">setembro</span></div>
+<div class="card kpi"><small>Custo / KM</small><strong>R$ 1,48</strong><span style="color:var(--muted)">média</span></div>
+<div class="card kpi"><small>Viagens</small><strong>27</strong><span style="color:var(--muted)">concluídas</span></div>
+</div>
+<div class="section calendar">
+<div class="card"><h2>Agenda</h2><div class="event"><div class="time">08:30</div><div class="dot"></div><div><b>Visita técnica</b><br><span style="color:var(--muted)">Rua Exemplo, 120 · hoje</span></div></div><div class="event"><div class="time">14:00</div><div class="dot"></div><div><b>Reunião</b><br><span style="color:var(--muted)">Google Agenda sincronizado</span></div></div></div>
+<div class="card"><h2>Google Agenda</h2><p style="color:var(--muted)">Conecte sua conta para trazer seus compromissos.</p><button class="btn primary">Conectar Google</button></div>
+</div>
+<div class="section plans">
+<div class="card plan"><h2>Gratuito</h2><p style="color:var(--muted)">Para começar.</p><div class="price">R$ 0</div><ul class="features"><li>Viagens e despesas</li><li>1 veículo</li><li>Histórico e relatório básico</li><li>Modo offline</li></ul><button class="btn secondary">Continuar grátis</button></div>
+<div class="card plan featured"><div class="pill">RECOMENDADO</div><h2>Premium</h2><p style="color:var(--muted)">Para quem quer controle completo.</p><div class="price">R$ 9,90 <small style="font-size:14px;color:var(--muted)">/mês</small></div><ul class="features"><li>Múltiplos veículos</li><li>Comprovantes ilimitados</li><li>Relatórios avançados</li><li>Exportações avançadas</li><li>Agenda avançada</li></ul><button class="btn primary">Assinar Premium</button></div>
+</div>
+</main></div>
+</body></html>
