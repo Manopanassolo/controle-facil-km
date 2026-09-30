@@ -51,6 +51,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import br.com.controlefacil.km.core.local.TripLocalRepository
+import br.com.controlefacil.km.core.local.VehicleLocalRepository
+import br.com.controlefacil.km.core.model.Trip
+import br.com.controlefacil.km.core.model.TripStatus
+import java.time.LocalDate
+import java.util.UUID
 import br.com.controlefacil.km.core.rules.TripRules
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,11 +73,14 @@ import br.com.controlefacil.km.ui.theme.CardWhite
 import br.com.controlefacil.km.ui.theme.TextSecondary
 import br.com.controlefacil.km.ui.theme.YellowAccent
 
-private enum class AppScreen { AUTH, PLANS, HOME, NEW_TRIP, CALENDAR }
+private enum class AppScreen { AUTH, PLANS, HOME, NEW_TRIP, CALENDAR, VEHICLES }
 
 @Composable
 fun ControleFacilApp() {
     var screen by rememberSaveable { mutableStateOf(AppScreen.AUTH) }
+    val context = LocalContext.current
+    val vehicleRepository = remember { VehicleLocalRepository(context) }
+    val tripRepository = remember { TripLocalRepository(context) }
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
         when (screen) {
             AppScreen.AUTH -> AuthScreen { screen = AppScreen.PLANS }
@@ -77,10 +88,20 @@ fun ControleFacilApp() {
                 onContinue = { screen = AppScreen.HOME },
                 onBack = { screen = AppScreen.AUTH }
             )
-            AppScreen.HOME -> HomeScreen(onNewTrip = { screen = AppScreen.NEW_TRIP }, onCalendar = { screen = AppScreen.CALENDAR })
+            AppScreen.HOME -> HomeScreen(
+                onNewTrip = { screen = AppScreen.NEW_TRIP },
+                onCalendar = { screen = AppScreen.CALENDAR },
+                onVehicles = { screen = AppScreen.VEHICLES }
+            )
             AppScreen.NEW_TRIP -> NewTripScreen(
+                vehicleRepository = vehicleRepository,
+                tripRepository = tripRepository,
                 onBack = { screen = AppScreen.HOME },
                 onSaved = { screen = AppScreen.HOME }
+            )
+            AppScreen.VEHICLES -> VehicleScreen(
+                repository = vehicleRepository,
+                onBack = { screen = AppScreen.HOME }
             )
             AppScreen.CALENDAR -> CalendarScreen(
                 onBack = { screen = AppScreen.HOME }
@@ -185,11 +206,17 @@ private fun PlanCard(selected: Boolean, onClick: () -> Unit, title: String, pric
 }
 
 @Composable
-private fun HomeScreen(onNewTrip: () -> Unit, onCalendar: () -> Unit) {
+private fun HomeScreen(onNewTrip: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(0) }
     val labels = listOf("Início", "Viagens", "Despesas", "Agenda", "Mais")
     val icons = listOf(Icons.Filled.Home, Icons.Filled.DirectionsCar, Icons.Filled.ReceiptLong, Icons.Filled.CalendarMonth, Icons.Filled.MoreHoriz)
-    AppScaffold(tab, { selected -> tab = selected; if (selected == 3) onCalendar() }, labels, icons, onNewTrip) {
+    AppScaffold(tab, { selected ->
+        tab = selected
+        when (selected) {
+            3 -> onCalendar()
+            4 -> onVehicles()
+        }
+    }, labels, icons, onNewTrip) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Text("Olá!", style = MaterialTheme.typography.titleMedium, color = TextSecondary)
             Text("Seu controle de hoje", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -263,11 +290,18 @@ private fun AppScaffold(
 }
 
 @Composable
-private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
+private fun NewTripScreen(
+    vehicleRepository: VehicleLocalRepository,
+    tripRepository: TripLocalRepository,
+    onBack: () -> Unit,
+    onSaved: () -> Unit
+) {
     var origin by rememberSaveable { mutableStateOf("") }
     var destination by rememberSaveable { mutableStateOf("") }
     var initialKm by rememberSaveable { mutableStateOf("") }
     var finalKm by rememberSaveable { mutableStateOf("") }
+    val vehicles = remember { vehicleRepository.listActive() }
+    var selectedVehicleId by rememberSaveable { mutableStateOf(vehicleRepository.getDefault()?.id ?: vehicles.firstOrNull()?.id) }
     var notes by rememberSaveable { mutableStateOf("") }
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -277,6 +311,25 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             Text("Nova viagem", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            Text("Veículo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            if (vehicles.isEmpty()) {
+                Card(colors = CardDefaults.cardColors(containerColor = BlueLight), shape = RoundedCornerShape(16.dp)) {
+                    Text("Cadastre pelo menos um veículo em Mais antes de criar uma viagem.", Modifier.padding(16.dp), color = BlueDark)
+                }
+            } else {
+                vehicles.forEach { vehicle ->
+                    OutlinedButton(
+                        onClick = { selectedVehicleId = vehicle.id },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = if (selectedVehicleId == vehicle.id) BorderStroke(2.dp, BluePrimary) else null
+                    ) {
+                        Text(if (vehicle.plate.isNullOrBlank()) vehicle.name else vehicle.name + " • " + vehicle.plate)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             Text("Dados da viagem", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(origin, { origin = it }, Modifier.fillMaxWidth(), label = { Text("Origem") })
@@ -306,8 +359,23 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                     val inicial = initialKm.toLongOrNull()
                     val final = finalKm.toLongOrNull()
                     val validation = TripRules.validateOdometers(inicial, final)
-                    if (validation.valid) {
+                    if (selectedVehicleId == null) {
+                        errorMessage = "Selecione um veículo antes de salvar a viagem."
+                    } else if (validation.valid && inicial != null) {
                         errorMessage = null
+                        tripRepository.save(
+                            Trip(
+                                id = UUID.randomUUID().toString(),
+                                vehicleId = selectedVehicleId!!,
+                                tripDate = LocalDate.now().toString(),
+                                startOdometerM = inicial,
+                                endOdometerM = final,
+                                origin = origin.trim().takeIf { it.isNotEmpty() },
+                                destination = destination.trim().takeIf { it.isNotEmpty() },
+                                notes = notes.trim().takeIf { it.isNotEmpty() },
+                                status = if (final != null) TripStatus.COMPLETED else TripStatus.DRAFT
+                            )
+                        )
                         onSaved()
                     } else {
                         errorMessage = validation.message
@@ -317,6 +385,73 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                 shape = RoundedCornerShape(14.dp)
             ) { Text("Salvar viagem") }
             Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun VehicleScreen(
+    repository: VehicleLocalRepository,
+    onBack: () -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var brand by rememberSaveable { mutableStateOf("") }
+    var model by rememberSaveable { mutableStateOf("") }
+    var year by rememberSaveable { mutableStateOf("") }
+    var plate by rememberSaveable { mutableStateOf("") }
+    var initialKm by rememberSaveable { mutableStateOf("") }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var version by rememberSaveable { mutableStateOf(0) }
+    val vehicles = remember(version) { repository.listActive() }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+            Text("Meus veículos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(16.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Cadastrar veículo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Nome*") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(brand, { brand = it }, Modifier.fillMaxWidth(), label = { Text("Marca") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), label = { Text("Modelo") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(year, { year = it }, Modifier.fillMaxWidth(), label = { Text("Ano") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(plate, { plate = it }, Modifier.fillMaxWidth(), label = { Text("Placa") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(initialKm, { initialKm = it }, Modifier.fillMaxWidth(), label = { Text("KM atual/inicial") }, singleLine = true)
+                error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = androidx.compose.ui.graphics.Color(0xFFF04438))
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = {
+                    val result = repository.save(name, brand, model, year.toIntOrNull(), plate, "flex", initialKm.toLongOrNull() ?: 0L, vehicles.isEmpty())
+                    result.onSuccess {
+                        name = ""; brand = ""; model = ""; year = ""; plate = ""; initialKm = ""; error = null; version++
+                    }.onFailure { error = it.message ?: "Não foi possível cadastrar o veículo." }
+                }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Salvar veículo") }
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("Veículos cadastrados", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        if (vehicles.isEmpty()) Text("Nenhum veículo cadastrado.", color = TextSecondary)
+        else vehicles.forEach { vehicle ->
+            Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(vehicle.name, fontWeight = FontWeight.Bold)
+                    Text(listOfNotNull(vehicle.brand, vehicle.model, vehicle.plate).joinToString(" • ").ifBlank { "Sem detalhes adicionais" }, color = TextSecondary)
+                    Text("KM atual: " + vehicle.currentOdometerM, color = TextSecondary)
+                    if (vehicle.isDefault) Text("Veículo padrão", color = BluePrimary, fontWeight = FontWeight.Bold)
+                    else TextButton(onClick = { repository.setDefault(vehicle.id); version++ }) { Text("Tornar padrão") }
+                }
+            }
         }
     }
 }
