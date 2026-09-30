@@ -64,7 +64,7 @@ import br.com.controlefacil.km.ui.theme.CardWhite
 import br.com.controlefacil.km.ui.theme.TextSecondary
 import br.com.controlefacil.km.ui.theme.YellowAccent
 
-private enum class AppScreen { AUTH, PLANS, HOME, NEW_TRIP }
+private enum class AppScreen { AUTH, PLANS, HOME, NEW_TRIP, CALENDAR }
 
 @Composable
 fun ControleFacilApp() {
@@ -76,7 +76,7 @@ fun ControleFacilApp() {
                 onContinue = { screen = AppScreen.HOME },
                 onBack = { screen = AppScreen.AUTH }
             )
-            AppScreen.HOME -> HomeScreen { screen = AppScreen.NEW_TRIP }
+            AppScreen.HOME -> HomeScreen(onNewTrip = { screen = AppScreen.NEW_TRIP }, onCalendar = { screen = AppScreen.CALENDAR })
             AppScreen.NEW_TRIP -> NewTripScreen(
                 onBack = { screen = AppScreen.HOME },
                 onSaved = { screen = AppScreen.HOME }
@@ -181,11 +181,11 @@ private fun PlanCard(selected: Boolean, onClick: () -> Unit, title: String, pric
 }
 
 @Composable
-private fun HomeScreen(onNewTrip: () -> Unit) {
+private fun HomeScreen(onNewTrip: () -> Unit, onCalendar: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(0) }
     val labels = listOf("Início", "Viagens", "Despesas", "Agenda", "Mais")
     val icons = listOf(Icons.Filled.Home, Icons.Filled.DirectionsCar, Icons.Filled.ReceiptLong, Icons.Filled.CalendarMonth, Icons.Filled.MoreHoriz)
-    AppScaffold(tab, { tab = it }, labels, icons, onNewTrip) {
+    AppScaffold(tab, { selected -> tab = selected; if (selected == 3) onCalendar() }, labels, icons, onNewTrip) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Text("Olá!", style = MaterialTheme.typography.titleMedium, color = TextSecondary)
             Text("Seu controle de hoje", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -294,6 +294,70 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             Spacer(Modifier.height(22.dp))
             Button(onClick = onSaved, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Salvar viagem") }
             Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun CalendarScreen(onBack: () -> Unit) {
+    var connected by rememberSaveable { mutableStateOf(false) }
+    var selectedCalendar by rememberSaveable { mutableStateOf("Agenda principal") }
+    var lastSync by rememberSaveable { mutableStateOf("Nunca sincronizado") }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+            Column {
+                Text("Agenda", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Agenda interna + Google Agenda", color = TextSecondary)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Text(if (connected) "Google Agenda conectado" else "Google Agenda não conectado", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (connected) "Conta conectada e pronta para sincronização."
+                    else "Conecte sua conta para escolher uma agenda e importar compromissos.",
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(16.dp))
+                if (!connected) {
+                    Button(onClick = { connected = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                        Text("Conectar Google Agenda")
+                    }
+                } else {
+                    Text("Calendário selecionado", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = { selectedCalendar = if (selectedCalendar == "Agenda principal") "Agenda pessoal" else "Agenda principal" },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.CalendarMonth, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(selectedCalendar)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = { lastSync = "Sincronizado agora" },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("Sincronizar agora") }
+                    Spacer(Modifier.height(10.dp))
+                    Text("Última sincronização: $lastSync", color = TextSecondary)
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { connected = false }) { Text("Desconectar Google Agenda") }
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = BlueLight), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Proteção contra duplicados", fontWeight = FontWeight.Bold, color = BlueDark)
+                Spacer(Modifier.height(5.dp))
+                Text("Cada evento Google é identificado por conexão + ID do evento. Repetir a sincronização atualiza o evento existente em vez de criar outro.", color = BlueDark)
+            }
         }
     }
 }
