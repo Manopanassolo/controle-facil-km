@@ -11,7 +11,6 @@ class TripLocalRepository(context: Context) {
     private val preferences = context.getSharedPreferences("controle_facil_km_local", Context.MODE_PRIVATE)
 
     fun list(): List<Trip> {
-        val raw = preferences.getString(KEY_TRIPS, "[]") ?: "[]"
         val array = LocalJsonStore(preferences).readArray(KEY_TRIPS).json
         return buildList {
             for (i in 0 until array.length()) {
