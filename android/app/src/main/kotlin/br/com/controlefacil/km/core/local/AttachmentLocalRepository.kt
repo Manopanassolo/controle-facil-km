@@ -43,6 +43,20 @@ class AttachmentLocalRepository(context: Context) {
 
     fun pending(): List<Attachment> = list().filter { it.state == AttachmentSyncState.LOCAL_ONLY || it.state == AttachmentSyncState.ERROR }
 
+    fun updateState(id: String, state: AttachmentSyncState, storagePath: String? = null, uploadedAt: String? = null, error: String? = null) {
+        val updated = list().map {
+            if (it.id != id) it else it.copy(
+                state = state,
+                storagePath = storagePath ?: it.storagePath,
+                uploadedAt = uploadedAt ?: it.uploadedAt,
+                error = error
+            )
+        }
+        writeAll(updated)
+    }
+
+    fun replaceAll(items: List<Attachment>) = writeAll(items)
+
     private fun writeAll(items: List<Attachment>) {
         val array = JSONArray()
         items.forEach { a ->
