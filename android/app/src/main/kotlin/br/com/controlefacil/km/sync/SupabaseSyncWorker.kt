@@ -9,6 +9,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import br.com.controlefacil.km.auth.SupabaseClientProvider
+import br.com.controlefacil.km.core.local.ExpenseCategoryLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
 import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
@@ -29,6 +30,7 @@ class SupabaseSyncWorker(
             authUserId = { SupabaseClientProvider.client.auth.currentUserOrNull()?.id },
             vehicles = VehicleLocalRepository(context),
             trips = TripLocalRepository(context),
+            categories = ExpenseCategoryLocalRepository(context),
             expenses = ExpenseLocalRepository(context),
             remote = SupabaseSyncRepository(SupabaseClientProvider.client)
         ).run()
