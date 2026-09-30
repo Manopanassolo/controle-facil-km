@@ -13,6 +13,15 @@ android {
         applicationId = "br.com.controlefacil.km"
         minSdk = 26
         targetSdk = 36
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
         versionCode = 1
         versionName = "1.0.0"
         buildConfigField("String", "SUPABASE_URL", "\"${project.findProperty("SUPABASE_URL") ?: "https://placeholder.supabase.co"}\"")
