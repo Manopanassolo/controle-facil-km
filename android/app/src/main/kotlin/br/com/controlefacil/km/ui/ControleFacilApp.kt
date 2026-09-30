@@ -81,6 +81,9 @@ fun ControleFacilApp() {
                 onBack = { screen = AppScreen.HOME },
                 onSaved = { screen = AppScreen.HOME }
             )
+            AppScreen.CALENDAR -> CalendarScreen(
+                onBack = { screen = AppScreen.HOME }
+            )
         }
     }
 }
