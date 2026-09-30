@@ -467,7 +467,7 @@ private fun ExpenseScreen(
     var receiptName by rememberSaveable { mutableStateOf<String?>(null) }
     val receiptPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         receiptUri = uri?.toString()
-        receiptName = uri?.let { context.contentResolver.query(it, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        receiptName = uri?.let { appContext.contentResolver.query(it, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         } }
     }
@@ -551,8 +551,8 @@ private fun ExpenseScreen(
                     ).onSuccess { saved ->
                         receiptUri?.let { uriString ->
                             val uri = android.net.Uri.parse(uriString)
-                            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                            val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }.takeIf { it != null && it >= 0 } ?: 0L
+                            val mime = appContext.contentResolver.getType(uri) ?: "application/octet-stream"
+                            val size = appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }.takeIf { it != null && it >= 0 } ?: 0L
                             attachmentRepository.save(
                                 Attachment(
                                     id = UUID.randomUUID().toString(),
