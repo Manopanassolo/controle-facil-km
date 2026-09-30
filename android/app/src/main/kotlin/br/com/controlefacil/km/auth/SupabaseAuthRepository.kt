@@ -1,7 +1,7 @@
 package br.com.controlefacil.km.auth
 
 import io.github.jan.supabase.auth.providers.Google
-import io.github.jan.supabase.auth.providers.Email
+import io.github.jan.supabase.auth.providers.builtin.Email
 
 class SupabaseAuthRepository(
     private val client: io.github.jan.supabase.SupabaseClient = SupabaseClientProvider.client
