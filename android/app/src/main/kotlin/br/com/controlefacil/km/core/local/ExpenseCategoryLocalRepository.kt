@@ -31,7 +31,7 @@ class ExpenseCategoryLocalRepository(context: Context) {
     }
 
     private fun readAll(): List<ExpenseCategory> {
-        val array = LocalJsonRecoveryPolicy.parse(preferences.getString(KEY, "[]")).json
+        val array = LocalJsonStore(preferences).readArray(KEY).json
         return buildList {
             for (i in 0 until array.length()) {
                 val o = array.getJSONObject(i)
