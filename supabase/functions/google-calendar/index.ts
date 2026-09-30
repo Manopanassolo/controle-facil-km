@@ -140,6 +140,7 @@ async function syncCalendar(userId: string, connection: any) {
       response = await googleRequest(url.toString(), accessToken);
     } catch (e) {
       if (String(e).startsWith("google_410:")) {
+        if (!connection.next_sync_token) throw e;
         await admin.from("calendar_events")
           .update({ deleted_at: new Date().toISOString() })
           .eq("connection_id", connection.id);
