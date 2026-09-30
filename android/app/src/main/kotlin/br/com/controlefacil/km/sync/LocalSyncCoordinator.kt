@@ -178,7 +178,8 @@ class LocalSyncCoordinator(
                 currentOdometerM = it.current_odometer_m, isDefault = it.is_default, isActive = it.is_active
             )
         }
-        val conflictIds = batch.conflicts.map { conflict -> conflict.local.id }\n        vehicles.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, conflictIds, conflictRows, Vehicle::id))
+        val conflictIds = batch.conflicts.map { conflict -> conflict.local.id }
+        vehicles.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, conflictIds, conflictRows, Vehicle::id))
     }
 
     private fun applyTrips(batch: SyncBatch<RemoteTrip>) {
@@ -202,7 +203,8 @@ class LocalSyncCoordinator(
                 status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
             )
         }
-        val conflictIds = batch.conflicts.map { conflict -> conflict.local.id }\n        trips.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, conflictIds, conflictRows, Trip::id))
+        val conflictIds = batch.conflicts.map { conflict -> conflict.local.id }
+        trips.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, conflictIds, conflictRows, Trip::id))
     }
 
     private fun applyExpenses(batch: SyncBatch<RemoteExpense>) {
@@ -228,7 +230,8 @@ class LocalSyncCoordinator(
                 notes = it.notes
             )
         }
-        val conflictIds = batch.conflicts.map { conflict -> conflict.local.id }\n        expenses.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, conflictIds, conflictRows, Expense::id))
+        val conflictIds = batch.conflicts.map { conflict -> conflict.local.id }
+        expenses.replaceAll(SyncApplyPolicy.retainConflictIds(remoteRows, conflictIds, conflictRows, Expense::id))
     }
 }
 
