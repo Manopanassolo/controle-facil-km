@@ -86,6 +86,8 @@ import br.com.controlefacil.km.ui.theme.CardWhite
 import br.com.controlefacil.km.ui.theme.TextSecondary
 import br.com.controlefacil.km.ui.theme.YellowAccent
 import br.com.controlefacil.km.sync.SyncScheduler
+import br.com.controlefacil.km.sync.SyncStatusStore
+import br.com.controlefacil.km.sync.SyncUiState
 
 private enum class AppScreen { AUTH, PLANS, HOME, TRIPS, EXPENSES, NEW_TRIP, CALENDAR, VEHICLES }
 
@@ -292,9 +294,19 @@ private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onExpenses: (
             Spacer(Modifier.height(24.dp))
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp)) {
-                    Text("Tudo sincronizado", fontWeight = FontWeight.Bold)
+                    Text(
+                        when (syncState) {
+                            SyncUiState.OFFLINE -> "Sem conexão — dados salvos no aparelho"
+                            SyncUiState.PENDING -> "Aguardando sincronização"
+                            SyncUiState.SYNCING -> "Sincronizando..."
+                            SyncUiState.SYNCED -> "Tudo sincronizado"
+                            SyncUiState.ERROR -> "Sincronização com erro"
+                        },
+                        fontWeight = FontWeight.Bold,
+                        color = if (syncState == SyncUiState.ERROR) androidx.compose.ui.graphics.Color(0xFFF04438) else BlueDark
+                    )
                     Spacer(Modifier.height(4.dp))
-                    Text("Seus dados serão mantidos localmente e sincronizados quando houver conexão.", color = TextSecondary)
+                    Text("Seus dados são mantidos localmente e sincronizados quando houver conexão.", color = TextSecondary)
                 }
             }
         }
