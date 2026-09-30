@@ -7,6 +7,7 @@ import br.com.controlefacil.km.ui.ControleFacilApp
 import br.com.controlefacil.km.auth.SupabaseClientProvider
 import br.com.controlefacil.km.sync.SyncScheduler
 import br.com.controlefacil.km.ui.theme.ControleFacilTheme
+import io.github.jan.supabase.auth.handleDeeplinks
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
