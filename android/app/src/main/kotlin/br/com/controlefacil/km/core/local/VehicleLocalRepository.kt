@@ -75,7 +75,6 @@ class VehicleLocalRepository(context: Context) {
     fun getDefault(): Vehicle? = listActive().firstOrNull { it.isDefault }
 
     private fun readAll(): List<Vehicle> {
-        val raw = preferences.getString(KEY_VEHICLES, "[]") ?: "[]"
         val array = LocalJsonStore(preferences).readArray(KEY_VEHICLES).json
         return buildList {
             for (i in 0 until array.length()) {
