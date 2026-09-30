@@ -3,57 +3,24 @@ package br.com.controlefacil.km.sync
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
 import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
-import br.com.controlefacil.km.core.model.Expense
 import br.com.controlefacil.km.core.model.Trip
+import br.com.controlefacil.km.core.model.TripStatus
+import br.com.controlefacil.km.core.model.TripType
 import br.com.controlefacil.km.core.model.Vehicle
-import java.time.Instant
 
-class LocalSyncMapper(
-    private val userId: String
-) {
-    fun vehicle(vehicle: Vehicle) = RemoteVehicle(
-        id = vehicle.id,
-        user_id = userId,
-        name = vehicle.name,
-        brand = vehicle.brand,
-        model = vehicle.model,
-        year = vehicle.year,
-        plate = vehicle.plate,
-        fuel_type = vehicle.fuelType,
-        initial_odometer_m = vehicle.initialOdometerM,
-        current_odometer_m = vehicle.currentOdometerM,
-        is_default = vehicle.isDefault,
-        is_active = vehicle.isActive
+class LocalSyncMapper(private val userId: String) {
+    fun vehicle(v: Vehicle) = RemoteVehicle(
+        id = v.id, user_id = userId, name = v.name, brand = v.brand, model = v.model,
+        year = v.year, plate = v.plate, fuel_type = v.fuelType,
+        initial_odometer_m = v.initialOdometerM, current_odometer_m = v.currentOdometerM,
+        is_default = v.isDefault, is_active = v.isActive
     )
 
-    fun trip(trip: Trip) = RemoteTrip(
-        id = trip.id,
-        user_id = userId,
-        vehicle_id = trip.vehicleId,
-        trip_date = trip.tripDate,
-        start_odometer_m = trip.startOdometerM,
-        end_odometer_m = trip.endOdometerM,
-        origin = trip.origin,
-        destination = trip.destination,
-        trip_type = trip.tripType.name.lowercase(),
-        purpose = trip.purpose,
-        notes = trip.notes,
-        status = trip.status.name.lowercase()
-    )
-
-    fun expense(expense: Expense) = RemoteExpense(
-        id = expense.id,
-        user_id = userId,
-        vehicle_id = expense.vehicleId,
-        category_id = expense.categoryId,
-        trip_id = expense.tripId,
-        expense_date = expense.expenseDate,
-        description = expense.description,
-        amount_cents = expense.amountCents,
-        odometer_m = expense.odometerM,
-        merchant = expense.merchant,
-        payment_method = expense.paymentMethod?.name?.lowercase(),
-        notes = expense.notes
+    fun trip(t: Trip) = RemoteTrip(
+        id = t.id, user_id = userId, vehicle_id = t.vehicleId, trip_date = t.tripDate,
+        start_odometer_m = t.startOdometerM, end_odometer_m = t.endOdometerM,
+        origin = t.origin, destination = t.destination, trip_type = t.tripType.name.lowercase(),
+        purpose = t.purpose, notes = t.notes, status = t.status.name.lowercase()
     )
 }
 
@@ -70,21 +37,57 @@ class LocalSyncCoordinator(
         val userId = authUserId() ?: return Result.failure(IllegalStateException("Usuário não autenticado."))
         val mapper = LocalSyncMapper(userId)
 
-        val vehicleResult = remote.syncVehicles(vehicles.listActive().map(mapper::vehicle)).getOrElse {
+        val vehicleBatch = remote.syncVehicles(vehicles.listActive().map(mapper::vehicle)).getOrElse {
             return Result.failure(it)
         }
-        val tripResult = remote.syncTrips(trips.list().map(mapper::trip)).getOrElse {
+        val tripBatch = remote.syncTrips(trips.list().map(mapper::trip)).getOrElse {
             return Result.failure(it)
         }
 
-        // Despesas dependem de categorias remotas UUID. Enquanto a categoria local
-        // não estiver resolvida contra expense_categories, elas permanecem somente locais.
+        applyVehicles(vehicleBatch)
+        applyTrips(tripBatch)
+
         return Result.success(
             SyncResult(
-                uploaded = vehicleResult.uploaded + tripResult.uploaded,
-                downloaded = vehicleResult.remoteWins.size + tripResult.remoteWins.size,
-                conflicts = vehicleResult.conflicts.size + tripResult.conflicts.size
+                uploaded = vehicleBatch.uploaded + tripBatch.uploaded,
+                downloaded = vehicleBatch.remoteWins.size + tripBatch.remoteWins.size,
+                conflicts = vehicleBatch.conflicts.size + tripBatch.conflicts.size
             )
         )
+    }
+
+    private fun applyVehicles(batch: SyncBatch<RemoteVehicle>) {
+        val conflictIds = batch.conflicts.map { it.local.id }.toSet()
+        val remoteRows = batch.remote
+            .filter { it.deleted_at == null }
+            .filterNot { it.id in conflictIds }
+            .map {
+                br.com.controlefacil.km.core.model.Vehicle(
+                    id = it.id, name = it.name, brand = it.brand, model = it.model,
+                    year = it.year, plate = it.plate, fuelType = it.fuel_type,
+                    initialOdometerM = it.initial_odometer_m,
+                    currentOdometerM = it.current_odometer_m,
+                    isDefault = it.is_default, isActive = it.is_active
+                )
+            }
+        vehicles.replaceAll((remoteRows + batch.conflicts.map { it.local }).distinctBy { it.id })
+    }
+
+    private fun applyTrips(batch: SyncBatch<RemoteTrip>) {
+        val conflictIds = batch.conflicts.map { it.local.id }.toSet()
+        val remoteRows = batch.remote
+            .filter { it.deleted_at == null }
+            .filterNot { it.id in conflictIds }
+            .map {
+                Trip(
+                    id = it.id, vehicleId = it.vehicle_id, tripDate = it.trip_date,
+                    startOdometerM = it.start_odometer_m, endOdometerM = it.end_odometer_m,
+                    origin = it.origin, destination = it.destination,
+                    tripType = runCatching { TripType.valueOf(it.trip_type.uppercase()) }.getOrDefault(TripType.PERSONAL),
+                    purpose = it.purpose, notes = it.notes,
+                    status = runCatching { TripStatus.valueOf(it.status.uppercase()) }.getOrDefault(TripStatus.DRAFT)
+                )
+            }
+        trips.replaceAll((remoteRows + batch.conflicts.map { it.local }).distinctBy { it.id })
     }
 }
