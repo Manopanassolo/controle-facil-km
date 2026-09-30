@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import br.com.controlefacil.km.core.rules.TripRules
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -268,6 +269,7 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
     var initialKm by rememberSaveable { mutableStateOf("") }
     var finalKm by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -287,6 +289,10 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Observações") })
             Spacer(Modifier.height(20.dp))
+            errorMessage?.let {
+                Text(it, color = androidx.compose.ui.graphics.Color(0xFFF04438), style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+            }
             Card(colors = CardDefaults.cardColors(containerColor = BlueLight), shape = RoundedCornerShape(16.dp)) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.DirectionsCar, null, tint = BluePrimary)
@@ -295,7 +301,21 @@ private fun NewTripScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(22.dp))
-            Button(onClick = onSaved, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Salvar viagem") }
+            Button(
+                onClick = {
+                    val inicial = initialKm.toLongOrNull()
+                    val final = finalKm.toLongOrNull()
+                    val validation = TripRules.validateOdometers(inicial, final)
+                    if (validation.valid) {
+                        errorMessage = null
+                        onSaved()
+                    } else {
+                        errorMessage = validation.message
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("Salvar viagem") }
             Spacer(Modifier.height(30.dp))
         }
     }
