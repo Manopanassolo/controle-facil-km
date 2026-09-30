@@ -57,6 +57,7 @@ import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.VehicleLocalRepository
 import br.com.controlefacil.km.core.model.Trip
 import br.com.controlefacil.km.core.model.TripStatus
+import br.com.controlefacil.km.core.rules.VehicleSelectionRules
 import java.time.LocalDate
 import java.util.UUID
 import br.com.controlefacil.km.core.rules.TripRules
@@ -301,7 +302,7 @@ private fun NewTripScreen(
     var initialKm by rememberSaveable { mutableStateOf("") }
     var finalKm by rememberSaveable { mutableStateOf("") }
     val vehicles = remember { vehicleRepository.listActive() }
-    var selectedVehicleId by rememberSaveable { mutableStateOf(vehicleRepository.getDefault()?.id ?: vehicles.firstOrNull()?.id) }
+    var selectedVehicleId by rememberSaveable { mutableStateOf(VehicleSelectionRules.initialSelection(vehicles)) }
     var notes by rememberSaveable { mutableStateOf("") }
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
