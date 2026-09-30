@@ -53,7 +53,6 @@ dependencies {
 
     // Configuração pública do Supabase: URL e publishable key podem ser injetadas no build.
     // Nunca colocar service_role/secret key no APK.
-}
 
 android.defaultConfig.buildConfigField("String", "SUPABASE_URL", "\"${project.findProperty("SUPABASE_URL") ?: "https://placeholder.supabase.co"}\"")
 android.defaultConfig.buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${project.findProperty("SUPABASE_PUBLISHABLE_KEY") ?: "placeholder"}\"")
