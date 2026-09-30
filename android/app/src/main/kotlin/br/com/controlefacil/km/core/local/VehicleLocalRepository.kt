@@ -76,7 +76,7 @@ class VehicleLocalRepository(context: Context) {
 
     private fun readAll(): List<Vehicle> {
         val raw = preferences.getString(KEY_VEHICLES, "[]") ?: "[]"
-        val array = LocalJsonRecoveryPolicy.parse(raw).json
+        val array = LocalJsonStore(preferences).readArray(KEY_VEHICLES).json
         return buildList {
             for (i in 0 until array.length()) {
                 val o = array.getJSONObject(i)
