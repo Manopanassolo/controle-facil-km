@@ -19,10 +19,19 @@ object SyncApplyPolicy {
         idOf: (T) -> String
     ): List<T> {
         val conflictIds = conflicts.map { idOf(it.local) }.toSet()
-        val remoteRows = remote.filterNot { idOf(it) in conflictIds }
+        return retainConflictIds(remote, conflictIds, conflicts.map { it.local }, idOf)
+    }
+
+    fun <T> retainConflictIds(
+        remote: List<T>,
+        conflictIds: Collection<String>,
+        localRows: Collection<T>,
+        idOf: (T) -> String
+    ): List<T> {
+        val ids = conflictIds.toSet()
         return buildList {
-            addAll(remoteRows)
-            addAll(conflicts.map { it.local })
+            addAll(remote.filterNot { idOf(it) in ids })
+            addAll(localRows)
         }
     }
 }
