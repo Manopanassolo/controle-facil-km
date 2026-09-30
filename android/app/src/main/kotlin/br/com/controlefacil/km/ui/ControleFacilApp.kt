@@ -53,10 +53,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import br.com.controlefacil.km.core.local.TripLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseLocalRepository
 import br.com.controlefacil.km.core.local.ExpenseCategoryLocalRepository
+import br.com.controlefacil.km.core.local.AttachmentLocalRepository
+import br.com.controlefacil.km.core.model.Attachment
 import br.com.controlefacil.km.auth.SupabaseAuthRepository
 import br.com.controlefacil.km.auth.SupabaseClientProvider
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -93,6 +97,7 @@ fun ControleFacilApp() {
     val tripRepository = remember { TripLocalRepository(context) }
     val expenseRepository = remember { ExpenseLocalRepository(context) }
     val expenseCategoryRepository = remember { ExpenseCategoryLocalRepository(context) }
+    val attachmentRepository = remember { AttachmentLocalRepository(context) }
     LaunchedEffect(Unit) { expenseCategoryRepository.seedDefaultsIfEmpty() }
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
         when (screen) {
@@ -123,6 +128,7 @@ fun ControleFacilApp() {
                 vehicleRepository = vehicleRepository,
                 expenseRepository = expenseRepository,
                 categoryRepository = expenseCategoryRepository,
+                attachmentRepository = attachmentRepository,
                 onBack = { screen = AppScreen.HOME }
             )
             AppScreen.NEW_TRIP -> NewTripScreen(
@@ -442,6 +448,7 @@ private fun ExpenseScreen(
     vehicleRepository: VehicleLocalRepository,
     expenseRepository: ExpenseLocalRepository,
     categoryRepository: ExpenseCategoryLocalRepository,
+    attachmentRepository: AttachmentLocalRepository,
     onBack: () -> Unit
 ) {
     val appContext = LocalContext.current
@@ -456,6 +463,14 @@ private fun ExpenseScreen(
     var payment by rememberSaveable { mutableStateOf(ExpensePayment.PIX) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var version by rememberSaveable { mutableStateOf(0) }
+    var receiptUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var receiptName by rememberSaveable { mutableStateOf<String?>(null) }
+    val receiptPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        receiptUri = uri?.toString()
+        receiptName = uri?.let { context.contentResolver.query(it, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } }
+    }
     val categoryNames = remember(categories) { categories.associate { it.id to it.name } }
     val expenses = remember(version) { expenseRepository.list().sortedByDescending { it.expenseDate } }
 
@@ -505,6 +520,15 @@ private fun ExpenseScreen(
                     FilterChipLike(method.name, payment == method, Modifier.weight(1f)) { payment = method }
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = { receiptPicker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.ReceiptLong, null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (receiptName == null) "Adicionar comprovante" else "Comprovante: " + receiptName)
+            }
+            receiptName?.let {
+                Text("O comprovante será enviado quando houver conexão.", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+            }
             error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = androidx.compose.ui.graphics.Color(0xFFF04438)) }
             Spacer(Modifier.height(12.dp))
             Button(onClick = {
@@ -524,8 +548,23 @@ private fun ExpenseScreen(
                         merchant = merchant,
                         paymentMethod = payment,
                         notes = null
-                    ).onSuccess {
-                        description = ""; amount = ""; merchant = ""; odometer = ""; error = null; version++
+                    ).onSuccess { saved ->
+                        receiptUri?.let { uriString ->
+                            val uri = android.net.Uri.parse(uriString)
+                            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                            val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }.takeIf { it != null && it >= 0 } ?: 0L
+                            attachmentRepository.save(
+                                Attachment(
+                                    id = UUID.randomUUID().toString(),
+                                    expenseId = saved.id,
+                                    localUri = uriString,
+                                    originalFilename = receiptName ?: "comprovante",
+                                    mimeType = mime,
+                                    fileSizeBytes = size
+                                )
+                            )
+                        }
+                        description = ""; amount = ""; merchant = ""; odometer = ""; receiptUri = null; receiptName = null; error = null; version++
                         SyncScheduler.requestNow(appContext)
                     }.onFailure { error = it.message ?: "Não foi possível salvar a despesa." }
                 }
