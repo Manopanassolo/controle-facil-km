@@ -263,7 +263,12 @@ private fun PlanCard(selected: Boolean, onClick: () -> Unit, title: String, pric
 
 @Composable
 private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onExpenses: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit, tripRepository: TripLocalRepository, expenseRepository: ExpenseLocalRepository) {
-    var tab by rememberSaveable { mutableStateOf(0) }\n    val trips = remember { tripRepository.list() }\n    val totalKm = trips.sumOf { it.distanceM ?: 0L }\n    val completedTrips = trips.count { it.status == TripStatus.COMPLETED }\n    val expenses = remember { expenseRepository.list() }\n    val totalExpensesCents = expenses.sumOf { it.amountCents }
+    var tab by rememberSaveable { mutableStateOf(0) }
+    val trips = remember { tripRepository.list() }
+    val totalKm = trips.sumOf { it.distanceM ?: 0L }
+    val completedTrips = trips.count { it.status == TripStatus.COMPLETED }
+    val expenses = remember { expenseRepository.list() }
+    val totalExpensesCents = expenses.sumOf { it.amountCents }
     val labels = listOf("Início", "Viagens", "Despesas", "Agenda", "Mais")
     val icons = listOf(Icons.Filled.Home, Icons.Filled.DirectionsCar, Icons.Filled.ReceiptLong, Icons.Filled.CalendarMonth, Icons.Filled.MoreHoriz)
     AppScaffold(tab, { selected ->
