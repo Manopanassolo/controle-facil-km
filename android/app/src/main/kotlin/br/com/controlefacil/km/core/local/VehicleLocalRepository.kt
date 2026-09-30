@@ -10,7 +10,7 @@ import java.util.UUID
 class VehicleLocalRepository(context: Context) {
     private val preferences = context.getSharedPreferences("controle_facil_km_local", Context.MODE_PRIVATE)
 
-    fun listActive(): List<Vehicle> = readAll().filter { it.isActive }
+    fun listActive(): List<Vehicle> = readAll().filter { it.isActive }\n\n    fun replaceAll(vehicles: List<Vehicle>) = writeAll(vehicles)
 
     fun save(
         name: String,
