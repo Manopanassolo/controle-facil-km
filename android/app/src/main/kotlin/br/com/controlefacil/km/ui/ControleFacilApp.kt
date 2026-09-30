@@ -74,7 +74,7 @@ import br.com.controlefacil.km.ui.theme.CardWhite
 import br.com.controlefacil.km.ui.theme.TextSecondary
 import br.com.controlefacil.km.ui.theme.YellowAccent
 
-private enum class AppScreen { AUTH, PLANS, HOME, NEW_TRIP, CALENDAR, VEHICLES }
+private enum class AppScreen { AUTH, PLANS, HOME, TRIPS, NEW_TRIP, CALENDAR, VEHICLES }
 
 @Composable
 fun ControleFacilApp() {
@@ -91,8 +91,15 @@ fun ControleFacilApp() {
             )
             AppScreen.HOME -> HomeScreen(
                 onNewTrip = { screen = AppScreen.NEW_TRIP },
+                onTrips = { screen = AppScreen.TRIPS },
                 onCalendar = { screen = AppScreen.CALENDAR },
                 onVehicles = { screen = AppScreen.VEHICLES }
+            )
+            AppScreen.TRIPS -> TripsScreen(
+                vehicleRepository = vehicleRepository,
+                tripRepository = tripRepository,
+                onBack = { screen = AppScreen.HOME },
+                onNewTrip = { screen = AppScreen.NEW_TRIP }
             )
             AppScreen.NEW_TRIP -> NewTripScreen(
                 vehicleRepository = vehicleRepository,
@@ -207,13 +214,14 @@ private fun PlanCard(selected: Boolean, onClick: () -> Unit, title: String, pric
 }
 
 @Composable
-private fun HomeScreen(onNewTrip: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit) {
-    var tab by rememberSaveable { mutableStateOf(0) }
+private fun HomeScreen(onNewTrip: () -> Unit, onTrips: () -> Unit, onCalendar: () -> Unit, onVehicles: () -> Unit, tripRepository: TripLocalRepository) {
+    var tab by rememberSaveable { mutableStateOf(0) }\n    val trips = remember { tripRepository.list() }\n    val totalKm = trips.sumOf { it.distanceM ?: 0L }\n    val completedTrips = trips.count { it.status == TripStatus.COMPLETED }
     val labels = listOf("Início", "Viagens", "Despesas", "Agenda", "Mais")
     val icons = listOf(Icons.Filled.Home, Icons.Filled.DirectionsCar, Icons.Filled.ReceiptLong, Icons.Filled.CalendarMonth, Icons.Filled.MoreHoriz)
     AppScaffold(tab, { selected ->
         tab = selected
         when (selected) {
+            1 -> onTrips()
             3 -> onCalendar()
             4 -> onVehicles()
         }
@@ -223,13 +231,13 @@ private fun HomeScreen(onNewTrip: () -> Unit, onCalendar: () -> Unit, onVehicles
             Text("Seu controle de hoje", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("KM no período", "0 km", Icons.Filled.Map, Modifier.weight(1f))
+                MetricCard("KM no período", "$totalKm km", Icons.Filled.Map, Modifier.weight(1f))
                 MetricCard("Despesas", "R$ 0,00", Icons.Filled.TrendingUp, Modifier.weight(1f))
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("Custo/KM", "R$ 0,00", Icons.Filled.LocalGasStation, Modifier.weight(1f))
-                MetricCard("Viagens", "0", Icons.Filled.DirectionsCar, Modifier.weight(1f))
+                MetricCard("Viagens", "$completedTrips", Icons.Filled.DirectionsCar, Modifier.weight(1f))
             }
             Spacer(Modifier.height(20.dp))
             Text("Ações rápidas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -386,6 +394,78 @@ private fun NewTripScreen(
                 shape = RoundedCornerShape(14.dp)
             ) { Text("Salvar viagem") }
             Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun TripsScreen(
+    vehicleRepository: VehicleLocalRepository,
+    tripRepository: TripLocalRepository,
+    onBack: () -> Unit,
+    onNewTrip: () -> Unit
+) {
+    val trips = remember { tripRepository.list().sortedByDescending { it.tripDate } }
+    val vehicles = remember { vehicleRepository.listActive().associateBy { it.id } }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+            Text("Minhas viagens", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("Histórico local das viagens registradas.", color = TextSecondary)
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onNewTrip, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Icon(Icons.Filled.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Nova viagem")
+        }
+        Spacer(Modifier.height(16.dp))
+        if (trips.isEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = BlueLight), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("Nenhuma viagem registrada.", fontWeight = FontWeight.Bold, color = BlueDark)
+                    Text("Quando você salvar uma viagem, ela aparecerá aqui.", color = BlueDark)
+                }
+            }
+        } else {
+            trips.forEach { trip ->
+                val vehicle = vehicles[trip.vehicleId]
+                val km = trip.distanceM ?: 0L
+                Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Route, null, tint = BluePrimary)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(trip.destination ?: "Viagem sem destino", fontWeight = FontWeight.Bold)
+                                Text(trip.tripDate, color = TextSecondary)
+                            }
+                            Text("$km km", color = BluePrimary, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            listOfNotNull(
+                                vehicle?.name,
+                                vehicle?.plate,
+                                trip.origin?.let { "Origem: $it" }
+                            ).joinToString(" • "),
+                            color = TextSecondary
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            when (trip.status) {
+                                TripStatus.COMPLETED -> "Concluída"
+                                TripStatus.DRAFT -> "Em aberto"
+                                TripStatus.CANCELLED -> "Cancelada"
+                            },
+                            color = if (trip.status == TripStatus.COMPLETED) androidx.compose.ui.graphics.Color(0xFF12B76A) else TextSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
     }
 }
