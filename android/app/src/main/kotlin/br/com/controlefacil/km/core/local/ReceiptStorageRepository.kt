@@ -14,6 +14,7 @@ class ReceiptStorageRepository(private val context: Context) {
 
     suspend fun upload(attachment: Attachment): Result<Attachment> = runCatching {
         val user = requireNotNull(client.auth.currentUserOrNull()) { "Usuário não autenticado." }
+        if (attachment.storagePath != null) return@runCatching attachment.copy(state = AttachmentSyncState.SYNCED, error = null)
         require(attachment.expenseId != null || attachment.tripId != null) { "Comprovante sem viagem ou despesa vinculada." }
 
         val bytes = context.contentResolver.openInputStream(android.net.Uri.parse(attachment.localUri))
