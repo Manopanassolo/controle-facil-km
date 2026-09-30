@@ -95,6 +95,7 @@ class LocalSyncCoordinator(
         var uploaded = 0
         var errors = 0
         val metadata = mutableListOf<RemoteAttachment>()
+        val attachmentById = mutableMapOf<String, br.com.controlefacil.km.core.model.Attachment>()
 
         attachments.pending().forEach { local ->
             attachments.save(AttachmentSyncPolicy.beforeUpload(local))
@@ -127,6 +128,7 @@ class LocalSyncCoordinator(
                 version = 1
             )
             metadata += remoteRow
+            attachmentById[item.id] = item
             attachments.save(AttachmentSyncPolicy.uploadSucceededPendingMetadata(item))
         }
 
@@ -137,7 +139,7 @@ class LocalSyncCoordinator(
                 metadata.forEach {
                     attachments.save(
                         AttachmentSyncPolicy.metadataFailed(
-                            it.toAttachment(),
+                            requireNotNull(attachmentById[it.id]),
                             it.storage_path,
                             it.uploaded_at,
                             result.exceptionOrNull()?.message ?: "Falha ao registrar comprovante."
@@ -146,7 +148,13 @@ class LocalSyncCoordinator(
                 }
             } else {
                 metadata.forEach { item ->
-                    attachments.save(item.toAttachment(state = AttachmentSyncState.SYNCED))
+                    attachments.save(
+                        AttachmentSyncPolicy.metadataSucceeded(
+                            requireNotNull(attachmentById[item.id]),
+                            item.storage_path,
+                            item.uploaded_at
+                        )
+                    )
                 }
                 uploaded += metadata.size
             }
@@ -224,23 +232,5 @@ class LocalSyncCoordinator(
     }
 }
 
-
-private fun RemoteAttachment.toAttachment(
-    state: AttachmentSyncState = AttachmentSyncState.UPLOADING
-): br.com.controlefacil.km.core.model.Attachment = br.com.controlefacil.km.core.model.Attachment(
-    id = id,
-    expenseId = expense_id,
-    tripId = trip_id,
-    localUri = "",
-    storagePath = storage_path,
-    originalFilename = original_filename,
-    mimeType = mime_type,
-    fileSizeBytes = file_size_bytes,
-    sha256 = sha256,
-    width = width,
-    height = height,
-    uploadedAt = uploaded_at,
-    state = state
-)
 
 private data class AttachmentSyncSummary(val uploaded: Int, val errors: Int)
